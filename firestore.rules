@@ -1,0 +1,204 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    function isTeacherOrAdmin() {
+      return isAuthenticated() && 
+        'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher'];
+    }
+
+    function isStudent() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+    }
+
+    function isTeacherOfClass(classId) {
+      return isTeacher() && 
+        get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+    }
+
+    function isSubstituteForClass(classId) {
+      return isTeacher() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['temporaryClasses']) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses is list &&
+        classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses;
+    }
+
+    function isStudentInClass(classId) {
+      return isStudent() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId == classId;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isAdmin() || isOwner(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Classes
+    match /classes/{classId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isTeacherOfClass(classId) || isSubstituteForClass(classId);
+    }
+
+    // Attendance records
+    match /attendance/{recordId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTeacherOrAdmin() || 
+        (isTeacher() && resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses);
+      allow delete: if isAdmin();
+    }
+
+    // Homework
+    match /homework/{homeworkId} {
+      allow read: if isAuthenticated();
+      allow create: if isTeacherOrAdmin() || 
+        (isTeacher() && resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses);
+      allow update, delete: if isAdmin() || (isTeacher() && (
+        resource.data.createdBy == request.auth.uid || 
+        resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses
+      ));
+    }
+
+    // Homework Submissions
+    match /homeworkSubmissions/{submissionId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        isTeacher() || 
+        (isStudent() && resource.data.studentId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        isTeacher() ||
+        (isStudent() && request.resource.data.studentId == request.auth.uid)
+      );
+      allow update: if isTeacherOrAdmin() || 
+        (isStudent() && resource.data.studentId == request.auth.uid && resource.data.status != 'graded');
+      allow delete: if isAdmin();
+    }
+
+    // Lessons
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated();
+      allow create: if isTeacherOrAdmin() || 
+        (isTeacher() && resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses);
+      allow update, delete: if isAdmin() || (isTeacher() && (
+        resource.data.createdBy == request.auth.uid || 
+        resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses
+      ));
+    }
+
+    // Materials
+    match /materials/{materialId} {
+      allow read: if isAuthenticated();
+      allow create: if isTeacherOrAdmin() || 
+        (isTeacher() && resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses);
+      allow update, delete: if isAdmin() || (isTeacher() && (
+        resource.data.createdBy == request.auth.uid || 
+        resource.data.classId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.temporaryClasses
+      ));
+    }
+
+    // Teacher Chat
+    match /teacherChat/{messageId} {
+      allow read, write: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher'];
+    }
+
+    // Payments
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        (isStudent() && resource.data.studentId == request.auth.uid)
+      );
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (isStudent() && request.resource.data.studentId == request.auth.uid)
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // Payment Records
+    match /paymentRecords/{recordId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Substitutions
+    match /substitutions/{substitutionId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isTeacher() && (resource.data.teacherId == request.auth.uid || resource.data.originalTeacherId == request.auth.uid))
+      );
+      allow create: if isAdmin() || isTeacher();
+      allow update: if isAdmin() || 
+        (isTeacher() && (resource.data.teacherId == request.auth.uid || resource.data.originalTeacherId == request.auth.uid) && resource.data.status == 'pending');
+      allow delete: if isAdmin();
+    }
+
+    // Study Sessions
+    match /studySessions/{sessionId} {
+      allow read, write: if isAuthenticated() && (
+        isAdmin() || 
+        (isStudent() && resource.data.studentId == request.auth.uid)
+      );
+    }
+
+    // Service Requests
+    match /serviceRequests {
+      allow list: if isAdmin();
+    }
+    
+    match /serviceRequests/{requestId} {
+      allow read: if isAdmin() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow update: if isAdmin() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Teacher Payments
+    match /teacherPayments/{paymentId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      // Recipients (admin/teacher/student) can read their own notifications
+      allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      // Admins create notifications (e.g., for substitution events)
+      allow create: if isAdmin();
+      // Recipients can mark as read or update their own notification metadata
+      allow update: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      // Admins can delete
+      allow delete: if isAdmin();
+    }
+  }
+}
