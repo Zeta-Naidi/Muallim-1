@@ -4,7 +4,8 @@ import { Menu, X, LogOut, User, ChevronDown, GraduationCap, Bell } from 'lucide-
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, query, where, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, updateDoc, doc, onSnapshot, limit, getDocs, deleteDoc } from 'firebase/firestore';
+import { showToast } from '../ui/Toast';
 import { db } from '../../services/firebase';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -22,7 +23,8 @@ export const Header: React.FC = () => {
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
   type AppNotification = { id: string; title?: string; message?: string; createdAt?: Date; read?: boolean };
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const [hasUnread, setHasUnread] = useState<boolean>(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -53,37 +55,64 @@ export const Header: React.FC = () => {
     };
   }, []);
 
-  // Fetch notifications when user changes or panel opens
+  // Real-time notifications subscription (full list) for panel content
   useEffect(() => {
-    const fetchNotifs = async () => {
-      if (!userProfile) return;
-      setIsLoadingNotifs(true);
-      try {
-        const q = query(
-          collection(db, 'notifications'),
-          where('recipientId', '==', userProfile.id),
-          orderBy('createdAt', 'desc')
-        );
-        const snap = await getDocs(q);
-        const list: AppNotification[] = snap.docs.map(d => {
-          const data: any = d.data();
-          return {
-            id: d.id,
-            title: data.title,
-            message: data.message,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt ? new Date(data.createdAt) : undefined),
-            read: !!data.read,
-          };
-        });
-        setNotifications(list);
-      } catch (e) {
-        console.error('Errore caricando notifiche', e);
-      } finally {
-        setIsLoadingNotifs(false);
-      }
-    };
-    if (userProfile && showNotif) fetchNotifs();
+    if (!userProfile) return;
+    if (!showNotif) return; // only load full list when panel is open
+    setIsLoadingNotifs(true);
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientId', '==', userProfile.id),
+      orderBy('createdAt', 'desc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const list: AppNotification[] = snap.docs.map(d => {
+        const data: any = d.data();
+        return {
+          id: d.id,
+          title: data.title,
+          message: data.message,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt ? new Date(data.createdAt) : undefined),
+          read: !!data.read,
+        };
+      });
+      setNotifications(list);
+      setIsLoadingNotifs(false);
+    }, (e) => {
+      console.error('Errore sottoscrivendo notifiche', e);
+      setIsLoadingNotifs(false);
+    });
+    return () => unsub();
   }, [userProfile, showNotif]);
+
+  // Subscribe to user-level hasUnread flag for instant bell updates
+  useEffect(() => {
+    if (!userProfile) return;
+    const userDocRef = doc(db, 'users', userProfile.id);
+    const unsub = onSnapshot(userDocRef, (snap) => {
+      const data: any = snap.data();
+      setHasUnread(!!data?.hasUnread);
+    }, (e) => {
+      console.error('Errore sottoscrivendo flag utente hasUnread', e);
+    });
+    return () => unsub();
+  }, [userProfile]);
+
+  // Live unread count for badge
+  useEffect(() => {
+    if (!userProfile) return;
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientId', '==', userProfile.id),
+      where('read', '==', false)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUnreadCount(snap.size);
+    }, (e) => {
+      console.error('Errore conteggio non lette', e);
+    });
+    return () => unsub();
+  }, [userProfile]);
 
   const getMenuItems = () => {
     const baseItems = [{ path: '/dashboard', label: 'Dashboard' }];
@@ -179,9 +208,9 @@ export const Header: React.FC = () => {
                       aria-label="Notifiche"
                     >
                       <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-600 text-[10px] text-white rounded-full flex items-center justify-center">
-                          {unreadCount}
+                      {(unreadCount > 0 || hasUnread) && (
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-4 px-1 bg-red-600 text-[10px] text-white rounded-full flex items-center justify-center">
+                          {unreadCount > 0 ? unreadCount : ''}
                         </span>
                       )}
                     </button>
@@ -197,7 +226,60 @@ export const Header: React.FC = () => {
                           aria-orientation="vertical"
                           tabIndex={-1}
                         >
-                          <div className="px-4 py-3 border-b border-gray-100 font-medium text-gray-900">Notifiche</div>
+                          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <div className="font-medium text-gray-900">Notifiche</div>
+                            <div className="flex items-center gap-3">
+                              {(hasUnread || notifications.some(n => !n.read)) && (
+                                <button
+                                  className="text-xs text-blue-600 hover:text-blue-800"
+                                  onClick={async () => {
+                                    try {
+                                      if (!userProfile) return;
+                                      const qUnread = query(
+                                        collection(db, 'notifications'),
+                                        where('recipientId', '==', userProfile.id),
+                                        where('read', '==', false)
+                                      );
+                                      const snap = await getDocs(qUnread);
+                                      await Promise.all(snap.docs.map(d => updateDoc(doc(db, 'notifications', d.id), { read: true })));
+                                      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                                      await updateDoc(doc(db, 'users', userProfile.id), { hasUnread: false });
+                                      showToast.success('Tutte le notifiche sono state segnate come lette');
+                                    } catch (e) {
+                                      console.warn('Impossibile segnare tutte come lette', e);
+                                      showToast.error('Errore nel segnare come lette');
+                                    }
+                                  }}
+                                >
+                                  Segna tutte come lette
+                                </button>
+                              )}
+                              {notifications.length > 0 && (
+                                <button
+                                  className="text-xs text-red-600 hover:text-red-800"
+                                  onClick={async () => {
+                                    try {
+                                      if (!userProfile) return;
+                                      const qAll = query(
+                                        collection(db, 'notifications'),
+                                        where('recipientId', '==', userProfile.id)
+                                      );
+                                      const snap = await getDocs(qAll);
+                                      await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'notifications', d.id))));
+                                      setNotifications([]);
+                                      await updateDoc(doc(db, 'users', userProfile.id), { hasUnread: false });
+                                      showToast.success('Notifiche cancellate');
+                                    } catch (e) {
+                                      console.warn('Impossibile cancellare le notifiche', e);
+                                      showToast.error('Errore cancellando le notifiche');
+                                    }
+                                  }}
+                                >
+                                  Cancella tutte
+                                </button>
+                              )}
+                            </div>
+                          </div>
                           <div className="max-h-80 overflow-y-auto">
                             {isLoadingNotifs ? (
                               <div className="p-4 text-sm text-gray-600">Caricamento...</div>
@@ -213,6 +295,16 @@ export const Header: React.FC = () => {
                                           if (!n.read) {
                                             await updateDoc(doc(db, 'notifications', n.id), { read: true });
                                             setNotifications(prev => prev.map(it => it.id === n.id ? { ...it, read: true } : it));
+                                            // if no more unread, clear user flag
+                                            try {
+                                              const q = query(collection(db, 'notifications'), where('recipientId', '==', userProfile!.id), where('read', '==', false), limit(1));
+                                              const res = await getDocs(q);
+                                              if (res.empty) {
+                                                await updateDoc(doc(db, 'users', userProfile!.id), { hasUnread: false });
+                                              }
+                                            } catch (flagErr) {
+                                              console.warn('Impossibile aggiornare flag utente hasUnread:', flagErr);
+                                            }
                                           }
                                         } catch (err) {
                                           console.warn('Impossibile aggiornare notifica', err);

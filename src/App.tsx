@@ -38,6 +38,7 @@ import { ErrorFallback } from './components/error/ErrorFallback';
 import { Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from './components/ui/Button';
+import { ToastProvider } from './components/ui/Toast';
 
 // Route Guard Component
 const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: string[] }) => {
@@ -148,7 +149,6 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppRoutes() {
   const { userProfile } = useAuth();
-  const { logout } = useAuth();
 
   return (
     <Router>
@@ -494,6 +494,7 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
+      <ToastProvider />
       <AppRoutes />
     </AuthProvider>
   );

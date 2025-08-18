@@ -197,8 +197,8 @@ service cloud.firestore {
       allow create: if isAdmin();
       // Recipients can mark as read or update their own notification metadata
       allow update: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
-      // Admins can delete
-      allow delete: if isAdmin();
+      // Recipients can delete their own notifications; admins can delete any
+      allow delete: if (isAuthenticated() && resource.data.recipientId == request.auth.uid) || isAdmin();
     }
   }
 }

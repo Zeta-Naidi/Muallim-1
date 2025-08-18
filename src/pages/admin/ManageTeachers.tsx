@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, updateDoc, doc, deleteDoc, orderBy, addDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo } from 'react';
+import { collection, getDocs, query, where, updateDoc, doc, deleteDoc, orderBy, addDoc, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { 
@@ -118,6 +118,25 @@ export const ManageTeachers: React.FC = () => {
   const [historySubs, setHistorySubs] = useState<Substitution[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
+  // History filters
+  const [historyStatus, setHistoryStatus] = useState<'' | Substitution['status']>('');
+  const [historyDate, setHistoryDate] = useState<string>(''); // YYYY-MM-DD (specific day)
+
+  const visibleHistory = useMemo(() => {
+    let list = [...historySubs];
+    if (historyStatus) {
+      list = list.filter(s => s.status === historyStatus);
+    }
+    if (historyDate) {
+      const start = new Date(`${historyDate}T00:00:00`);
+      const end = new Date(`${historyDate}T23:59:59.999`);
+      list = list.filter(s => {
+        const d = new Date(s.date).getTime();
+        return d >= start.getTime() && d <= end.getTime();
+      });
+    }
+    return list;
+  }, [historySubs, historyStatus, historyDate]);
 
   // Notifications moved to global Header
 
@@ -167,26 +186,29 @@ export const ManageTeachers: React.FC = () => {
         const fetchedClasses = classesDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Class));
         setClasses(fetchedClasses);
 
-        // Fetch past substitutions (history): date strictly before today, latest first
-        const today = new Date();
-        today.setHours(0,0,0,0);
+        // Substitutions stream (all, latest date first) — realtime updates
         const historyQueryRef = query(
           collection(db, 'substitutions'),
-          where('date', '<', today),
           orderBy('date', 'desc')
         );
-        const historyDocs = await getDocs(historyQueryRef);
-        const history = historyDocs.docs.map(doc => {
-          const data: any = doc.data();
-          return {
-            ...data,
-            id: doc.id,
-            date: data?.date?.toDate ? data.date.toDate() : (data?.date ? new Date(data.date) : new Date()),
-          } as Substitution;
+        const unsub = onSnapshot(historyQueryRef, (snapshot) => {
+          const history = snapshot.docs.map(docSnap => {
+            const data: any = docSnap.data();
+            return {
+              ...data,
+              id: docSnap.id,
+              date: data?.date?.toDate ? data.date.toDate() : (data?.date ? new Date(data.date) : new Date()),
+            } as Substitution;
+          });
+          setHistorySubs(history);
+          setIsLoadingSubs(false);
+        }, (err) => {
+          console.error('History snapshot error:', err);
+          setIsLoadingSubs(false);
         });
-        setHistorySubs(history);
 
-        setIsLoadingSubs(false);
+        // Return unsubscribe to stop listener when component unmounts or deps change
+        return unsub;
       } catch (error) {
         console.error('Error fetching teachers:', error);
         setMessage({ type: 'error', text: 'Errore nel caricamento dei dati' });
@@ -196,7 +218,14 @@ export const ManageTeachers: React.FC = () => {
       }
     };
     
-    fetchData();
+    // If fetchData returns an unsubscribe function, store it for cleanup
+    let cleanup: (() => void) | undefined;
+    fetchData().then((maybeUnsub) => {
+      if (typeof maybeUnsub === 'function') cleanup = maybeUnsub;
+    });
+    return () => {
+      if (cleanup) cleanup();
+    };
   }, [userProfile]);
 
   // Notifications UI is handled by Header
@@ -363,15 +392,6 @@ export const ManageTeachers: React.FC = () => {
       console.error('Error updating teacher:', error);
       setMessage({ type: 'error', text: 'Errore nell\'aggiornamento dell\'insegnante' });
     }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingTeacher(null);
-    setEditForm({
-      teacherType: 'insegnante_regolare',
-      assignedClassId: '',
-      assistantId: ''
-    });
   };
 
   const handleAddPayment = async () => {
@@ -768,7 +788,6 @@ export const ManageTeachers: React.FC = () => {
                       ? classes.find(c => c.id === teacher.assignedClassId)
                       : classes.find(c => c.teacherId === teacher.id);
                     const assistant = allTeachers.find(t => t.id === teacher.assistantId);
-                    const isEditing = editingTeacher === teacher.id;
                     
                     return (
                       <motion.tr 
@@ -913,28 +932,83 @@ export const ManageTeachers: React.FC = () => {
               <div className="flex items-center gap-2 text-slate-900 font-medium text-xl">
               <Clock className="h-5 w-5 mr-2 text-slate-600" />
                 Storico supplenze
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">{historySubs.length}</span>
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">{visibleHistory.length}</span>
               </div>
               <ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${isHistoryOpen ? 'transform rotate-180' : ''}`} />
             </button>
             {isHistoryOpen && (
               <div className="px-6 pb-4">
+                {/* Filters */}
+                <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Giorno</label>
+                    <input
+                      type="date"
+                      className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                      value={historyDate}
+                      onChange={(e) => setHistoryDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Stato</label>
+                    <select
+                      className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                      value={historyStatus}
+                      onChange={(e) => setHistoryStatus(e.target.value as any)}
+                    >
+                      <option value="">Tutti</option>
+                      <option value="assigned">Assegnata</option>
+                      <option value="pending">In attesa</option>
+                      <option value="approved">Approvata</option>
+                      <option value="rejected">Rifiutata</option>
+                      <option value="completed">Completata</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="ghost"
+                      onClick={() => { setHistoryDate(''); setHistoryStatus(''); }}
+                      className="text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                    >
+                      Pulisci filtri
+                    </Button>
+                  </div>
+                </div>
+
                 {isLoadingSubs ? (
                   <div className="text-sm text-slate-600 py-3">Caricamento…</div>
-                ) : historySubs.length === 0 ? (
-                  <div className="text-sm text-slate-500 py-3">Nessuna supplenza passata</div>
+                ) : visibleHistory.length === 0 ? (
+                  <div className="text-sm text-slate-500 py-3">Nessuna supplenza</div>
                 ) : (
                   <div className="divide-y divide-slate-100">
-                    {historySubs.map((s) => (
-                      <div key={s.id} className="py-3 flex items-center justify-between">
-                        <div className="text-sm">
-                          <div className="font-medium text-slate-900">{s.className} • {format(new Date(s.date), 'dd MMM yyyy', { locale: it })}</div>
-                          <div className="text-slate-600">{s.startTime}–{s.endTime} • Sostituto: {s.teacherName}</div>
-                          {s.reason && <div className="text-slate-500">Motivo: {s.reason}</div>}
+                    {visibleHistory.map((s) => {
+                      // Compute if the substitution is completed based on end time vs now
+                      const endMatch = (s.endTime || '').match(/^(\d{1,2}):(\d{2})$/);
+                      const endDate = new Date(s.date);
+                      if (endMatch) {
+                        endDate.setHours(parseInt(endMatch[1], 10), parseInt(endMatch[2], 10), 0, 0);
+                      } else {
+                        endDate.setHours(23, 59, 59, 999);
+                      }
+                      const done = endDate.getTime() < new Date().getTime();
+                      return (
+                        <div key={s.id} className="py-3 flex items-center justify-between">
+                          <div className="text-sm">
+                            <div className="font-medium text-slate-900">{s.className} • {format(new Date(s.date), 'dd MMM yyyy', { locale: it })}</div>
+                            <div className="text-slate-600">{s.startTime}–{s.endTime} • Sostituto: {s.teacherName}</div>
+                            {s.reason && <div className="text-slate-500">Motivo: {s.reason}</div>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {done ? 'Completata' : 'Non ancora'}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                              {s.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-600">{s.status}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1082,16 +1156,16 @@ export const ManageTeachers: React.FC = () => {
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Classe</label>
-                  <select
-                    className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
-                    value={subForm.classId}
-                    onChange={(e) => setSubForm(prev => ({ ...prev, classId: e.target.value }))}
-                  >
-                    <option value="">Seleziona classe</option>
-                    {classes.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}{c.turno ? ` – ${c.turno}` : ''}</option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    className="block w-full rounded-md border-slate-300 bg-slate-50 text-slate-700 shadow-sm sm:text-sm border p-2"
+                    value={classes.find(c => c.id === subForm.classId)?.name || 'Nessuna classe assegnata'}
+                    disabled
+                    readOnly
+                  />
+                  {!subForm.classId && (
+                    <p className="mt-1 text-xs text-red-600">L'insegnante non ha una classe assegnata. Assegna una classe prima di creare una supplenza.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Sostituto</label>
@@ -1100,7 +1174,7 @@ export const ManageTeachers: React.FC = () => {
                     value={subForm.substituteTeacherId}
                     onChange={(e) => setSubForm(prev => ({ ...prev, substituteTeacherId: e.target.value }))}
                   >
-                    <option value="">Seleziona insegnante sostituto</option>
+                    <option value="">Seleziona Supplente</option>
                     {teachers
                       .filter(t => t.availableForSubstitution && t.id !== subTeacher.id)
                       .map(t => (
@@ -1144,8 +1218,14 @@ export const ManageTeachers: React.FC = () => {
                 <Button variant="ghost" onClick={() => { setIsSubDialogOpen(false); setSubTeacher(null); }} className="text-slate-600 hover:text-slate-800 hover:bg-slate-50">Annulla</Button>
                 <Button
                   onClick={async () => {
-                    if (!userProfile || !subTeacher || !subForm.classId || !subForm.date || !subForm.substituteTeacherId) {
-                      setMessage({ type: 'error', text: 'Compila classe, data e sostituto' });
+                    if (!userProfile || !subTeacher) return;
+                    if (!subForm.classId) {
+                      setMessage({ type: 'error', text: "L'insegnante non ha una classe assegnata" });
+                      setTimeout(() => setMessage(null), 2000);
+                      return;
+                    }
+                    if (!subForm.date || !subForm.substituteTeacherId) {
+                      setMessage({ type: 'error', text: 'Compila data e sostituto' });
                       setTimeout(() => setMessage(null), 2000);
                       return;
                     }
@@ -1169,8 +1249,27 @@ export const ManageTeachers: React.FC = () => {
                         updatedAt: new Date(),
                       });
 
-                      // No pending moderation: directly approved
-                      setPendingSubs(prev => prev);
+                      // Record substitution history (admin-assigned)
+                      try {
+                        await addDoc(collection(db, 'substitutionHistory'), {
+                          substitutionId: docRef.id,
+                          action: 'assigned',
+                          teacherId: subForm.substituteTeacherId,
+                          teacherName: substitute?.displayName || 'Insegnante',
+                          originalTeacherId: subTeacher.id,
+                          originalTeacherName: subTeacher.displayName,
+                          classId: subForm.classId,
+                          className: cls?.name || 'Classe',
+                          date: new Date(subForm.date),
+                          status: 'assigned',
+                          createdAt: new Date(),
+                          createdBy: userProfile.id,
+                        });
+                      } catch (histErr) {
+                        console.warn('Failed to write substitution history (admin):', histErr);
+                      }
+
+                      // No pending moderation: directly approved (no local pending list to update)
 
                           // Notify only the selected substitute teacher
                           try {
@@ -1184,6 +1283,12 @@ export const ManageTeachers: React.FC = () => {
                               createdAt: new Date(),
                               read: false,
                             });
+                            // also set a lightweight user-level unread flag so header can light up instantly
+                            try {
+                              await updateDoc(doc(db, 'users', subForm.substituteTeacherId), { hasUnread: true });
+                            } catch (flagErr) {
+                              console.warn('Impossibile aggiornare flag hasUnread utente:', flagErr);
+                            }
                           } catch (notifyErr) {
                             console.warn('Notify assigned failed:', notifyErr);
                           }
