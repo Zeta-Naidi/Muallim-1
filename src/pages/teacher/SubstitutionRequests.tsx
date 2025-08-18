@@ -117,7 +117,25 @@ export const SubstitutionRequests: React.FC = () => {
       };
       
       const docRef = await addDoc(collection(db, 'substitutions'), newSubstitution);
-      
+
+      // Record substitution history entry
+      try {
+        await addDoc(collection(db, 'substitutionHistory'), {
+          substitutionId: docRef.id,
+          action: 'created',
+          teacherId: newSubstitution.teacherId,
+          teacherName: newSubstitution.teacherName,
+          classId: newSubstitution.classId,
+          className: newSubstitution.className,
+          date: newSubstitution.date,
+          status: newSubstitution.status,
+          createdAt: new Date(),
+        });
+      } catch (e) {
+        // Non-blocking: log but do not fail the main flow
+        console.warn('Failed to write substitution history:', e);
+      }
+
       // Add to local state
       setSubstitutions(prev => [{
         ...newSubstitution,

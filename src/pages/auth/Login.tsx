@@ -12,7 +12,7 @@ import {
   EyeOff, 
   Sparkles
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { auth } from '../../services/firebase';
 import { Input } from '../../components/ui/Input';
@@ -34,6 +34,7 @@ export const Login: React.FC = () => {
   const [showResetForm, setShowResetForm] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   const onSubmit = async (data: LoginFormValues) => {
     setError(null);
@@ -93,55 +94,34 @@ export const Login: React.FC = () => {
       setIsResetting(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div 
           className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl"
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{ 
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
+          animate={shouldReduceMotion ? { opacity: 0.15 } : { scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+          transition={shouldReduceMotion ? undefined : { duration: 20, repeat: Infinity, ease: "linear" }}
         />
         <motion.div 
           className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pink-400/20 to-orange-600/20 rounded-full blur-3xl"
-          animate={{ 
-            scale: [1.2, 1, 1.2],
-            rotate: [360, 180, 0],
-          }}
-          transition={{ 
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
-          }}
+          animate={shouldReduceMotion ? { opacity: 0.15 } : { scale: [1.2, 1, 1.2], rotate: [360, 180, 0] }}
+          transition={shouldReduceMotion ? undefined : { duration: 25, repeat: Infinity, ease: "linear" }}
         />
         <motion.div 
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-cyan-400/10 to-blue-600/10 rounded-full blur-3xl"
-          animate={{ 
-            scale: [1, 1.1, 1],
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{ 
-            duration: 15,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
+          animate={shouldReduceMotion ? { opacity: 0.2 } : { scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={shouldReduceMotion ? undefined : { duration: 15, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
-
 
       {/* Right Side - Login Form */}
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 relative">
         <motion.div
-          initial={{ x: 50, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
+          initial={shouldReduceMotion ? false : { x: 50, opacity: 0 }}
+          animate={shouldReduceMotion ? undefined : { x: 0, opacity: 1 }}
+          transition={shouldReduceMotion ? undefined : { duration: 0.8, delay: 0.2 }}
           className="mx-auto w-full max-w-sm lg:max-w-md"
         >
           {/* Mobile Logo */}
@@ -149,8 +129,8 @@ export const Login: React.FC = () => {
             <Link to="/" className="inline-flex items-center justify-center group">
               <motion.div 
                 className="w-14 h-14 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mr-3 shadow-xl"
-                whileHover={{ scale: 1.05, rotate: 5 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.05, rotate: 5 }}
+                transition={shouldReduceMotion ? undefined : { type: "spring", stiffness: 300 }}
               >
                 <GraduationCap className="h-7 w-7 text-white" />
               </motion.div>
@@ -162,16 +142,16 @@ export const Login: React.FC = () => {
 
           <div className="text-center lg:text-left mb-8">
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
+              initial={shouldReduceMotion ? false : { y: 20, opacity: 0 }}
+              animate={shouldReduceMotion ? undefined : { y: 0, opacity: 1 }}
+              transition={shouldReduceMotion ? undefined : { duration: 0.6, delay: 0.3 }}
             >
               <h2 className="text-3xl font-bold text-gray-900 mb-2">
                 Bentornato! 
                 <motion.span 
                   className="inline-block ml-2"
-                  animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
-                  transition={{ duration: 1.5, delay: 1, repeat: Infinity, repeatDelay: 3 }}
+                  animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                  transition={shouldReduceMotion ? undefined : { duration: 1.5, delay: 1, repeat: Infinity, repeatDelay: 3 }}
                 >
                   👋
                 </motion.span>
@@ -184,9 +164,9 @@ export const Login: React.FC = () => {
 
           {/* Login Form Card */}
           <motion.div
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
+            initial={shouldReduceMotion ? false : { y: 30, opacity: 0 }}
+            animate={shouldReduceMotion ? undefined : { y: 0, opacity: 1 }}
+            transition={shouldReduceMotion ? undefined : { duration: 0.6, delay: 0.4 }}
             className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden"
           >
             {/* Decorative Elements */}
@@ -212,18 +192,18 @@ export const Login: React.FC = () => {
                 {!showResetForm ? (
                   <motion.form
                     key="login-form"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ duration: 0.3 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, x: -20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0 }}
+                    exit={shouldReduceMotion ? undefined : { opacity: 0, x: 20 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.3 }}
                     onSubmit={handleSubmit(onSubmit)} 
                     className="space-y-6"
                   >
                     <div className="space-y-5">
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.1 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                        transition={shouldReduceMotion ? undefined : { duration: 0.4, delay: 0.1 }}
                       >
                         <Input
                           label="Email"
@@ -243,9 +223,9 @@ export const Login: React.FC = () => {
                       </motion.div>
                       
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.2 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                        transition={shouldReduceMotion ? undefined : { duration: 0.4, delay: 0.2 }}
                       >
                         <Input
                           label="Password"
@@ -254,8 +234,8 @@ export const Login: React.FC = () => {
                           rightIcon={
                             <motion.button
                               type="button"
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
+                              whileHover={shouldReduceMotion ? undefined : { scale: 1.1 }}
+                              whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
                               onClick={() => setShowPassword(!showPassword)}
                               className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 rounded-lg hover:bg-gray-100 transition-all duration-200"
                             >
@@ -274,9 +254,9 @@ export const Login: React.FC = () => {
                     </div>
 
                     <motion.div 
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: 0.3 }}
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      transition={shouldReduceMotion ? undefined : { duration: 0.4, delay: 0.3 }}
                       className="flex items-center justify-between pt-2"
                     >
                       <label className="flex items-center cursor-pointer group">
@@ -293,8 +273,8 @@ export const Login: React.FC = () => {
 
                       <motion.button
                         type="button"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                        whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
                         onClick={() => setShowResetForm(true)}
                         className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors relative"
                       >
@@ -308,9 +288,9 @@ export const Login: React.FC = () => {
                     </motion.div>
                     
                     <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: 0.4 }}
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      transition={shouldReduceMotion ? undefined : { duration: 0.4, delay: 0.4 }}
                       className="pt-4"
                     >
                       <Button 
@@ -320,8 +300,8 @@ export const Login: React.FC = () => {
                         className="h-14 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group"
                         rightIcon={
                           <motion.div
-                            animate={{ x: isLoading ? 0 : [0, 4, 0] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                            animate={shouldReduceMotion ? undefined : { x: isLoading ? 0 : [0, 4, 0] }}
+                            transition={shouldReduceMotion ? undefined : { duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
                           >
                             <ArrowRight className="h-5 w-5" />
                           </motion.div>
@@ -338,18 +318,18 @@ export const Login: React.FC = () => {
                 ) : (
                   <motion.form
                     key="reset-form"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, x: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0 }}
+                    exit={shouldReduceMotion ? undefined : { opacity: 0, x: -20 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.3 }}
                     onSubmit={handlePasswordReset} 
                     className="space-y-6"
                   >
                     <div className="text-center mb-6">
                       <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+                        initial={shouldReduceMotion ? false : { scale: 0 }}
+                        animate={shouldReduceMotion ? undefined : { scale: 1 }}
+                        transition={shouldReduceMotion ? undefined : { type: "spring", stiffness: 200, delay: 0.1 }}
                         className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4"
                       >
                         <Sparkles className="h-8 w-8 text-white" />
@@ -423,9 +403,9 @@ export const Login: React.FC = () => {
               </AnimatePresence>
 
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                transition={shouldReduceMotion ? undefined : { duration: 0.6, delay: 0.5 }}
                 className="mt-8 text-center"
               >
                 <p className="text-gray-600">
@@ -448,9 +428,9 @@ export const Login: React.FC = () => {
 
           {/* Footer */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
+            initial={shouldReduceMotion ? false : { opacity: 0 }}
+            animate={shouldReduceMotion ? undefined : { opacity: 1 }}
+            transition={shouldReduceMotion ? undefined : { duration: 0.6, delay: 0.6 }}
             className="mt-8 text-center"
           >
             <p className="text-xs text-gray-500">
