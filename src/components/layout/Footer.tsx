@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { GraduationCap, Mail, Phone, MapPin, Instagram, Facebook, Heart } from 'lucide-react';
+import { GraduationCap, Mail, Phone, MapPin, Instagram, Facebook, Heart, Coffee } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -131,7 +131,7 @@ export const Footer: React.FC = () => {
           </div>
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-400">
-              Powered by Sabr e tanto Duaa <Heart className="inline-block h-3 w-3 text-red-400 fill-current" />
+              Powered by Sabr e tanto Duaa <Coffee className="inline-block h-3 w-3 text-black-900 fill-current" />
             </p>
           </div>
         </div>

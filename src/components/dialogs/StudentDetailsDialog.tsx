@@ -8,14 +8,34 @@ interface StudentDetailsDialogProps {
   student: User | null;
   isOpen: boolean;
   onClose: () => void;
+  title?: string; // allow overriding title (e.g., Dettagli Insegnante)
 }
 
 export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   student,
   isOpen,
   onClose,
+  title,
 }) => {
   if (!student) return null;
+
+  // Compute age from birthdate if present, otherwise fallback to provided age field
+  const computeAge = (birth: any): number | null => {
+    if (!birth) return null;
+    const d = new Date(birth);
+    if (isNaN(d.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : null;
+  };
+
+  const birthdate = (student as any).birthdate || (student as any).birthDate || (student as any).dateOfBirth;
+  const ageFromBirthdate = computeAge(birthdate);
+  const ageDisplay = (ageFromBirthdate != null ? String(ageFromBirthdate) : (student as any).age) || 'Non specificato';
 
   return (
     <Dialog
@@ -29,7 +49,7 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
         <Dialog.Panel className="mx-auto max-w-2xl w-full bg-white rounded-lg shadow-xl">
           <div className="flex justify-between items-center border-b border-gray-200 p-4">
             <Dialog.Title className="text-lg font-semibold text-gray-900">
-              Dettagli Studente
+              {title ?? 'Dettagli Studente'}
             </Dialog.Title>
             <Button
               variant="ghost"
@@ -54,7 +74,7 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
 
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Età</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.age || 'Non specificato'}</p>
+                <p className="mt-1 text-sm text-gray-900">{ageDisplay}</p>
               </div>
 
               <div>
