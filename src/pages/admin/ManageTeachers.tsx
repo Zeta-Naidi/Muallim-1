@@ -1,30 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, query, where, updateDoc, doc, deleteDoc, orderBy, addDoc, onSnapshot } from 'firebase/firestore';
+import { Users, Search, Plus, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, Mail, Phone, MapPin, Calendar, Euro, History, UserPlus, CheckCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { 
-  Users, 
-  UserPlus, 
-  CheckCircle, 
-  AlertCircle, 
-  X, 
-  Check,
-  Clock,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  User as UserIcon,
-  Shield,
-  Eye,
-  Search,
-  Edit,
-  Save,
-  Euro,
-  History,
-  Settings,
-  ChevronDown
-} from 'lucide-react';
+import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, limit, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -116,7 +94,26 @@ export const ManageTeachers: React.FC = () => {
   // Substitutions history state (admin-only view)
   const [isLoadingSubs, setIsLoadingSubs] = useState(false);
   const [historySubs, setHistorySubs] = useState<Substitution[]>([]);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [currentSubPage, setCurrentSubPage] = useState(1);
+  const [editingSubstitution, setEditingSubstitution] = useState<Substitution | null>(null);
+  const [isEditSubDialogOpen, setIsEditSubDialogOpen] = useState(false);
+  const [editSubForm, setEditSubForm] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+    reason: '',
+    substituteTeacherId: ''
+  });
+  const [subSearchQuery, setSubSearchQuery] = useState('');
+  const [selectedSubStatus, setSelectedSubStatus] = useState<'' | Substitution['status']>('');
+  const [isUpdatingSubstitution, setIsUpdatingSubstitution] = useState(false);
+  // Substitution destructive actions state
+  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<Substitution | null>(null);
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Substitution | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isPendingOpen, setIsPendingOpen] = useState(false);
   // History filters
   const [historyStatus, setHistoryStatus] = useState<'' | Substitution['status']>('');
@@ -124,19 +121,42 @@ export const ManageTeachers: React.FC = () => {
 
   const visibleHistory = useMemo(() => {
     let list = [...historySubs];
-    if (historyStatus) {
-      list = list.filter(s => s.status === historyStatus);
+    
+    // Apply search filter
+    if (subSearchQuery) {
+      const query = subSearchQuery.toLowerCase();
+      list = list.filter(s => 
+        s.className?.toLowerCase().includes(query) ||
+        s.teacherName?.toLowerCase().includes(query) ||
+        s.reason?.toLowerCase().includes(query)
+      );
     }
+    
+    // Apply status filter
+    if (selectedSubStatus) {
+      list = list.filter(s => s.status === selectedSubStatus);
+    }
+    
+    // Apply date filter
     if (historyDate) {
-      const start = new Date(`${historyDate}T00:00:00`);
-      const end = new Date(`${historyDate}T23:59:59.999`);
-      list = list.filter(s => {
-        const d = new Date(s.date).getTime();
-        return d >= start.getTime() && d <= end.getTime();
-      });
+      if (historyStatus === 'week') {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        list = list.filter(s => new Date(s.date) >= weekAgo);
+      } else if (historyStatus === 'month') {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        list = list.filter(s => new Date(s.date) >= monthAgo);
+      } else {
+        list = list.filter(s => s.date === historyDate);
+      }
     }
+    
+    // Sort by date (most recent first by default)
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
     return list;
-  }, [historySubs, historyStatus, historyDate]);
+  }, [historySubs, subSearchQuery, selectedSubStatus, historyStatus, historyDate]);
 
   // Notifications moved to global Header
 
@@ -549,6 +569,154 @@ export const ManageTeachers: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Revoke Substitution Dialog */}
+      <AnimatePresence>
+        {isRevokeDialogOpen && revokeTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              if (!isRevoking) {
+                setIsRevokeDialogOpen(false);
+                setRevokeTarget(null);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-slate-200">
+                <h3 className="text-lg font-medium text-slate-900">Conferma revoca</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  {revokeTarget.className} • {format(new Date(revokeTarget.date), 'dd MMM yyyy', { locale: it })}
+                </p>
+              </div>
+              <div className="px-6 py-4 text-sm text-slate-700">
+                La supplenza verrà revocata e il sostituto non vedrà più la classe.
+              </div>
+              <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (!isRevoking) {
+                      setIsRevokeDialogOpen(false);
+                      setRevokeTarget(null);
+                    }
+                  }}
+                  disabled={isRevoking}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isRevoking}
+                  onClick={async () => {
+                    if (!revokeTarget) return;
+                    setIsRevoking(true);
+                    try {
+                      await updateDoc(doc(db, 'substitutions', revokeTarget.id), {
+                        status: 'rejected',
+                        rejectedAt: new Date().toISOString(),
+                        rejectedBy: userProfile?.id,
+                      });
+                      setHistorySubs(prev => prev.map(sub =>
+                        sub.id === revokeTarget.id ? { ...sub, status: 'rejected' } : sub
+                      ));
+                      setIsRevokeDialogOpen(false);
+                      setRevokeTarget(null);
+                    } catch (e) {
+                      console.error('Error revoking substitution:', e);
+                      alert('Errore durante la revoca della supplenza');
+                    } finally {
+                      setIsRevoking(false);
+                    }
+                  }}
+                >
+                  {isRevoking ? 'Revocando...' : 'Conferma revoca'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Substitution Dialog */}
+      <AnimatePresence>
+        {isDeleteDialogOpen && deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              if (!isDeleting) {
+                setIsDeleteDialogOpen(false);
+                setDeleteTarget(null);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-slate-200">
+                <h3 className="text-lg font-medium text-slate-900">Elimina supplenza</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  {deleteTarget.className} • {format(new Date(deleteTarget.date), 'dd MMM yyyy', { locale: it })}
+                </p>
+              </div>
+              <div className="px-6 py-4 text-sm text-slate-700">
+                Questa azione è definitiva e non può essere annullata.
+              </div>
+              <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (!isDeleting) {
+                      setIsDeleteDialogOpen(false);
+                      setDeleteTarget(null);
+                    }
+                  }}
+                  disabled={isDeleting}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isDeleting}
+                  onClick={async () => {
+                    if (!deleteTarget) return;
+                    setIsDeleting(true);
+                    try {
+                      await deleteDoc(doc(db, 'substitutions', deleteTarget.id));
+                      setHistorySubs(prev => prev.filter(sub => sub.id !== deleteTarget.id));
+                      setIsDeleteDialogOpen(false);
+                      setDeleteTarget(null);
+                    } catch (e) {
+                      console.error('Error deleting substitution:', e);
+                      alert('Errore durante l\'eliminazione della supplenza');
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                >
+                  {isDeleting ? 'Eliminando...' : 'Elimina'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Edit Teacher Dialog */}
       <AnimatePresence>
         {isEditDialogOpen && editingTeacher && (
@@ -920,68 +1088,133 @@ export const ManageTeachers: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Substitutions History (Expandable) */}
+      {/* Substitutions Management */}
       <Card variant="elevated" className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
-        <CardContent className="p-0">
-          <div>
-            <button
-              type="button"
-              onClick={() => setIsHistoryOpen(v => !v)}
-              className="w-full flex items-center justify-between px-6 py-3 hover:bg-slate-50"
-            >
-              <div className="flex items-center gap-2 text-slate-900 font-medium text-xl">
-              <Clock className="h-5 w-5 mr-2 text-slate-600" />
-                Storico supplenze
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">{visibleHistory.length}</span>
+        <CardHeader className="bg-white border-b border-slate-200">
+          <CardTitle className="flex items-center text-slate-900 text-xl font-medium">
+            <Clock className="h-5 w-5 mr-2 text-slate-600" />
+            Supplenze
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">
+              {visibleHistory.length}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          {/* Enhanced Filters and Search */}
+          <div className="mb-6 space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <Input
+                  type="text"
+                  placeholder="Cerca per classe, insegnante o motivo..."
+                  value={subSearchQuery}
+                  onChange={(e) => setSubSearchQuery(e.target.value)}
+                  className="w-full"
+                />
               </div>
-              <ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${isHistoryOpen ? 'transform rotate-180' : ''}`} />
-            </button>
-            {isHistoryOpen && (
-              <div className="px-6 pb-4">
-                {/* Filters */}
-                <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Giorno</label>
-                    <input
-                      type="date"
-                      className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
-                      value={historyDate}
-                      onChange={(e) => setHistoryDate(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Stato</label>
-                    <select
-                      className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
-                      value={historyStatus}
-                      onChange={(e) => setHistoryStatus(e.target.value as any)}
-                    >
-                      <option value="">Tutti</option>
-                      <option value="assigned">Assegnata</option>
-                      <option value="pending">In attesa</option>
-                      <option value="approved">Approvata</option>
-                      <option value="rejected">Rifiutata</option>
-                      <option value="completed">Completata</option>
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      variant="ghost"
-                      onClick={() => { setHistoryDate(''); setHistoryStatus(''); }}
-                      className="text-slate-600 hover:text-slate-800 hover:bg-slate-50"
-                    >
-                      Pulisci filtri
-                    </Button>
-                  </div>
-                </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSubSearchQuery('');
+                  setSelectedSubStatus('');
+                  setHistoryDate('');
+                  setHistoryStatus('');
+                }}
+                className="text-slate-600 hover:text-slate-800 hover:bg-slate-50 whitespace-nowrap"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Pulisci tutto
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Data</label>
+                <input
+                  type="date"
+                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                  value={historyDate}
+                  onChange={(e) => setHistoryDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Stato</label>
+                <select
+                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                  value={selectedSubStatus}
+                  onChange={(e) => setSelectedSubStatus(e.target.value as any)}
+                >
+                  <option value="">Tutti gli stati</option>
+                  <option value="pending">In attesa</option>
+                  <option value="assigned">Assegnata</option>
+                  <option value="approved">Approvata</option>
+                  <option value="rejected">Rifiutata</option>
+                  <option value="completed">Completata</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Periodo</label>
+                <select
+                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                  value={historyStatus}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'today') {
+                      setHistoryDate(new Date().toISOString().split('T')[0]);
+                    } else if (value === 'week') {
+                      const weekAgo = new Date();
+                      weekAgo.setDate(weekAgo.getDate() - 7);
+                      setHistoryDate(weekAgo.toISOString().split('T')[0]);
+                    } else if (value === 'month') {
+                      const monthAgo = new Date();
+                      monthAgo.setMonth(monthAgo.getMonth() - 1);
+                      setHistoryDate(monthAgo.toISOString().split('T')[0]);
+                    } else {
+                      setHistoryDate('');
+                    }
+                    setHistoryStatus(value as any);
+                  }}
+                >
+                  <option value="">Tutti i periodi</option>
+                  <option value="today">Oggi</option>
+                  <option value="week">Ultima settimana</option>
+                  <option value="month">Ultimo mese</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Ordina per</label>
+                <select className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2">
+                  <option value="date-desc">Data (più recente)</option>
+                  <option value="date-asc">Data (più vecchia)</option>
+                  <option value="status">Stato</option>
+                  <option value="class">Classe</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-                {isLoadingSubs ? (
-                  <div className="text-sm text-slate-600 py-3">Caricamento…</div>
-                ) : visibleHistory.length === 0 ? (
-                  <div className="text-sm text-slate-500 py-3">Nessuna supplenza</div>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {visibleHistory.map((s) => {
+          {isLoadingSubs ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mx-auto"></div>
+              <p className="text-slate-600 mt-2">Caricamento supplenze...</p>
+            </div>
+          ) : visibleHistory.length === 0 ? (
+            <div className="text-center py-12">
+              <Clock className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-gray-900 mb-2">Nessuna supplenza</h3>
+              <p className="text-gray-500">Non ci sono ancora supplenze nel sistema.</p>
+            </div>
+          ) : (
+            (() => {
+              const itemsPerPage = 5;
+              const startIndex = (currentSubPage - 1) * itemsPerPage;
+              const endIndex = startIndex + itemsPerPage;
+              const paginatedSubs = visibleHistory.slice(startIndex, endIndex);
+              const totalPages = Math.ceil(visibleHistory.length / itemsPerPage);
+
+              return (
+                <>
+                  <div className="space-y-4">
+                    {paginatedSubs.map((s) => {
                       // Compute if the substitution is completed based on end time vs now
                       const endMatch = (s.endTime || '').match(/^(\d{1,2}):(\d{2})$/);
                       const endDate = new Date(s.date);
@@ -991,32 +1224,331 @@ export const ManageTeachers: React.FC = () => {
                         endDate.setHours(23, 59, 59, 999);
                       }
                       const done = endDate.getTime() < new Date().getTime();
+                      const canEdit = s.status === 'pending' || s.status === 'assigned';
+                      
                       return (
-                        <div key={s.id} className="py-3 flex items-center justify-between">
-                          <div className="text-sm">
-                            <div className="font-medium text-slate-900">{s.className} • {format(new Date(s.date), 'dd MMM yyyy', { locale: it })}</div>
-                            <div className="text-slate-600">{s.startTime}–{s.endTime} • Sostituto: {s.teacherName}</div>
-                            {s.reason && <div className="text-slate-500">Motivo: {s.reason}</div>}
+                        <motion.div 
+                          key={s.id} 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-all duration-200 hover:shadow-sm"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="font-medium text-slate-900">{s.className}</h4>
+                                <span className="text-slate-500">•</span>
+                                <span className="text-slate-600">{format(new Date(s.date), 'dd MMM yyyy', { locale: it })}</span>
+                                <span className="text-slate-500">•</span>
+                                <span className="text-slate-600">{s.startTime}–{s.endTime}</span>
+                              </div>
+                              <div className="text-sm text-slate-600 mb-2">
+                                <strong>Supplente:</strong> {s.teacherName}
+                              </div>
+                              {s.reason && (
+                                <div className="text-sm text-slate-500 mb-3">
+                                  <strong>Motivo:</strong> {s.reason}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {done ? 'Completata' : 'Prevista'}
+                                </span>
+                                
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              {(s.status === 'pending' || s.status === 'assigned') && (
+                                <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title="Modifica supplenza"
+                                  onClick={() => {
+                                    setEditingSubstitution(s);
+                                    // Prefill form with current substitution data
+                                    const dateObj = new Date(s.date);
+                                    const formattedDate = dateObj.toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
+
+                                    // Determine currently assigned substitute teacher id (supports id or uid)
+                                    const matchedByName = teachers.find(t =>
+                                      ((t as any).displayName || (t as any).name) === (s as any).teacherName
+                                    );
+                                    const rawId =
+                                      (s as any).substituteTeacherId ||
+                                      (s as any).teacherId ||
+                                      (matchedByName ? ((matchedByName as any).id || (matchedByName as any).uid) : '');
+                                    const currentTeacherId = rawId ? String(rawId) : '';
+
+                                    setEditSubForm({
+                                      date: formattedDate,
+                                      startTime: s.startTime || '',
+                                      endTime: s.endTime || '',
+                                      reason: s.reason || '',
+                                      substituteTeacherId: currentTeacherId
+                                    });
+                                    setIsEditSubDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRevokeTarget(s);
+                                    setIsRevokeDialogOpen(true);
+                                  }}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="Revoca supplenza"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                </>
+                              )}
+                              {/* Hard delete record */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setDeleteTarget(s);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                                className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                                title="Elimina definitivamente"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              {s.status === 'pending' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      await updateDoc(doc(db, 'substitutions', s.id), { 
+                                        status: 'approved',
+                                        approvedAt: new Date().toISOString(),
+                                        approvedBy: userProfile?.id
+                                      });
+                                      setHistorySubs(prev => prev.map(sub => 
+                                        sub.id === s.id ? { ...sub, status: 'approved' } : sub
+                                      ));
+                                    } catch (e) {
+                                      console.error('Error approving substitution:', e);
+                                      alert('Errore durante l\'approvazione della supplenza');
+                                    }
+                                  }}
+                                  className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                                  title="Approva supplenza"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {done ? 'Completata' : 'Non ancora'}
-                            </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                              {s.status}
-                            </span>
-                          </div>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200">
+                      <div className="text-sm text-slate-600">
+                        Mostrando {startIndex + 1}-{Math.min(endIndex, visibleHistory.length)} di {visibleHistory.length} supplenze
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCurrentSubPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentSubPage === 1}
+                          className="text-slate-600 hover:text-slate-800"
+                        >
+                          <ChevronDown className="h-4 w-4 rotate-90" />
+                        </Button>
+                        <span className="text-sm text-slate-600">
+                          Pagina {currentSubPage} di {totalPages}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCurrentSubPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentSubPage === totalPages}
+                          className="text-slate-600 hover:text-slate-800"
+                        >
+                          <ChevronDown className="h-4 w-4 -rotate-90" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()
+          )}
         </CardContent>
       </Card>
 
+      {/* Edit Substitution Dialog */}
+      <AnimatePresence>
+        {isEditSubDialogOpen && editingSubstitution && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              setIsEditSubDialogOpen(false);
+              setEditingSubstitution(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Modifica Supplenza</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {editingSubstitution.className} • {format(new Date(editingSubstitution.date), 'dd MMM yyyy', { locale: it })}
+                </p>
+              </div>
+              
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                  <input
+                    type="date"
+                    value={editSubForm.date}
+                    onChange={(e) => setEditSubForm(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ora inizio</label>
+                    <input
+                      type="time"
+                      value={editSubForm.startTime}
+                      onChange={(e) => setEditSubForm(prev => ({ ...prev, startTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ora fine</label>
+                    <input
+                      type="time"
+                      value={editSubForm.endTime}
+                      onChange={(e) => setEditSubForm(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sostituto</label>
+                  <select
+                    value={editSubForm.substituteTeacherId}
+                    onChange={(e) => setEditSubForm(prev => ({ ...prev, substituteTeacherId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Seleziona sostituto...</option>
+                    {teachers.map((teacher) => (
+                      <option key={(teacher as any).id || (teacher as any).uid} value={(teacher as any).id || (teacher as any).uid}>
+                        {(teacher as any).displayName || (teacher as any).name || (teacher as any).email || (teacher as any).id || (teacher as any).uid}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
+                  <textarea
+                    value={editSubForm.reason}
+                    onChange={(e) => setEditSubForm(prev => ({ ...prev, reason: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Motivo della supplenza..."
+                  />
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditSubDialogOpen(false);
+                    setEditingSubstitution(null);
+                  }}
+                  disabled={isUpdatingSubstitution}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!editSubForm.date || !editSubForm.startTime || !editSubForm.endTime) {
+                      alert('Compila tutti i campi obbligatori');
+                      return;
+                    }
+                    
+                    setIsUpdatingSubstitution(true);
+                    try {
+                      const updateData: any = {
+                        date: editSubForm.date,
+                        startTime: editSubForm.startTime,
+                        endTime: editSubForm.endTime,
+                        reason: editSubForm.reason,
+                        updatedAt: new Date().toISOString(),
+                        updatedBy: userProfile?.id
+                      };
+
+                      if (editSubForm.substituteTeacherId) {
+                        const selectedTeacher = teachers.find(t =>
+                          (t as any).id === editSubForm.substituteTeacherId ||
+                          (t as any).uid === editSubForm.substituteTeacherId
+                        );
+                        updateData.substituteTeacherId = editSubForm.substituteTeacherId;
+                        // Also persist alternative keys for compatibility with existing data
+                        if ((selectedTeacher as any)?.id) updateData.teacherId = (selectedTeacher as any).id;
+                        if ((selectedTeacher as any)?.uid) updateData.teacherUid = (selectedTeacher as any).uid;
+                        updateData.teacherName = (selectedTeacher as any)?.displayName || (selectedTeacher as any)?.name || '';
+                      }
+
+                      await updateDoc(doc(db, 'substitutions', editingSubstitution.id), updateData);
+                      
+                      // Update local state
+                      setHistorySubs(prev => prev.map(sub =>
+                        sub.id === editingSubstitution.id
+                          ? { ...sub, ...updateData }
+                          : sub
+                      ));
+                      
+                      setIsEditSubDialogOpen(false);
+                      setEditingSubstitution(null);
+                    } catch (error) {
+                      console.error('Error updating substitution:', error);
+                      alert('Errore durante l\'aggiornamento della supplenza');
+                    } finally {
+                      setIsUpdatingSubstitution(false);
+                    }
+                  }}
+                  disabled={isUpdatingSubstitution}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isUpdatingSubstitution ? 'Salvando...' : 'Salva modifiche'}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Pending Approvals (collapsible) */}
       <Card variant="elevated" className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
@@ -1570,6 +2102,7 @@ export const ManageTeachers: React.FC = () => {
       <StudentDetailsDialog
         student={selectedTeacher}
         isOpen={isTeacherDetailsOpen}
+        title="Dettagli Insegnante"
         onClose={() => {
           setIsTeacherDetailsOpen(false);
           setSelectedTeacher(null);
