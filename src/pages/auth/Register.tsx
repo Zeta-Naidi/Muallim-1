@@ -17,7 +17,7 @@ import {
   Calendar,
   User
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -141,6 +141,7 @@ export const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { registerWithEmail } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<RegisterFormValues>();
 
@@ -187,29 +188,11 @@ export const Register: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <motion.div 
+        <div 
           className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-2xl"
-          animate={{ 
-            scale: [1, 1.06, 1],
-            opacity: [0.5, 0.7, 0.5],
-          }}
-          transition={{ 
-            duration: 30,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
         />
-        <motion.div 
+        <div 
           className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pink-400/20 to-orange-600/20 rounded-full blur-2xl"
-          animate={{ 
-            scale: [1.05, 1, 1.05],
-            opacity: [0.5, 0.7, 0.5],
-          }}
-          transition={{ 
-            duration: 36,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
         />
       </div>
 
@@ -248,8 +231,8 @@ export const Register: React.FC = () => {
                 {step === 'role-selection' ? 'Scegli il tuo ruolo' : 'Crea il tuo account'}
                 <motion.span 
                   className="inline-block ml-2"
-                  animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
-                  transition={{ duration: 1.5, delay: 1, repeat: Infinity, repeatDelay: 3 }}
+                  animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                  transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
                 >
                   ✨
                 </motion.span>
@@ -273,7 +256,7 @@ export const Register: React.FC = () => {
               className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden"
             >
               <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl" />
               </div>
 
               <div className="relative">
@@ -371,9 +354,9 @@ export const Register: React.FC = () => {
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 {/* Role Selection as first form field */}
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.1 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   className="mb-6"
                 >
                   <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -381,8 +364,8 @@ export const Register: React.FC = () => {
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                      whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
                       className="cursor-pointer"
                       onClick={() => setSelectedRole('student')}
                     >
@@ -411,8 +394,8 @@ export const Register: React.FC = () => {
                     </motion.div>
                     
                     <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                      whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                      whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
                       className="cursor-pointer"
                       onClick={() => setSelectedRole('teacher')}
                     >
@@ -440,33 +423,13 @@ export const Register: React.FC = () => {
                       </div>
                     </motion.div>
                   </div>
-                  
-                  <AnimatePresence>
-                    {selectedRole === 'teacher' && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mt-3 p-3 bg-blue-50/80 backdrop-blur-sm border border-blue-200/50 rounded-xl"
-                      >
-                        <div className="flex items-start">
-                          <Sparkles className="h-4 w-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-xs text-blue-800">
-                              <strong>Nota:</strong> La richiesta per account insegnante richiede approvazione amministrativa.
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </motion.div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.2 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <Input
                       label={
@@ -487,9 +450,9 @@ export const Register: React.FC = () => {
                   </motion.div>
                       
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.3 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <Input
                       label={
@@ -514,9 +477,9 @@ export const Register: React.FC = () => {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.4 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                     className="sm:col-span-2"
                   >
                     <Input
@@ -551,9 +514,9 @@ export const Register: React.FC = () => {
 
                   {/* Date of Birth and Gender - Common for both roles */}
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.5 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <DatePicker
                       label="Data di nascita"
@@ -582,9 +545,9 @@ export const Register: React.FC = () => {
                   </motion.div>
 
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.6 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <Controller
                       name="gender"
@@ -649,9 +612,9 @@ export const Register: React.FC = () => {
                   {selectedRole === 'student' && (
                     <>
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.8 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                        transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                       >
                         <Input
                           label={
@@ -670,9 +633,9 @@ export const Register: React.FC = () => {
                       </motion.div>
                       
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.9 }}
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                        transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                       >
                         <Input
                           label={
@@ -692,9 +655,9 @@ export const Register: React.FC = () => {
                 </div>
                     
                 <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 1.0 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   className="flex items-center pt-2"
                 >
                   <input
@@ -710,9 +673,9 @@ export const Register: React.FC = () => {
                 </motion.div>
                     
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 1.1 }}
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                  transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   className="pt-4"
                 >
                   <Button 
@@ -722,8 +685,8 @@ export const Register: React.FC = () => {
                     className="h-14 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group"
                     rightIcon={
                       <motion.div
-                        animate={{ x: isLoading ? 0 : [0, 4, 0] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        animate={!shouldReduceMotion && !isLoading ? { x: [0, 4, 0] } : undefined}
+                        transition={!shouldReduceMotion && !isLoading ? { duration: 1.2, repeat: 2, ease: "easeInOut" } : undefined}
                       >
                         <ArrowRight className="h-5 w-5" />
                       </motion.div>
@@ -741,9 +704,9 @@ export const Register: React.FC = () => {
               </form>
                 
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.8 }}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                 className="mt-8 text-center"
               >
                 <p className="text-gray-600">
