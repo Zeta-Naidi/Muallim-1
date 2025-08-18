@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, Search, Plus, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, Mail, Phone, MapPin, Calendar, Euro, History, UserPlus, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, Search, Plus, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, Mail, Phone, MapPin, Calendar, Euro, History, UserPlus, CheckCircle, AlertCircle, Shield, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, limit, updateDoc, doc } from 'firebase/firestore';
@@ -199,6 +199,34 @@ export const ManageTeachers: React.FC = () => {
         setFilteredTeachers(approved);
         setFilteredPending(pending);
         setAllTeachers(approved); // For assistant selection
+
+        // Bell notification to admins for newly pending teachers (one-time)
+        try {
+          const newlyPending = pending.filter(t => !(t as any).pendingNotified);
+          if (newlyPending.length > 0) {
+            const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'admin')));
+            const adminIds = adminsSnap.docs.map(d => d.id);
+
+            // Create notifications for each admin and each new pending teacher
+            await Promise.all(newlyPending.flatMap(tp => (
+              adminIds.map(adminId => addDoc(collection(db, 'notifications'), {
+                recipientId: adminId,
+                title: 'Nuova richiesta insegnante',
+                message: `${tp.displayName} (${tp.email}) è in attesa di approvazione`,
+                createdAt: new Date(),
+                read: false,
+              }))
+            )));
+
+            // Mark admins as having unread
+            await Promise.all(adminIds.map(id => updateDoc(doc(db, 'users', id), { hasUnread: true })));
+
+            // Mark teachers as notified to avoid duplicates
+            await Promise.all(newlyPending.map(tp => updateDoc(doc(db, 'users', tp.id), { pendingNotified: true } as any)));
+          }
+        } catch (notifErr) {
+          console.warn('Impossibile inviare notifica pending teachers:', notifErr);
+        }
 
         // Fetch classes
         const classesQuery = query(collection(db, 'classes'));
@@ -1232,22 +1260,27 @@ export const ManageTeachers: React.FC = () => {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-all duration-200 hover:shadow-sm"
+                          className="border border-slate-200 rounded-lg p-3 hover:bg-slate-50 transition-all duration-200 hover:shadow-sm"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-2 mb-1">
                                 <h4 className="font-medium text-slate-900">{s.className}</h4>
                                 <span className="text-slate-500">•</span>
                                 <span className="text-slate-600">{format(new Date(s.date), 'dd MMM yyyy', { locale: it })}</span>
                                 <span className="text-slate-500">•</span>
                                 <span className="text-slate-600">{s.startTime}–{s.endTime}</span>
                               </div>
-                              <div className="text-sm text-slate-600 mb-2">
+                              <div className="text-sm text-slate-600 mb-1">
                                 <strong>Supplente:</strong> {s.teacherName}
                               </div>
+                              {s.originalTeacherName && (
+                                <div className="text-xs text-slate-500 mb-2">
+                                  <strong>Titolare:</strong> {s.originalTeacherName}
+                                </div>
+                              )}
                               {s.reason && (
-                                <div className="text-sm text-slate-500 mb-3">
+                                <div className="text-sm text-slate-500 mb-2">
                                   <strong>Motivo:</strong> {s.reason}
                                 </div>
                               )}

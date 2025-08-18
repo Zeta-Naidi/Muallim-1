@@ -64,6 +64,8 @@ export interface User {
   // Account activation status
   accountStatus?: 'active' | 'pending_approval';
   tempId?: string; // Temporary ID for pre-created accounts
+  // Notification meta
+  pendingNotified?: boolean; // Whether admins have been notified about this pending teacher
 }
 
 export interface Payment {

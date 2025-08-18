@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, User, ChevronDown, GraduationCap, Bell } from 'lucide-react';
+import { Menu, X, LogOut, User, ChevronDown, GraduationCap, Bell, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, where, orderBy, updateDoc, doc, onSnapshot, limit, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, updateDoc, doc, onSnapshot, limit, getDocs, deleteDoc, addDoc, getDoc } from 'firebase/firestore';
 import { showToast } from '../ui/Toast';
 import { db } from '../../services/firebase';
 import { format } from 'date-fns';
@@ -95,6 +95,62 @@ export const Header: React.FC = () => {
     }, (e) => {
       console.error('Errore sottoscrivendo flag utente hasUnread', e);
     });
+    return () => unsub();
+  }, [userProfile]);
+
+  // Admin-only: ensure bell lights regardless of page by creating per-admin notifications
+  // for each teacher pending approval, if not already notified for this admin.
+  useEffect(() => {
+    if (!userProfile || userProfile.role !== 'admin') return;
+
+    const qPendingTeachers = query(
+      collection(db, 'users'),
+      where('role', '==', 'teacher'),
+      where('accountStatus', '==', 'pending_approval')
+    );
+
+    const unsub = onSnapshot(qPendingTeachers, async (snap) => {
+      try {
+        // Get admin's dismissed list
+        const adminDocSnap = await getDoc(doc(db, 'users', userProfile.id));
+        const adminData = adminDocSnap.data() || {};
+        const dismissedTeachers = adminData.dismissedPendingTeachers || [];
+
+        for (const d of snap.docs) {
+          const t: any = d.data();
+          
+          // Skip if this teacher was dismissed by this admin
+          if (dismissedTeachers.includes(d.id)) {
+            continue;
+          }
+          
+          // Check if a notification for this teacher already exists for this admin
+          const existing = await getDocs(query(
+            collection(db, 'notifications'),
+            where('recipientId', '==', userProfile.id),
+            where('type', '==', 'pending_teacher'),
+            where('entityId', '==', d.id)
+          ));
+          if (existing.empty) {
+            await addDoc(collection(db, 'notifications'), {
+              recipientId: userProfile.id,
+              title: 'Nuova richiesta insegnante',
+              message: `${t.displayName} (${t.email}) è in attesa di approvazione`,
+              createdAt: new Date(),
+              read: false,
+              type: 'pending_teacher',
+              entityId: d.id,
+            });
+            await updateDoc(doc(db, 'users', userProfile.id), { hasUnread: true });
+          }
+        }
+      } catch (e) {
+        console.warn('Errore generando notifiche pending (header):', e);
+      }
+    }, (e) => {
+      console.error('Errore ascoltando pending teachers:', e);
+    });
+
     return () => unsub();
   }, [userProfile]);
 
@@ -288,38 +344,75 @@ export const Header: React.FC = () => {
                             ) : (
                               <ul className="divide-y divide-gray-100">
                                 {notifications.map(n => (
-                                  <li key={n.id} className="p-3 hover:bg-gray-50 cursor-pointer"
-                                      onClick={async () => {
-                                        // mark as read
-                                        try {
-                                          if (!n.read) {
-                                            await updateDoc(doc(db, 'notifications', n.id), { read: true });
-                                            setNotifications(prev => prev.map(it => it.id === n.id ? { ...it, read: true } : it));
-                                            // if no more unread, clear user flag
-                                            try {
-                                              const q = query(collection(db, 'notifications'), where('recipientId', '==', userProfile!.id), where('read', '==', false), limit(1));
-                                              const res = await getDocs(q);
-                                              if (res.empty) {
-                                                await updateDoc(doc(db, 'users', userProfile!.id), { hasUnread: false });
-                                              }
-                                            } catch (flagErr) {
-                                              console.warn('Impossibile aggiornare flag utente hasUnread:', flagErr);
-                                            }
-                                          }
-                                        } catch (err) {
-                                          console.warn('Impossibile aggiornare notifica', err);
-                                        }
-                                      }}
-                                  >
+                                  <li key={n.id} className="p-3 hover:bg-gray-50 group">
                                     <div className="flex items-start gap-2">
                                       <div className={`mt-1 h-2 w-2 rounded-full ${n.read ? 'bg-gray-300' : 'bg-blue-600'}`}></div>
-                                      <div className="flex-1">
+                                      <div 
+                                        className="flex-1 cursor-pointer"
+                                        onClick={async () => {
+                                          // mark as read
+                                          try {
+                                            if (!n.read) {
+                                              await updateDoc(doc(db, 'notifications', n.id), { read: true });
+                                              setNotifications(prev => prev.map(it => it.id === n.id ? { ...it, read: true } : it));
+                                              // if no more unread, clear user flag
+                                              try {
+                                                const q = query(collection(db, 'notifications'), where('recipientId', '==', userProfile!.id), where('read', '==', false), limit(1));
+                                                const res = await getDocs(q);
+                                                if (res.empty) {
+                                                  await updateDoc(doc(db, 'users', userProfile!.id), { hasUnread: false });
+                                                }
+                                              } catch (flagErr) {
+                                                console.warn('Impossibile aggiornare flag utente hasUnread:', flagErr);
+                                              }
+                                            }
+                                          } catch (err) {
+                                            console.warn('Impossibile aggiornare notifica', err);
+                                          }
+                                        }}
+                                      >
                                         <div className="text-sm text-gray-900">{n.title || 'Notifica'}</div>
                                         {n.message && <div className="text-xs text-gray-600 mt-0.5">{n.message}</div>}
                                         {n.createdAt && (
                                           <div className="text-[11px] text-gray-400 mt-1">{format(n.createdAt, 'dd MMM yyyy HH:mm', { locale: it })}</div>
                                         )}
                                       </div>
+                                      <button
+                                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-all"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await deleteDoc(doc(db, 'notifications', n.id));
+                                            setNotifications(prev => prev.filter(it => it.id !== n.id));
+                                            
+                                            // If this is a pending teacher notification, mark it as dismissed
+                                            if ((n as any).type === 'pending_teacher' && (n as any).entityId) {
+                                              const userDocRef = doc(db, 'users', userProfile!.id);
+                                              const userDocSnap = await getDoc(userDocRef);
+                                              const currentData = userDocSnap.data() || {};
+                                              const dismissed = currentData.dismissedPendingTeachers || [];
+                                              if (!dismissed.includes((n as any).entityId)) {
+                                                await updateDoc(userDocRef, {
+                                                  dismissedPendingTeachers: [...dismissed, (n as any).entityId]
+                                                });
+                                              }
+                                            }
+                                            
+                                            // Check if we need to update hasUnread flag
+                                            const remaining = notifications.filter(it => it.id !== n.id && !it.read);
+                                            if (remaining.length === 0) {
+                                              await updateDoc(doc(db, 'users', userProfile!.id), { hasUnread: false });
+                                            }
+                                            showToast.success('Notifica eliminata');
+                                          } catch (err) {
+                                            console.warn('Impossibile eliminare notifica', err);
+                                            showToast.error('Errore nell\'eliminazione');
+                                          }
+                                        }}
+                                        title="Elimina notifica"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
                                     </div>
                                   </li>
                                 ))}
