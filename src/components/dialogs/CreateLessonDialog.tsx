@@ -27,7 +27,7 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [topics, setTopics] = useState<string[]>(['']);
+  const [topics, setTopics] = useState<{name: string, details: string}[]>([{name: '', details: ''}]);
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,14 +60,14 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
     }
   };
 
-  const handleTopicChange = (index: number, value: string) => {
+  const handleTopicChange = (index: number, field: 'name' | 'details', value: string) => {
     const newTopics = [...topics];
-    newTopics[index] = value;
+    newTopics[index] = { ...newTopics[index], [field]: value };
     setTopics(newTopics);
   };
 
   const handleAddTopic = () => {
-    setTopics([...topics, '']);
+    setTopics([...topics, {name: '', details: ''}]);
   };
 
   const handleRemoveTopic = (index: number) => {
@@ -90,7 +90,7 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
       return;
     }
 
-    const filteredTopics = topics.filter(topic => topic.trim() !== '');
+    const filteredTopics = topics.filter(topic => topic.name.trim() !== '');
     if (filteredTopics.length === 0) {
       setError('Almeno un argomento è obbligatorio');
       return;
@@ -105,7 +105,13 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
         description: description.trim(),
         classId,
         date: new Date(date),
-        topics: filteredTopics,
+        topics: filteredTopics.map(t => t.name),
+        topicDetails: filteredTopics.reduce((acc, topic) => {
+          if (topic.details.trim()) {
+            acc[topic.name] = topic.details;
+          }
+          return acc;
+        }, {} as Record<string, string>),
         materials: selectedMaterials,
         homeworks: [],
         createdBy: userProfile.id,
@@ -120,7 +126,7 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
       setTitle('');
       setDescription('');
       setDate(new Date().toISOString().split('T')[0]);
-      setTopics(['']);
+      setTopics([{name: '', details: ''}]);
       setSelectedMaterials([]);
     } catch (error) {
       console.error('Error creating lesson:', error);
@@ -198,23 +204,36 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
               </div>
               
               {topics.map((topic, index) => (
-                <div key={index} className="flex mb-2 gap-2">
-                  <Input
-                    value={topic}
-                    onChange={(e) => handleTopicChange(index, e.target.value)}
-                    placeholder={`Argomento ${index + 1}`}
-                    fullWidth
-                  />
-                  {topics.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRemoveTopic(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
+                <div key={index} className="mb-4 p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Input
+                      value={topic.name}
+                      onChange={(e) => handleTopicChange(index, 'name', e.target.value)}
+                      placeholder={`Argomento ${index + 1}`}
+                      fullWidth
+                    />
+                    {topics.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveTopic(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Dettagli argomento (opzionale)
+                    </label>
+                    <textarea
+                      className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm p-2 min-h-[60px]"
+                      value={topic.details}
+                      onChange={(e) => handleTopicChange(index, 'details', e.target.value)}
+                      placeholder="Descrivi i dettagli specifici di questo argomento..."
+                    />
+                  </div>
                 </div>
               ))}
             </div>
