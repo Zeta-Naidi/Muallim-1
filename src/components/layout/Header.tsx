@@ -200,10 +200,10 @@ export const Header: React.FC = () => {
       return [
         ...baseItems,
         { path: '/admin/classes', label: 'Classi' },
-        { path: '/admin/users', label: 'Utenti' },
-        { path: '/admin/students', label: 'Studenti' },
         { path: '/admin/teachers', label: 'Insegnanti' },
+        { path: '/admin/students', label: 'Studenti' },
         { path: '/admin/payments', label: 'Pagamenti' },
+        { path: '/admin/users', label: 'Utenti' },
       ];
     }
 

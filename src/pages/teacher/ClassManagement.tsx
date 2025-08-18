@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Users, BookOpen, ClipboardList, FileText, Calendar, TrendingUp, UserCheck, Clock, Plus, School, GraduationCap, Eye, Mail, Phone } from 'lucide-react';
+import { Users, BookOpen, ClipboardList, FileText, Calendar, UserCheck, Clock, Plus, School, GraduationCap, Eye, Mail, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StudentDetailsDialog } from '../../components/dialogs/StudentDetailsDialog';
 import { Class, User, Homework, Lesson, LessonMaterial, Attendance } from '../../types';
@@ -116,14 +115,43 @@ export const ClassManagement: React.FC = () => {
       
       setIsLoading(true);
       try {
-        // Fetch students
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student'),
-          where('classId', '==', selectedClass)
-        );
-        const studentsDocs = await getDocs(studentsQuery);
-        const students = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        // Fetch students using the class document's students array
+        let students: User[] = [];
+        try {
+          console.log('Fetching students for class:', selectedClass);
+          
+          // Get the class document to access the students array
+          const classDoc = await getDoc(doc(db, 'classes', selectedClass));
+          if (classDoc.exists()) {
+            const classData = classDoc.data();
+            const studentIds = classData.students || [];
+            console.log('Student IDs from class document:', studentIds);
+            
+            if (studentIds.length > 0) {
+              // Fetch student documents in batches (Firestore 'in' query limit is 10)
+              const studentBatches = [];
+              for (let i = 0; i < studentIds.length; i += 10) {
+                const batch = studentIds.slice(i, i + 10);
+                const studentsQuery = query(
+                  collection(db, 'users'),
+                  where('__name__', 'in', batch)
+                );
+                const studentsDocs = await getDocs(studentsQuery);
+                const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+                studentBatches.push(...batchStudents);
+              }
+              students = studentBatches;
+              console.log('Fetched students:', students.map(s => ({ id: s.id, displayName: s.displayName })));
+            } else {
+              console.log('No students found in class document');
+            }
+          } else {
+            console.log('Class document not found:', selectedClass);
+          }
+          
+        } catch (studentsError) {
+          console.error('Error fetching students:', studentsError);
+        }
 
         // Fetch homework
         const homeworkQuery = query(
@@ -239,216 +267,248 @@ export const ClassManagement: React.FC = () => {
   const selectedClassData = myClasses.find(c => c.id === selectedClass);
 
   return (
-    <PageContainer
-      title="Gestione Classi"
-      description="Gestisci le tue classi, studenti e attività didattiche"
-    >
-      <div className="mb-8">
-        <Card variant="elevated" className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md rounded-xl overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Seleziona Classe
-                </label>
-                <select
-                  className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white border p-3 transition-colors"
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                >
-                  <option value="">Seleziona una classe</option>
-                  {myClasses.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.isTemporary ? '(Supplenza)' : ''}
-                    </option>
-                  ))}
-                </select>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <School className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Le Mie Classi</h1>
+                <p className="text-blue-100 mt-1">Gestisci le tue classi, studenti e attività didattiche</p>
+              </div>
+            </div>
+            
+            {/* Class Selection */}
+            <div className="mt-8 p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20">
+              <div className="flex items-center text-white mb-4">
+                <GraduationCap className="h-5 w-5 mr-2" />
+                <h3 className="text-lg font-semibold">Seleziona Classe</h3>
               </div>
               
-              {selectedClassData && (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100 min-w-[250px]">
-                  <div className="flex items-center mb-2">
-                    <School className="h-5 w-5 text-blue-600 mr-2" />
-                    <h3 className="font-medium text-gray-900">{selectedClassData.name}</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">{selectedClassData.description}</p>
-                  <div className="flex items-center text-sm text-blue-700">
-                    <Clock className="h-4 w-4 mr-2" />
-                    <span className="font-medium">{selectedClassData.turno || 'Turno non specificato'}</span>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    Classe
+                  </label>
+                  <select
+                    className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                  >
+                    <option value="" className="text-gray-900">Seleziona una classe</option>
+                    {myClasses.map(c => (
+                      <option key={c.id} value={c.id} className="text-gray-900">
+                        {c.name} {c.isTemporary ? '(Supplenza)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                
+                {selectedClassData && (
+                  <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+                    <div className="flex items-center mb-2">
+                      <School className="h-5 w-5 text-white mr-2" />
+                      <h4 className="font-semibold text-white">{selectedClassData.name}</h4>
+                    </div>
+                    <p className="text-blue-100 text-sm mb-2">{selectedClassData.description}</p>
+                    <div className="flex items-center text-sm text-white/90">
+                      <Clock className="h-4 w-4 mr-1" />
+                      <span>{selectedClassData.turno || 'Turno non specificato'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
 
       {selectedClass && !isLoading && (
         <>
-          {/* Class Overview Card */}
-          <Card variant="elevated" className="mb-8 bg-white shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-              <CardTitle className="flex items-center text-gray-900">
-                <GraduationCap className="h-6 w-6 mr-2 text-blue-600" />
-                Panoramica Classe
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="grid grid-cols-2 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-gray-100">
-                <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center mr-3">
-                      <Users className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">Studenti</span>
+          {/* Class Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <Users className="w-5 h-5" />
                   </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-light text-gray-900">{classStats.totalStudents}</span>
-                    <span className="ml-2 text-sm text-success-600">Iscritti</span>
-                  </div>
+                  <div className="text-sm font-medium text-emerald-700">Studenti</div>
                 </div>
-                
-                <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mr-3">
-                      <UserCheck className="h-5 w-5 text-green-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">Presenze</span>
-                  </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-light text-gray-900">{classStats.attendanceRate}%</span>
-                    <span className="ml-2 text-sm text-gray-500">Tasso</span>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center mr-3">
-                      <ClipboardList className="h-5 w-5 text-amber-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">Compiti</span>
-                  </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-light text-gray-900">{classStats.activeHomework}</span>
-                    <span className="ml-2 text-sm text-gray-500">Attivi</span>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center mr-3">
-                      <BookOpen className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">Lezioni</span>
-                  </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-light text-gray-900">{classStats.totalLessons}</span>
-                    <span className="ml-2 text-sm text-gray-500">Totali</span>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center mr-3">
-                      <FileText className="h-5 w-5 text-indigo-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">Materiali</span>
-                  </div>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-light text-gray-900">{classStats.materialsCount}</span>
-                    <span className="ml-2 text-sm text-gray-500">Caricati</span>
-                  </div>
-                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{classStats.totalStudents}</div>
+                <div className="mt-1 text-sm text-slate-500">Iscritti</div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-green-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-green-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
+                    <UserCheck className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-green-700">Presenze</div>
+                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{classStats.attendanceRate}%</div>
+                <div className="mt-1 text-sm text-slate-500">Tasso medio</div>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-amber-700">Compiti</div>
+                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{classStats.activeHomework}</div>
+                <div className="mt-1 text-sm text-slate-500">Attivi</div>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-purple-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-purple-700">Lezioni</div>
+                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{classStats.totalLessons}</div>
+                <div className="mt-1 text-sm text-slate-500">Totali</div>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-indigo-700">Materiali</div>
+                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{classStats.materialsCount}</div>
+                <div className="mt-1 text-sm text-slate-500">Caricati</div>
+              </div>
+            </div>
+          </div>
 
           {/* Quick Actions */}
-          <div className="mb-8">
-            <Card variant="elevated" className="bg-white shadow-md rounded-xl overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                <CardTitle className="flex items-center text-gray-900">
-                  <Plus className="h-5 w-5 mr-2 text-blue-600" />
-                  Azioni Rapide
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Link to="/attendance">
-                    <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm hover:shadow transition-all flex flex-col items-center text-center h-full">
-                      <Calendar className="h-8 w-8 text-blue-600 mb-3" />
-                      <h3 className="font-medium text-gray-900 mb-1">Registra Presenze</h3>
-                      <p className="text-xs text-gray-600">Segna presenze/assenze</p>
-                    </div>
-                  </Link>
-                  
-                  <Link to="/homework/new">
-                    <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl shadow-sm hover:shadow transition-all flex flex-col items-center text-center h-full">
-                      <Plus className="h-8 w-8 text-amber-600 mb-3" />
-                      <h3 className="font-medium text-gray-900 mb-1">Nuovo Compito</h3>
-                      <p className="text-xs text-gray-600">Assegna compiti</p>
-                    </div>
-                  </Link>
-                  
-                  <Link to="/lessons">
-                    <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl shadow-sm hover:shadow transition-all flex flex-col items-center text-center h-full">
-                      <BookOpen className="h-8 w-8 text-purple-600 mb-3" />
-                      <h3 className="font-medium text-gray-900 mb-1">Gestisci Lezioni</h3>
-                      <p className="text-xs text-gray-600">Crea e modifica lezioni</p>
-                    </div>
-                  </Link>
-                  
-                  <Link to="/materials/new">
-                    <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-sm hover:shadow transition-all flex flex-col items-center text-center h-full">
-                      <FileText className="h-8 w-8 text-green-600 mb-3" />
-                      <h3 className="font-medium text-gray-900 mb-1">Carica Materiali</h3>
-                      <p className="text-xs text-gray-600">Aggiungi risorse</p>
-                    </div>
-                  </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Link to="/attendance">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
+                    <Calendar className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">Registra Presenze</h3>
+                  <p className="text-blue-100 text-sm">Segna presenze/assenze</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </Link>
+            
+            <Link to="/homework/new">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
+                    <Plus className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">Nuovo Compito</h3>
+                  <p className="text-rose-100 text-sm">Assegna compiti</p>
+                </div>
+              </div>
+            </Link>
+            
+            <Link to="/lessons">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
+                    <BookOpen className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">Gestisci Lezioni</h3>
+                  <p className="text-purple-100 text-sm">Crea e modifica lezioni</p>
+                </div>
+              </div>
+            </Link>
+            
+            <Link to="/materials/new">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
+                    <FileText className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">Carica Materiali</h3>
+                  <p className="text-emerald-100 text-sm">Aggiungi risorse</p>
+                </div>
+              </div>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Students List */}
-            <Card variant="elevated" className="bg-white shadow-md rounded-xl overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                <CardTitle className="flex items-center text-gray-900">
-                  <Users className="h-5 w-5 mr-2 text-blue-600" />
-                  Studenti ({classStats.totalStudents})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">Studenti ({classStats.totalStudents})</h3>
+                </div>
+              </div>
+              <div className="p-6">
                 {classData.students.length > 0 ? (
-                  <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2">
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
                     {classData.students.map((student) => (
-                      <div key={student.id} className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors rounded-xl border border-gray-100 cursor-pointer" onClick={() => handleViewStudentDetails(student)}>
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mr-3">
-                            <span className="text-blue-700 font-medium text-sm">
-                              {student.displayName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{student.displayName}</p>
-                            <div className="flex items-center text-xs text-gray-500">
-                              <Mail className="h-3 w-3 mr-1" />
-                              {student.email}
+                      <div 
+                        key={student.id} 
+                        className="group rounded-xl border border-slate-100 p-4 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all cursor-pointer"
+                        onClick={() => handleViewStudentDetails(student)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
+                              <span className="text-emerald-700 font-semibold text-sm">
+                                {student.displayName.charAt(0).toUpperCase()}
+                              </span>
                             </div>
-                            {student.phoneNumber && (
-                              <div className="flex items-center text-xs text-gray-500 mt-1">
-                                <Phone className="h-3 w-3 mr-1" />
-                                {student.phoneNumber}
+                            <div>
+                              <h4 className="font-medium text-slate-900 group-hover:text-emerald-900">{student.displayName}</h4>
+                              <div className="flex items-center text-xs text-slate-500 mt-1">
+                                <Mail className="h-3 w-3 mr-1" />
+                                {student.email}
                               </div>
-                            )}
+                              {student.phoneNumber && (
+                                <div className="flex items-center text-xs text-slate-500 mt-1">
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  {student.phoneNumber}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -457,33 +517,38 @@ export const ClassManagement: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">
-                    Nessuno studente presente in questa classe.
-                  </p>
+                  <div className="text-center py-8">
+                    <div className="h-12 w-12 rounded-xl bg-emerald-100 text-emerald-400 flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-500 text-sm">Nessuno studente presente in questa classe.</p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Recent Activity */}
-            <Card variant="elevated" className="bg-white shadow-md rounded-xl overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                <CardTitle className="flex items-center text-gray-900">
-                  <Clock className="h-5 w-5 mr-2 text-blue-600" />
-                  Attività Recenti
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">Attività Recenti</h3>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4 max-h-[400px] overflow-y-auto">
                   {/* Recent Lessons */}
                   {classData.lessons.slice(0, 2).map((lesson) => (
-                    <div key={lesson.id} className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 shadow-sm">
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                          <BookOpen className="h-5 w-5 text-blue-600" />
+                    <div key={lesson.id} className="group rounded-xl border border-slate-100 p-4 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                          <BookOpen className="h-5 w-5 text-indigo-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{lesson.title}</p>
-                          <p className="text-xs text-gray-600">{formatDate(lesson.date)}</p>
+                          <h4 className="font-medium text-slate-900 group-hover:text-indigo-900">{lesson.title}</h4>
+                          <p className="text-sm text-slate-500 mt-1">{formatDate(lesson.date)}</p>
                         </div>
                       </div>
                     </div>
@@ -491,14 +556,14 @@ export const ClassManagement: React.FC = () => {
 
                   {/* Recent Homework */}
                   {classData.homework.slice(0, 2).map((homework) => (
-                    <div key={homework.id} className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-100 shadow-sm">
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mr-3">
+                    <div key={homework.id} className="group rounded-xl border border-slate-100 p-4 hover:border-amber-200 hover:bg-amber-50/50 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
                           <ClipboardList className="h-5 w-5 text-amber-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{homework.title}</p>
-                          <p className="text-xs text-gray-600">Scadenza: {formatDate(homework.dueDate)}</p>
+                          <h4 className="font-medium text-slate-900 group-hover:text-amber-900">{homework.title}</h4>
+                          <p className="text-sm text-slate-500 mt-1">Scadenza: {formatDate(homework.dueDate)}</p>
                         </div>
                       </div>
                     </div>
@@ -506,31 +571,66 @@ export const ClassManagement: React.FC = () => {
 
                   {/* Recent Materials */}
                   {classData.materials.slice(0, 1).map((material) => (
-                    <div key={material.id} className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-100 shadow-sm">
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center mr-3">
+                    <div key={material.id} className="group rounded-xl border border-slate-100 p-4 hover:border-purple-200 hover:bg-purple-50/50 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
                           <FileText className="h-5 w-5 text-purple-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{material.title}</p>
-                          <p className="text-xs text-gray-600">{formatDate(material.createdAt)}</p>
+                          <h4 className="font-medium text-slate-900 group-hover:text-purple-900">{material.title}</h4>
+                          <p className="text-sm text-slate-500 mt-1">{formatDate(material.createdAt)}</p>
                         </div>
                       </div>
                     </div>
                   ))}
 
                   {classData.lessons.length === 0 && classData.homework.length === 0 && classData.materials.length === 0 && (
-                    <p className="text-gray-500 text-center py-8">
-                      Nessuna attività recente.
-                    </p>
+                    <div className="text-center py-8">
+                      <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-400 flex items-center justify-center mx-auto mb-3">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <p className="text-slate-500 text-sm">Nessuna attività recente.</p>
+                    </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </>
       )}
       
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-4 text-slate-600">Caricamento dei dati della classe...</p>
+          </div>
+        )}
+
+        {!selectedClass && !isLoading && myClasses.length === 0 && (
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
+            <div className="p-12 text-center">
+              <School className="h-20 w-20 text-gray-300 mx-auto mb-6" />
+              <h3 className="text-2xl font-medium text-gray-900 mb-3">Nessuna classe assegnata</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Non hai ancora classi assegnate. Contatta l'amministratore per essere assegnato a una classe.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!selectedClass && !isLoading && myClasses.length > 0 && (
+          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/20 shadow-xl overflow-hidden">
+            <div className="p-12 text-center">
+              <GraduationCap className="h-20 w-20 text-gray-300 mx-auto mb-6" />
+              <h3 className="text-2xl font-medium text-gray-900 mb-3">Seleziona una classe</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Scegli una classe dal menu a tendina sopra per visualizzare studenti e attività.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Student Details Dialog */}
       <StudentDetailsDialog
         student={selectedStudent}
@@ -540,25 +640,6 @@ export const ClassManagement: React.FC = () => {
           setSelectedStudent(null);
         }}
       />
-
-      {isLoading && (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-light">Caricamento dei dati della classe...</p>
-        </div>
-      )}
-
-      {!selectedClass && !isLoading && myClasses.length === 0 && (
-        <Card variant="elevated" className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20">
-          <CardContent className="p-8 text-center">
-            <School className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-            <h3 className="text-2xl font-light text-gray-900 mb-3">Nessuna classe assegnata</h3>
-            <p className="text-gray-500">
-              Non hai ancora classi assegnate. Contatta l'amministratore per essere assegnato a una classe.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </PageContainer>
+    </div>
   );
 };

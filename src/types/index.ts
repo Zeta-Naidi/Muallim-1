@@ -191,11 +191,36 @@ export interface LessonMaterial {
   teacherName?: string;
 }
 
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'error';
+
 export interface ChatMessage {
   id: string;
   text: string;
   senderId: string;
   senderName: string;
+  senderAvatar?: string;
   createdAt: Date;
-  attachments?: string[];
+  updatedAt?: Date;
+  status: MessageStatus;
+  readBy?: {
+    [userId: string]: Date;
+  };
+  attachments?: Array<{
+    url: string;
+    name: string;
+    type: 'image' | 'document' | 'audio' | 'video' | 'other';
+    size: number;
+  }>;
+  reactions?: {
+    [emoji: string]: string[]; // emoji -> array of user IDs who reacted
+  };
+  replyTo?: string; // ID of the message being replied to
+  threadId?: string; // For thread support
+  isEdited?: boolean;
+  deleted?: boolean;
+  deletedBy?: string; // ID of user who deleted the message
+  deletedByAdmin?: boolean; // Flag to indicate admin deletion
+  metadata?: {
+    [key: string]: any;
+  };
 }
