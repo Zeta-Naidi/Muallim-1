@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, forwardRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -12,7 +12,7 @@ export interface DropdownOption {
 }
 
 interface DropdownProps {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
   disabled?: boolean;
   placeholder?: string;
@@ -51,6 +51,7 @@ export const Dropdown = forwardRef<HTMLButtonElement, DropdownProps>(
     ref
   ) => {
     const [isOpen, setIsOpen] = useState(false);
+    const shouldReduceMotion = useReducedMotion();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedValues, setSelectedValues] = useState<string[]>(
       multiple ? (Array.isArray(value) ? value : value ? [value] : []) : []
@@ -146,8 +147,8 @@ export const Dropdown = forwardRef<HTMLButtonElement, DropdownProps>(
               : 'border-gray-200/50 hover:border-blue-300 hover:bg-white focus:bg-white focus:border-blue-300',
             fullWidth ? 'w-full' : ''
           )}
-          whileHover={!disabled ? { scale: 1.01 } : {}}
-          whileTap={!disabled ? { scale: 0.99 } : {}}
+          whileHover={!disabled && !shouldReduceMotion ? { scale: 1.01 } : {}}
+          whileTap={!disabled && !shouldReduceMotion ? { scale: 0.99 } : {}}
         >
           {leftIcon && (
             <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
@@ -176,11 +177,11 @@ export const Dropdown = forwardRef<HTMLButtonElement, DropdownProps>(
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200/50 backdrop-blur-xl overflow-hidden"
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="absolute z-50 w-full mt-2 bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden"
               style={{ maxHeight }}
             >
               {searchable && (
@@ -202,7 +203,7 @@ export const Dropdown = forwardRef<HTMLButtonElement, DropdownProps>(
                     <p className="text-sm">Nessuna opzione trovata</p>
                   </div>
                 ) : (
-                  filteredOptions.map((option, index) => {
+                  filteredOptions.map((option) => {
                     const isSelected = multiple
                       ? selectedValues.includes(option.value)
                       : value === option.value;
@@ -221,10 +222,10 @@ export const Dropdown = forwardRef<HTMLButtonElement, DropdownProps>(
                             ? 'bg-blue-50 text-blue-900 border-l-4 border-blue-500'
                             : 'text-gray-900 hover:bg-gray-50'
                         )}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.1, delay: index * 0.02 }}
-                        whileHover={!option.disabled ? { x: 4 } : {}}
+                        initial={shouldReduceMotion ? false : { opacity: 0, x: -6 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0 }}
+                        transition={{ duration: 0.12 }}
+                        whileHover={!option.disabled && !shouldReduceMotion ? { x: 2 } : {}}
                       >
                         <div className="flex items-center space-x-3 flex-1">
                           {option.icon && (

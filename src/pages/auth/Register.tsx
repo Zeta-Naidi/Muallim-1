@@ -581,9 +581,9 @@ export const Register: React.FC = () => {
 
                   {/* Phone Number - Common for both roles */}
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.7 }}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                     className="sm:col-span-2"
                   >
                     <Input
