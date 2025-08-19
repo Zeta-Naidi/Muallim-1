@@ -19,6 +19,8 @@ import {
   X, 
   Maximize2, 
   Minimize2,
+  Paperclip,
+  MoreVertical,
   Trash2,
   Edit2,
   Reply as ReplyIcon
@@ -26,10 +28,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
-import { ChatMessage as ChatMessageType } from '../../types';
+import { ChatMessage as ChatMessageType, MessageStatus } from '../../types';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useChatUnreadCount } from '../../hooks/useChatUnreadCount';
 
 export const EnhancedTeacherChat: React.FC = () => {
   const { userProfile } = useAuth();
@@ -39,28 +40,18 @@ export const EnhancedTeacherChat: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lastReadTimestamp, setLastReadTimestamp] = useState<Date>(new Date());
   const [replyTo, setReplyTo] = useState<{id: string, text: string, senderName: string} | null>(null);
   const [editingMessage, setEditingMessage] = useState<{id: string, text: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastMessageRef = useRef<string | null>(null);
-  // Use shared unread count hook
-  const { unreadCount, setOpenState } = useChatUnreadCount();
 
   // Initialize audio for message sounds
   useEffect(() => {
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
     audioRef.current.volume = 0.5;
-  }, []);
-
-  // Listen for header chat toggle event
-  useEffect(() => {
-    const handleToggleChat = () => {
-      setIsOpen(prev => !prev);
-    };
-
-    window.addEventListener('toggleChat', handleToggleChat);
-    return () => window.removeEventListener('toggleChat', handleToggleChat);
   }, []);
 
   // Load messages
@@ -96,11 +87,18 @@ export const EnhancedTeacherChat: React.FC = () => {
         
         if (
           latestMessage.senderId !== userProfile.id && 
-          latestMessage.id !== lastMessageRef.current
+          latestMessage.id !== lastMessageRef.current &&
+          latestMessage.createdAt > lastReadTimestamp
         ) {
           audioRef.current?.play().catch(console.error);
           lastMessageRef.current = latestMessage.id;
         }
+
+        const unreadMessages = newMessages.filter(msg => 
+          msg.senderId !== userProfile.id && 
+          msg.createdAt > lastReadTimestamp
+        );
+        setUnreadCount(unreadMessages.length);
       }
       
       scrollToBottom();
@@ -110,7 +108,7 @@ export const EnhancedTeacherChat: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [userProfile, isOpen]);
+  }, [userProfile, isOpen, lastReadTimestamp]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -133,7 +131,7 @@ export const EnhancedTeacherChat: React.FC = () => {
         text: messageText,
         senderId: userProfile.id,
         senderName: userProfile.displayName,
-        senderAvatar: '',
+        senderAvatar: userProfile.photoURL || '',
         createdAt: serverTimestamp(),
         status: 'sent',
         readBy: { [userProfile.id]: serverTimestamp() },
@@ -191,10 +189,10 @@ export const EnhancedTeacherChat: React.FC = () => {
 
 
   const toggleChat = () => {
-    const newOpenState = !isOpen;
-    setIsOpen(newOpenState);
-    setOpenState(newOpenState);
-    if (newOpenState) {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      setUnreadCount(0);
+      setLastReadTimestamp(new Date());
       setTimeout(scrollToBottom, 100);
     }
   };

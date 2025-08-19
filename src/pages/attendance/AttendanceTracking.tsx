@@ -105,8 +105,11 @@ export const AttendanceTracking: React.FC = () => {
         }
         setTeacherClasses(fetchedClasses);
         
-        if (userProfile.role === 'teacher' && fetchedClasses.length === 1) {
-          setSelectedClass(fetchedClasses[0].id);
+        // Auto-select class: prefer regular classes over temporary ones, then first available
+        if (!selectedClass && fetchedClasses.length > 0) {
+          const regular = fetchedClasses.find(c => !c.isTemporary);
+          const first = regular ?? fetchedClasses[0];
+          if (first) setSelectedClass(first.id);
         }
       } catch (error) {
         console.error('Error fetching classes:', error);
@@ -399,14 +402,37 @@ export const AttendanceTracking: React.FC = () => {
         
         <div className="relative px-6 py-12">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
-                <Calendar className="h-8 w-8" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                  <Calendar className="h-8 w-8" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">Registro Presenze</h1>
+                  <p className="text-blue-100 mt-1">Registra e gestisci le presenze giornaliere degli studenti</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold">Registro Presenze</h1>
-                <p className="text-blue-100 mt-1">Registra e gestisci le presenze giornaliere degli studenti</p>
-              </div>
+              
+              {/* Class Filter for Teachers with Multiple Classes */}
+              {userProfile?.role === 'teacher' && teacherClasses.length > 1 && (
+                <div className="min-w-[280px]">
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    Seleziona Classe
+                  </label>
+                  <select
+                    className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                  >
+                    <option value="" className="text-gray-900">Seleziona una classe</option>
+                    {teacherClasses.map(c => (
+                      <option key={c.id} value={c.id} className="text-gray-900">
+                        {c.name} {c.isTemporary ? '(Supplenza)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-2 mt-8">

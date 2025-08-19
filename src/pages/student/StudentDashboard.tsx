@@ -22,7 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Homework, Lesson, LessonMaterial, Attendance, HomeworkSubmission, Class, User } from '../../types';
+import { Homework, Lesson, LessonMaterial, Attendance, HomeworkSubmission, Class } from '../../types';
 
 export const StudentDashboard: React.FC = () => {
   const { userProfile } = useAuth();
@@ -232,16 +232,10 @@ export const StudentDashboard: React.FC = () => {
     );
   }
 
-  // Gender-based welcome message
-  const getWelcomeMessage = (user: User): string => {
-    const greeting = user.gender === 'female' ? 'Benvenuta' : 'Benvenuto';
-    return `${greeting}, ${user.displayName}`;
-  };
-
   if (!userProfile.classId) {
     return (
       <PageContainer
-        title={getWelcomeMessage(userProfile)}
+        title={`Benvenuto, ${userProfile.displayName}`}
         description="Dashboard Studente"
       >
         <Card>
@@ -259,7 +253,7 @@ export const StudentDashboard: React.FC = () => {
 
   return (
     <PageContainer
-      title={getWelcomeMessage(userProfile)}
+      title={`Benvenuto, ${userProfile.displayName}`}
       description={`Dashboard Studente${myClass ? ` - ${myClass.name}` : ''}`}
     >
       {isLoading ? (

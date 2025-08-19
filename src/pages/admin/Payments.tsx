@@ -3,7 +3,6 @@ import { collection, getDocs, query, where, addDoc, updateDoc, doc, orderBy, del
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Euro, Search, AlertCircle, CheckCircle, Calendar, CreditCard, FileText, Plus, Users, Phone, Edit, Save, X, Shield, Trash2, Wallet, Receipt, CreditCard as CreditCardIcon, UserPlus, Filter, ArrowUpDown, ChevronDown, ChevronUp, Clock } from 'lucide-react';
-import { PageContainer } from '../../components/layout/PageContainer';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -471,85 +470,105 @@ export const Payments: React.FC = () => {
 
   if (!userProfile || userProfile.role !== 'admin') {
     return (
-      <PageContainer title="Accesso non autorizzato">
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
           <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h3 className="text-2xl font-light text-gray-900 mb-2">Accesso non autorizzato</h3>
           <p className="text-gray-600">Non hai i permessi per accedere a questa pagina.</p>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title="Gestione Pagamenti"
-      description="Gestisci i pagamenti delle famiglie con studenti iscritti"
-    >
-      {/* Payment Status Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card variant="elevated" className="bg-white/70 backdrop-blur-md border border-white/20 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-1">Famiglie</p>
-                <p className="text-2xl font-semibold text-gray-900">{parentGroups.length}</p>
-              </div>
-              <div className="p-3 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
         
-        <Card variant="elevated" className="bg-white/70 backdrop-blur-md border border-white/20 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-1">Pagato</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  €{parentGroups.reduce((sum, group) => sum + group.paidAmount, 0).toFixed(0)}
-                </p>
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <Wallet className="h-8 w-8" />
               </div>
-              <div className="p-3 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div>
+                <h1 className="text-3xl font-bold">Gestione Pagamenti</h1>
+                <p className="text-blue-100 mt-1">Gestisci i pagamenti delle famiglie con studenti iscritti</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card variant="elevated" className="bg-white/70 backdrop-blur-md border border-white/20 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-1">Da Incassare</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  €{parentGroups.reduce((sum, group) => sum + Math.max(0, group.totalAmount - group.paidAmount), 0).toFixed(0)}
-                </p>
-              </div>
-              <div className="p-3 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card variant="elevated" className="bg-white/70 backdrop-blur-md border border-white/20 shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-1">Esentati</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {parentGroups.filter(group => group.isExempted).length}
-                </p>
-              </div>
-              <div className="p-3 rounded-full bg-white border border-slate-200 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Payment Status Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Famiglie</p>
+                  <p className="text-3xl font-bold text-gray-900">{parentGroups.length}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100">
+                  <Users className="h-8 w-8 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Pagato</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    €{parentGroups.reduce((sum, group) => sum + group.paidAmount, 0).toFixed(0)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-green-50 border border-green-100">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Da Incassare</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    €{parentGroups.reduce((sum, group) => sum + Math.max(0, group.totalAmount - group.paidAmount), 0).toFixed(0)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                  <Clock className="h-8 w-8 text-amber-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        
+          <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Esentati</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {parentGroups.filter(group => group.isExempted).length}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100">
+                  <Shield className="h-8 w-8 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
       <AnimatePresence>
         {message && (
@@ -679,7 +698,7 @@ export const Payments: React.FC = () => {
           {/* Families list */}
           <div className="lg:col-span-2">
             {filteredParentGroups.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {filteredParentGroups.map(group => {
                   const paymentStatus = getPaymentStatus(group);
                   const remainingAmount = group.isExempted ? 0 : Math.max(0, group.totalAmount - group.paidAmount);
@@ -695,8 +714,7 @@ export const Payments: React.FC = () => {
                 className="group"
               >
                 <Card
-                  variant="bordered"
-                  className="relative bg-slate-50 border border-slate-200 transition-colors duration-150 rounded-xl hover:bg-slate-100"
+                  className="relative bg-white/80 backdrop-blur-md border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden hover:bg-white/90"
                 >
                   <CardContent className="p-6">
                     {/* Row header - compact list style */}
@@ -706,34 +724,52 @@ export const Payments: React.FC = () => {
                       className="w-full text-left"
                       aria-expanded={expandedRow === group.parentContact}
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-8 w-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
-                            <Users className="h-4 w-4 text-slate-600" />
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                            <Users className="h-6 w-6 text-blue-600" />
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-semibold text-slate-900 truncate">{group.parentName}</h3>
+                            <div className="flex items-center gap-3 mb-1">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">{group.parentName}</h3>
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${paymentStatus.color}`}>
+                                {paymentStatus.text}
+                              </span>
                             </div>
-                            <div className="text-xs text-slate-600 truncate flex items-center gap-2">
-                              <span className="inline-flex items-center"><Phone className="h-3 w-3 mr-1 text-slate-400" />{group.parentContact}</span>
-                              <span className="text-slate-300">•</span>
-                              <span>{group.children.length} figli</span>
+                            <div className="text-sm text-gray-600 truncate flex items-center gap-3">
+                              <span className="inline-flex items-center gap-1">
+                                <Phone className="h-4 w-4 text-gray-400" />
+                                {group.parentContact}
+                              </span>
+                              <span className="text-gray-300">•</span>
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="h-4 w-4 text-gray-400" />
+                                {group.children.length} {group.children.length === 1 ? 'figlio' : 'figli'}
+                              </span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-slate-900">€{group.paidAmount.toFixed(0)} <span className="text-xs text-slate-500">/ {group.isExempted ? '0' : `€${group.totalAmount.toFixed(0)}`}</span></div>
+                            <div className="text-xl font-bold text-gray-900 mb-1">
+                              €{group.paidAmount.toFixed(0)}
+                              <span className="text-sm font-normal text-gray-500 ml-1">
+                                / {group.isExempted ? '0' : `€${group.totalAmount.toFixed(0)}`}
+                              </span>
+                            </div>
                             {!group.isExempted && (
-                              <div className={`text-xs ${Math.max(0, group.totalAmount - group.paidAmount) > 0 ? 'text-red-600' : 'text-green-600'}`}>Rimanente: €{Math.max(0, group.totalAmount - group.paidAmount).toFixed(0)}</div>
+                              <div className={`text-sm font-medium ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                Rimanente: €{remainingAmount.toFixed(0)}
+                              </div>
                             )}
                           </div>
-                          {expandedRow === group.parentContact ? (
-                            <ChevronUp className="h-4 w-4 text-slate-500" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-500" />
-                          )}
+                          <div className="p-2 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors">
+                            {expandedRow === group.parentContact ? (
+                              <ChevronUp className="h-5 w-5 text-gray-600" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-gray-600" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -983,34 +1019,37 @@ export const Payments: React.FC = () => {
 
                         {/* Actions column (only when expanded) */}
                         {expandedRow === group.parentContact && (
-                          <div className="flex flex-col space-y-3 ml-4">
-                            <div className="flex flex-col space-y-2">
+                          <div className="flex flex-col space-y-3 ml-6">
+                            <div className="flex flex-col space-y-3">
                               <Button
-                                size="sm"
+                                size="md"
                                 onClick={() => {
                                   setSelectedParent(group);
                                   setIsPaymentDialogOpen(true);
                                 }}
                                 disabled={group.isExempted}
-                                leftIcon={<Plus className="h-4 w-4" />}
-                                className={`anime-button ${group.isExempted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                leftIcon={<Plus className="h-5 w-5" />}
+                                className={`bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl ${group.isExempted ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                 Aggiungi Pagamento
                               </Button>
                               
                               <Button
-                                size="sm"
+                                size="md"
                                 variant="outline"
                                 onClick={() => handleToggleExemption(group)}
                                 disabled={editingExemption === group.parentContact}
                                 leftIcon={
                                   editingExemption === group.parentContact ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent" />
                                   ) : (
-                                    <Shield className="h-4 w-4" />
+                                    <Shield className="h-5 w-5" />
                                   )
                                 }
-                                className={group.isExempted ? "border-purple-300 text-purple-700 hover:bg-purple-50" : "border-gray-300 text-gray-700 hover:bg-gray-50"}
+                                className={`rounded-xl transition-all duration-200 ${group.isExempted ? 
+                                  "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300" : 
+                                  "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                                } shadow-sm hover:shadow-md`}
                               >
                                 {group.isExempted ? 'Rimuovi Esenzione' : 'Esenta'}
                               </Button>
@@ -1220,6 +1259,7 @@ export const Payments: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </PageContainer>
+      </div>
+    </div>
   );
 };

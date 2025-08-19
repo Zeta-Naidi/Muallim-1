@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Trash2, AlertCircle, CheckCircle, UserCog, Search, Users, Shield, Filter, X, Mail, MoreVertical } from 'lucide-react';
-import { PageContainer } from '../../components/layout/PageContainer';
+import { Trash2, AlertCircle, CheckCircle, UserCog, Search, Users, Shield, Filter, X, Mail, Eye, Calendar, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
-import { User, Class, UserRole } from '../../types';
+import { User, UserRole } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const ManageUsers: React.FC = () => {
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,9 +20,10 @@ export const ManageUsers: React.FC = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [roleUpdating, setRoleUpdating] = useState<Record<string, boolean>>({});
-  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleDialogUser, setRoleDialogUser] = useState<User | null>(null);
+  const [userInfoModalOpen, setUserInfoModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [savingRole, setSavingRole] = useState(false);
 
@@ -39,9 +38,6 @@ export const ManageUsers: React.FC = () => {
         setUsers(usersList);
         setFilteredUsers(usersList);
         
-        const classesQuery = collection(db, 'classes');
-        const classesDocs = await getDocs(classesQuery);
-        setClasses(classesDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Class)));
       } catch (error) {
         console.error('Errore nel recupero dei dati:', error);
         setMessage({ type: 'error', text: 'Errore nel recupero dei dati' });
@@ -135,7 +131,11 @@ export const ManageUsers: React.FC = () => {
     setRoleDialogUser(user);
     setSelectedRole(user.role);
     setRoleDialogOpen(true);
-    setMenuOpenFor(null);
+  };
+
+  const openUserInfoModal = (user: User) => {
+    setSelectedUser(user);
+    setUserInfoModalOpen(true);
   };
 
   const confirmRoleChange = async () => {
@@ -159,13 +159,13 @@ export const ManageUsers: React.FC = () => {
 
   if (!userProfile || userProfile.role !== 'admin') {
     return (
-      <PageContainer title="Accesso non autorizzato">
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
           <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h3 className="text-2xl font-light text-gray-900 mb-2">Accesso non autorizzato</h3>
           <p className="text-gray-600">Non hai i permessi per accedere a questa pagina.</p>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
@@ -188,29 +188,49 @@ export const ManageUsers: React.FC = () => {
   };
 
   return (
-    <PageContainer
-      title="Gestione Utenti"
-      description="Visualizza, modifica ed elimina utenti"
-    >
-      <AnimatePresence>
-        {message && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`mb-6 p-4 rounded-xl flex items-center ${
-              message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-            }`}
-          >
-            {message.type === 'success' ? (
-              <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-            )}
-            <span>{message.text}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <UserCog className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Gestione Utenti</h1>
+                <p className="text-blue-100 mt-1">Visualizza, modifica ed elimina utenti del sistema</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <AnimatePresence>
+          {message && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className={`mb-6 p-4 rounded-xl flex items-center ${
+                message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
+              {message.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+              )}
+              <span>{message.text}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       <Card variant="elevated" className="mb-6 bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
@@ -258,114 +278,99 @@ export const ManageUsers: React.FC = () => {
           <p className="mt-4 text-gray-600 font-light">Caricamento degli utenti...</p>
         </div>
       ) : filteredUsers.length > 0 ? (
-        <Card variant="elevated" className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
+        <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 border-b border-gray-100">
             <CardTitle className="flex items-center text-gray-900">
-              <Users className="h-5 w-5 mr-2 text-blue-600" />
+              <Users className="h-6 w-6 mr-3 text-blue-600" />
               Utenti ({filteredUsers.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full">
                 <thead>
-                  <tr>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Nome
+                  <tr className="border-b border-gray-100">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                      Utente
                     </th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                       Email
                     </th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                       Ruolo
                     </th>
-                    <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Classe
-                    </th>
-                    <th className="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
                       Azioni
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-50">
                   {filteredUsers.map(user => (
                     <motion.tr 
                       key={user.id} 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3 }}
-                      className={`hover:bg-gray-50 transition-colors ${user.id === userProfile.id ? 'bg-blue-50' : ''}`}
+                      className={`hover:bg-blue-50/30 transition-all duration-200 ${
+                        user.id === userProfile.id ? 'bg-blue-50/50' : ''
+                      }`}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                            <span className="text-blue-700 font-medium text-sm">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                            <span className="text-blue-700 font-semibold text-sm">
                               {user.displayName.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.displayName}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-gray-900">
+                                {user.displayName}
+                              </div>
                               {user.id === userProfile.id && (
-                                <span className="ml-2 text-xs text-blue-600">(Tu)</span>
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                  Tu
+                                </span>
                               )}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-600">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center text-gray-600">
                           <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                          {user.email}
+                          <span className="text-sm">{user.email}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1.5 inline-flex text-sm font-medium rounded-xl ${getRoleBadgeColor(user.role)}`}>
                           {getRoleName(user.role)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {user.role === 'student' && user.classId ? (
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Users className="h-4 w-4 mr-2 text-gray-400" />
-                            {classes.find(c => c.id === user.classId)?.name || 'Classe non trovata'}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-500">-</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2 relative">
-                          <div className="relative">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setMenuOpenFor(prev => (prev === user.id ? null : user.id))}
-                              className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                              disabled={!!roleUpdating[user.id]}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                            {menuOpenFor === user.id && (
-                              <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                                <button
-                                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${user.id === userProfile.id ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700'}`}
-                                  onClick={() => (user.id === userProfile.id ? null : openRoleDialog(user))}
-                                  disabled={user.id === userProfile.id}
-                                >
-                                  Cambia ruolo…
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openUserInfoModal(user)}
+                            className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            leftIcon={<Eye className="h-4 w-4" />}
+                          >
+                            Info
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => openDeleteDialog(user)}
                             disabled={user.id === userProfile.id || !!roleUpdating[user.id]}
-                            className={`${user.id === userProfile.id ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:text-red-700 hover:bg-red-50'}`}
+                            className={`rounded-xl transition-all duration-200 ${
+                              user.id === userProfile.id ? 
+                              'opacity-50 cursor-not-allowed' : 
+                              'text-red-600 hover:text-red-700 hover:bg-red-50'
+                            }`}
+                            leftIcon={<Trash2 className="h-4 w-4" />}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            Elimina
                           </Button>
                         </div>
                       </td>
@@ -502,6 +507,176 @@ export const ManageUsers: React.FC = () => {
           </motion.div>
         </div>
       )}
-    </PageContainer>
+
+      {/* User Info Modal */}
+      {userInfoModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center shadow-sm">
+                    <span className="text-blue-700 font-bold text-xl">
+                      {selectedUser.displayName.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {selectedUser.displayName}
+                      {selectedUser.id === userProfile?.id && (
+                        <span className="ml-3 px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">Tu</span>
+                      )}
+                    </h2>
+                    <p className="text-gray-600 flex items-center mt-1">
+                      <Mail className="h-4 w-4 mr-2" />
+                      {selectedUser.email}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setUserInfoModalOpen(false)}
+                  className="rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Basic Info Section */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <UserCog className="h-5 w-5 mr-2 text-blue-600" />
+                  Informazioni Base
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Nome Completo</label>
+                    <p className="text-gray-900 font-medium">{selectedUser.displayName}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Email</label>
+                    <p className="text-gray-900">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Ruolo</label>
+                    <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-xl ${getRoleBadgeColor(selectedUser.role)}`}>
+                      {getRoleName(selectedUser.role)}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">ID Utente</label>
+                    <p className="text-gray-900 font-mono text-sm">{selectedUser.id}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Details Section */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Shield className="h-5 w-5 mr-2 text-green-600" />
+                  Dettagli Account
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedUser.createdAt && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 flex items-center">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        Data Registrazione
+                      </label>
+                      <p className="text-gray-900">
+                        {typeof selectedUser.createdAt === 'object' && 'seconds' in selectedUser.createdAt 
+                          ? new Date((selectedUser.createdAt as any).seconds * 1000).toLocaleDateString('it-IT', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                          : new Date(selectedUser.createdAt).toLocaleDateString('it-IT', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                        }
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Ultimo Accesso
+                    </label>
+                    <p className="text-gray-900 text-sm text-gray-500">
+                      Non disponibile
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Stato Account</label>
+                    <span className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                      Attivo
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Permessi</label>
+                    <p className="text-gray-900">
+                      {selectedUser.role === 'admin' ? 'Amministratore completo' :
+                       selectedUser.role === 'teacher' ? 'Gestione classi e studenti' :
+                       'Accesso studente'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Section */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <Button
+                  variant="outline"
+                  onClick={() => setUserInfoModalOpen(false)}
+                  className="rounded-xl"
+                >
+                  Chiudi
+                </Button>
+                {selectedUser.id !== userProfile?.id && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setUserInfoModalOpen(false);
+                        openRoleDialog(selectedUser);
+                      }}
+                      className="rounded-xl"
+                      leftIcon={<UserCog className="h-4 w-4" />}
+                    >
+                      Modifica Ruolo
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setUserInfoModalOpen(false);
+                        openDeleteDialog(selectedUser);
+                      }}
+                      className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
+                      leftIcon={<Trash2 className="h-4 w-4" />}
+                    >
+                      Elimina Utente
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      </div>
+    </div>
   );
 };

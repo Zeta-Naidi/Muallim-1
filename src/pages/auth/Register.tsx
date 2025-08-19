@@ -584,7 +584,6 @@ export const Register: React.FC = () => {
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
                     animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
                     transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
-                    className="sm:col-span-2"
                   >
                     <Input
                       label={
@@ -606,6 +605,23 @@ export const Register: React.FC = () => {
                           message: 'Inserisci un numero di telefono valido'
                         }
                       })}
+                    />
+                  </motion.div>
+
+                  {/* Address - Common for both roles */}
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                  >
+                    <Input
+                      label="Indirizzo"
+                      leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                      error={errors.address?.message}
+                      fullWidth
+                      placeholder="Via, Città, CAP"
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
+                      {...register('address')}
                     />
                   </motion.div>
 
