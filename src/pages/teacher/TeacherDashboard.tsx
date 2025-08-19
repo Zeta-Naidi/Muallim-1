@@ -16,7 +16,7 @@ import {
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { Class, Homework, Lesson, LessonMaterial, Attendance } from '../../types';
+import { Class, Homework, Lesson, LessonMaterial, Attendance, User } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const TeacherDashboard: React.FC = () => {
@@ -215,9 +215,15 @@ export const TeacherDashboard: React.FC = () => {
     );
   }
 
+  // Gender-based welcome message
+  const getWelcomeMessage = (user: User): string => {
+    const greeting = user.gender === 'female' ? 'Benvenuta' : 'Benvenuto';
+    return `${greeting}, ${user.displayName}`;
+  };
+
   return (
     <PageContainer
-      title={`Benvenuto, ${userProfile.displayName}`}
+      title={getWelcomeMessage(userProfile)}
       description="Dashboard Insegnante"
     >
       <AnimatePresence>

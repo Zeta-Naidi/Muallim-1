@@ -295,9 +295,15 @@ export const Dashboard: React.FC = () => {
 
   if (!userProfile) return null;
 
+  // Gender-based welcome message
+  const getWelcomeMessage = (user: User): string => {
+    const greeting = user.gender === 'female' ? 'Benvenuta' : 'Benvenuto';
+    return `${greeting}, ${user.displayName}`;
+  };
+
   return (
     <PageContainer
-      title={`Benvenuto, ${userProfile.displayName}`}
+      title={getWelcomeMessage(userProfile)}
       description={`${
         userProfile.role === 'admin' ? 'Amministratore' : 
         userProfile.role === 'teacher' ? 'Insegnante' : 'Studente'
