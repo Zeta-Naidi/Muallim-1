@@ -9,7 +9,6 @@ import { ClipboardList, Users, Star, CheckCircle, Clock, MessageSquare, Download
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { EditHomeworkDialog } from '../../components/dialogs/EditHomeworkDialog';
@@ -106,18 +105,30 @@ export const GradeManagement: React.FC = () => {
           setSelectedHomework(homeworkList[0].id);
         }
 
-        // Fetch students for the class
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student'),
-          where('classId', '==', selectedClass)
-        );
-        const studentsDocs = await getDocs(studentsQuery);
+        // Fetch students using the class document's students array
+        const classDoc = await getDocs(query(collection(db, 'classes'), where('__name__', '==', selectedClass)));
         const studentsMap: Record<string, User> = {};
-        studentsDocs.docs.forEach(doc => {
-          const userData = { ...doc.data(), id: doc.id } as User;
-          studentsMap[doc.id] = userData;
-        });
+        
+        if (classDoc.docs.length > 0) {
+          const classData = classDoc.docs[0].data();
+          const studentIds = classData.students || [];
+          
+          if (studentIds.length > 0) {
+            // Fetch student documents in batches
+            for (let i = 0; i < studentIds.length; i += 10) {
+              const batch = studentIds.slice(i, i + 10);
+              const studentsQuery = query(
+                collection(db, 'users'),
+                where('__name__', 'in', batch)
+              );
+              const studentsDocs = await getDocs(studentsQuery);
+              studentsDocs.docs.forEach(doc => {
+                const userData = { ...doc.data(), id: doc.id } as User;
+                studentsMap[doc.id] = userData;
+              });
+            }
+          }
+        }
         setStudents(studentsMap);
 
       } catch (error) {
@@ -199,7 +210,6 @@ export const GradeManagement: React.FC = () => {
       console.error('Error grading submission:', error);
       alert('Errore durante la valutazione');
     }
-    setSubmissions([]);
   };
 
   const handleEditHomework = (homework: Homework) => {
@@ -290,26 +300,45 @@ export const GradeManagement: React.FC = () => {
   const sortedSubmissions = getSortedSubmissions();
 
   return (
-    <PageContainer
-      title="Gestione Valutazioni"
-      description="Valuta i compiti consegnati dagli studenti e monitora i progressi"
-    >
-      {/* Class and Homework Selectors */}
-      <Card variant="elevated" className="mb-6 bg-white/80 backdrop-blur-md border border-white/20 shadow-md rounded-xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-          <CardTitle className="flex items-center text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <ClipboardList className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Gestione Valutazioni</h1>
+                <p className="text-blue-100 mt-1">Valuta i compiti consegnati dagli studenti e monitora i progressi</p>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Class and Homework Selectors */}
+        <div className="mb-6 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="flex items-center text-slate-900 mb-4">
             <Filter className="h-5 w-5 mr-2 text-blue-600" />
-            Filtri e Selezione
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
+            <h3 className="text-lg font-semibold">Filtri e Selezione</h3>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Seleziona Classe
               </label>
               <select
-                className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                className="block w-full rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm py-3 px-4 transition-colors"
                 value={selectedClass}
                 onChange={(e) => {
                   setSelectedClass(e.target.value);
@@ -319,452 +348,470 @@ export const GradeManagement: React.FC = () => {
                 <option value="">Seleziona una classe</option>
                 {teacherClasses.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name} {c.isTemporary ? '(Supplenza)' : ''}
+                    {c.name} {(c as any).isTemporary ? '(Supplenza)' : ''}
                   </option>
                 ))}
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Seleziona Compito
               </label>
               <select
-                className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                className="block w-full rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm py-3 px-4 transition-colors"
                 value={selectedHomework}
                 onChange={(e) => setSelectedHomework(e.target.value)}
                 disabled={!selectedClass}
               >
-                <option value="">Seleziona un compito</option>
+                <option value="">Seleziona un compito...</option>
                 {homework.map(hw => (
                   <option key={hw.id} value={hw.id}>
-                    {hw.title} - Scadenza: {formatDate(hw.dueDate)}
+                    {hw.title} - Scadenza: {format(hw.dueDate, 'd MMM yyyy', { locale: it })}
                   </option>
                 ))}
               </select>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {selectedHomeworkData && (
-        <>
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card variant="elevated" className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 shadow-sm hover:shadow-md transition-all duration-300">
-              <CardContent className="p-5 text-center">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white flex items-center justify-center shadow-sm">
-                  <ClipboardList className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="text-2xl font-bold text-blue-900">{submissions.length}</div>
-                <div className="text-sm text-blue-700">Consegne Totali</div>
-              </CardContent>
-            </Card>
-
-            <Card variant="elevated" className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 shadow-sm hover:shadow-md transition-all duration-300">
-              <CardContent className="p-5 text-center">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white flex items-center justify-center shadow-sm">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="text-2xl font-bold text-green-900">{gradedCount}</div>
-                <div className="text-sm text-green-700">Valutate</div>
-                {submissions.length > 0 && (
-                  <div className="mt-2 w-full bg-white rounded-full h-2">
-                    <div 
-                      className="bg-green-500 h-2 rounded-full" 
-                      style={{ width: `${(gradedCount / submissions.length) * 100}%` }}
-                    ></div>
+        {selectedHomeworkData ? (
+          <>
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="mb-2">
+                      <ClipboardList className="h-8 w-8" />
+                    </div>
+                    <div className="text-sm font-medium text-blue-100">Consegne Totali</div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card variant="elevated" className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 shadow-sm hover:shadow-md transition-all duration-300">
-              <CardContent className="p-5 text-center">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white flex items-center justify-center shadow-sm">
-                  <Clock className="h-6 w-6 text-amber-600" />
                 </div>
-                <div className="text-2xl font-bold text-amber-900">{pendingCount}</div>
-                <div className="text-sm text-amber-700">In Attesa</div>
-                {submissions.length > 0 && (
-                  <div className="mt-2 w-full bg-white rounded-full h-2">
-                    <div 
-                      className="bg-amber-500 h-2 rounded-full" 
-                      style={{ width: `${(pendingCount / submissions.length) * 100}%` }}
-                    ></div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                <div className="mt-4 text-3xl font-bold">{submissions.length}</div>
+                <div className="mt-1 text-sm text-blue-100">Compiti ricevuti</div>
+              </div>
 
-          {/* Homework Details with Edit Button */}
-          <Card variant="elevated" className="mb-8 bg-white/80 backdrop-blur-md border border-white/20 shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <BookOpen className="h-5 w-5 mr-2 text-blue-600" />
-                  {selectedHomeworkData.title}
-                </CardTitle>
+              <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="mb-2">
+                      <CheckCircle className="h-8 w-8" />
+                    </div>
+                    <div className="text-sm font-medium text-emerald-100">Valutate</div>
+                  </div>
+                </div>
+                <div className="mt-4 text-3xl font-bold">{gradedCount}</div>
+                <div className="mt-1 text-sm text-emerald-100">
+                  {submissions.length > 0 ? `${Math.round((gradedCount / submissions.length) * 100)}% completato` : 'Nessuna consegna'}
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="mb-2">
+                      <Clock className="h-8 w-8" />
+                    </div>
+                    <div className="text-sm font-medium text-amber-100">In Attesa</div>
+                  </div>
+                </div>
+                <div className="mt-4 text-3xl font-bold">{pendingCount}</div>
+                <div className="mt-1 text-sm text-amber-100">
+                  {submissions.length > 0 ? `${Math.round((pendingCount / submissions.length) * 100)}% da valutare` : 'Nessuna consegna'}
+                </div>
+              </div>
+            </div>
+
+            {/* Homework Details */}
+            <div className="mb-8 rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="p-2 rounded-xl bg-blue-100 text-blue-600 mr-3">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-slate-900">{selectedHomeworkData.title}</h2>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditHomework(selectedHomeworkData)}
+                    leftIcon={<Edit className="h-4 w-4" />}
+                    className="bg-white hover:bg-gray-50"
+                  >
+                    Modifica Compito
+                  </Button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-center">
+                    <FileText className="h-4 w-4 text-slate-400 mr-2" />
+                    <span className="text-slate-600">{selectedHomeworkData.description}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 text-slate-400 mr-2" />
+                    <span className="text-slate-600">{formatDate(selectedHomeworkData.dueDate)}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <BookOpen className="h-4 w-4 text-slate-400 mr-2" />
+                    <span className="text-slate-600">{selectedHomeworkData.subject}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Sort Controls */}
+            <div className="mb-6 rounded-2xl bg-white border border-slate-200 shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-blue-600" />
+                  Consegne degli Studenti
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Cerca studente..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 w-64"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sort Controls */}
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-sm text-slate-600 mr-2">Ordina per:</span>
                 <Button
-                  variant="outline"
+                  variant={sortField === 'studentName' ? 'primary' : 'outline'}
                   size="sm"
-                  onClick={() => handleEditHomework(selectedHomeworkData)}
-                  leftIcon={<Edit className="h-4 w-4" />}
-                  className="bg-white hover:bg-gray-50"
+                  onClick={() => toggleSort('studentName')}
+                  className="text-xs"
                 >
-                  Modifica Compito
+                  Nome {sortField === 'studentName' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </Button>
+                <Button
+                  variant={sortField === 'submittedAt' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => toggleSort('submittedAt')}
+                  className="text-xs"
+                >
+                  Data {sortField === 'submittedAt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </Button>
+                <Button
+                  variant={sortField === 'status' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => toggleSort('status')}
+                  className="text-xs"
+                >
+                  Stato {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-gray-700" />
-                    Descrizione
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed">{selectedHomeworkData.description}</p>
-                </div>
-                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                    <Calendar className="h-5 w-5 mr-2 text-gray-700" />
-                    Dettagli
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                        <Calendar className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Scadenza</p>
-                        <p className="font-medium text-gray-900">{formatDate(selectedHomeworkData.dueDate)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center mr-3">
-                        <Users className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Classe</p>
-                        <p className="font-medium text-gray-900">{selectedHomeworkData.className}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Submissions List */}
-          <Card variant="elevated" className="bg-white/80 backdrop-blur-md border border-white/20 shadow-lg rounded-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Users className="h-5 w-5 mr-2 text-blue-600" />
-                  Consegne ({submissions.length})
-                </div>
-                <Input
-                  placeholder="Cerca studente..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  leftIcon={<Search className="h-4 w-4" />}
-                  className="max-w-xs"
-                />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {/* Table Header */}
-              <div className="border-b border-gray-200 bg-gray-50">
-                <div className="grid grid-cols-12 gap-4 px-6 py-3">
-                  <div className="col-span-4 flex items-center">
-                    <button 
-                      className="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
-                      onClick={() => toggleSort('studentName')}
-                    >
-                      Studente
-                      {sortField === 'studentName' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="col-span-3 flex items-center">
-                    <button 
-                      className="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
-                      onClick={() => toggleSort('submittedAt')}
-                    >
-                      Data Consegna
-                      {sortField === 'submittedAt' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="col-span-3 flex items-center">
-                    <button 
-                      className="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
-                      onClick={() => toggleSort('status')}
-                    >
-                      Stato
-                      {sortField === 'status' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="col-span-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Azioni
-                  </div>
-                </div>
+            {/* Submissions List */}
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-200 p-6">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center">
+                  <ClipboardList className="h-5 w-5 mr-2 text-blue-600" />
+                  Consegne da Valutare
+                </h3>
               </div>
+              <div className="p-0">
+                {/* Table Header */}
+                <div className="border-b border-gray-200 bg-gray-50">
+                  <div className="grid grid-cols-12 gap-4 px-6 py-3">
+                    <div className="col-span-4 flex items-center">
+                      <button 
+                        className="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
+                        onClick={() => toggleSort('studentName')}
+                      >
+                        Studente
+                        {sortField === 'studentName' && (
+                          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="col-span-3 flex items-center">
+                      <button 
+                        className="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
+                        onClick={() => toggleSort('submittedAt')}
+                      >
+                        Data Consegna
+                        {sortField === 'submittedAt' && (
+                          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="col-span-3 flex items-center">
+                      <button 
+                        className="flex items-center text-xs font-medium text-gray-500 uppercase tracking-wider hover:text-gray-700"
+                        onClick={() => toggleSort('status')}
+                      >
+                        Stato
+                        {sortField === 'status' && (
+                          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="col-span-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Azioni
+                    </div>
+                  </div>
+                </div>
 
-              {/* Submissions List */}
-              {sortedSubmissions.length > 0 ? (
-                <div className="divide-y divide-gray-200">
-                  {sortedSubmissions.map((submission) => {
-                    const student = students[submission.studentId];
-                    const isExpanded = expandedSubmission === submission.id;
-                    
-                    return (
-                      <div key={submission.id} className="hover:bg-gray-50 transition-colors">
-                        <div className="grid grid-cols-12 gap-4 px-6 py-4 items-center">
-                          <div className="col-span-4">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mr-3">
-                                <span className="text-blue-700 font-medium text-sm">
-                                  {student?.displayName.charAt(0).toUpperCase() || '?'}
-                                </span>
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-900">{student?.displayName || 'Studente sconosciuto'}</div>
-                                <div className="text-xs text-gray-500">{student?.email || ''}</div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-span-3">
-                            <div className="text-sm text-gray-900">{formatDate(submission.submittedAt)}</div>
-                          </div>
-                          <div className="col-span-3">
-                            {submission.status === 'graded' ? (
+                {/* Submissions List */}
+                {sortedSubmissions.length > 0 ? (
+                  <div className="divide-y divide-gray-200">
+                    {sortedSubmissions.map((submission) => {
+                      const student = students[submission.studentId];
+                      const isExpanded = expandedSubmission === submission.id;
+                      
+                      return (
+                        <div key={submission.id} className="hover:bg-gray-50 transition-colors">
+                          <div className="grid grid-cols-12 gap-4 px-6 py-4 items-center">
+                            <div className="col-span-4">
                               <div className="flex items-center">
-                                <div className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 flex items-center">
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  <span>Valutato: {submission.grade}/10</span>
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mr-3">
+                                  <span className="text-blue-700 font-medium text-sm">
+                                    {student?.displayName.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900">{student?.displayName || 'Studente sconosciuto'}</div>
+                                  <div className="text-xs text-gray-500">{student?.email || ''}</div>
                                 </div>
                               </div>
-                            ) : (
-                              <div className="px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                <span>In attesa</span>
-                              </div>
-                            )}
+                            </div>
+                            <div className="col-span-3">
+                              <div className="text-sm text-gray-900">{formatDate(submission.submittedAt)}</div>
+                            </div>
+                            <div className="col-span-3">
+                              {submission.status === 'graded' ? (
+                                <div className="flex items-center">
+                                  <div className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 flex items-center">
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    <span>Valutato: {submission.grade}/10</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 flex items-center">
+                                  <Clock className="h-4 w-4 mr-1" />
+                                  <span>In attesa</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="col-span-2 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setExpandedSubmission(isExpanded ? null : submission.id)}
+                                className="mr-2"
+                              >
+                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startGrading(submission)}
+                                leftIcon={<Edit className="h-4 w-4" />}
+                                className="bg-white"
+                              >
+                                {submission.status === 'graded' ? 'Modifica' : 'Valuta'}
+                              </Button>
+                            </div>
                           </div>
-                          <div className="col-span-2 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setExpandedSubmission(isExpanded ? null : submission.id)}
-                              className="mr-2"
-                            >
-                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => startGrading(submission)}
-                              leftIcon={<Edit className="h-4 w-4" />}
-                              className="bg-white"
-                            >
-                              {submission.status === 'graded' ? 'Modifica' : 'Valuta'}
-                            </Button>
-                          </div>
-                        </div>
 
-                        {/* Expanded Details */}
-                        {isExpanded && (
-                          <div className="px-6 pb-4 bg-gray-50 border-t border-gray-100">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                              {/* Submission Files */}
-                              <div>
-                                {submission.submissionUrls && submission.submissionUrls.length > 0 ? (
-                                  <div>
-                                    <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                                      <FileText className="h-4 w-4 mr-2 text-gray-700" />
-                                      File Consegnati
-                                    </h4>
-                                    <div className="space-y-2">
-                                      {submission.submissionUrls.map((url, index) => (
-                                        <a
-                                          key={index}
-                                          href={url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-200 transition-colors"
-                                        >
-                                          <Download className="h-4 w-4 text-blue-600 mr-2" />
-                                          <span className="text-sm text-gray-900">File {index + 1}</span>
-                                        </a>
-                                      ))}
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="px-6 pb-4 bg-gray-50 border-t border-gray-100">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                                {/* Submission Files */}
+                                <div>
+                                  {submission.submissionUrls && submission.submissionUrls.length > 0 ? (
+                                    <div>
+                                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                                        <FileText className="h-4 w-4 mr-2 text-gray-700" />
+                                        File Consegnati
+                                      </h4>
+                                      <div className="space-y-2">
+                                        {submission.submissionUrls.map((url, index) => (
+                                          <a
+                                            key={index}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                                          >
+                                            <Download className="h-4 w-4 text-blue-600 mr-2" />
+                                            <span className="text-sm text-gray-900">File {index + 1}</span>
+                                          </a>
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                ) : (
-                                  <div className="text-sm text-gray-500 italic">Nessun file allegato</div>
-                                )}
-                              </div>
-                              
-                              {/* Submission Notes & Feedback */}
-                              <div>
-                                {submission.submissionText && (
-                                  <div className="mb-4">
-                                    <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                                      <MessageSquare className="h-4 w-4 mr-2 text-gray-700" />
-                                      Note dello Studente
-                                    </h4>
-                                    <div className="p-3 bg-white rounded-lg border border-gray-200">
-                                      <p className="text-sm text-gray-700">{submission.submissionText}</p>
-                                    </div>
-                                  </div>
-                                )}
+                                  ) : (
+                                    <div className="text-sm text-gray-500 italic">Nessun file allegato</div>
+                                  )}
+                                </div>
                                 
-                                {submission.feedback && (
-                                  <div>
-                                    <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                                      <MessageSquare className="h-4 w-4 mr-2 text-blue-600" />
-                                      Feedback dell'Insegnante
-                                    </h4>
-                                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                      <p className="text-sm text-blue-800">{submission.feedback}</p>
-                                      {submission.gradedAt && (
-                                        <p className="text-xs text-blue-600 mt-2">
-                                          Valutato il {formatDate(submission.gradedAt)}
-                                        </p>
-                                      )}
+                                {/* Submission Notes & Feedback */}
+                                <div>
+                                  {submission.submissionText && (
+                                    <div className="mb-4">
+                                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                        <MessageSquare className="h-4 w-4 mr-2 text-gray-700" />
+                                        Note dello Studente
+                                      </h4>
+                                      <div className="p-3 bg-white rounded-lg border border-gray-200">
+                                        <p className="text-sm text-gray-700">{submission.submissionText}</p>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
+                                  
+                                  {submission.feedback && (
+                                    <div>
+                                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                        <MessageSquare className="h-4 w-4 mr-2 text-blue-600" />
+                                        Feedback dell'Insegnante
+                                      </h4>
+                                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                        <p className="text-sm text-blue-800">{submission.feedback}</p>
+                                        {submission.gradedAt && (
+                                          <p className="text-xs text-blue-600 mt-2">
+                                            Valutato il {formatDate(submission.gradedAt)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {/* Grading Interface */}
-                        {gradingSubmission === submission.id && (
-                          <div className="px-6 pb-6 pt-2 bg-white border-t border-gray-200">
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
-                              <div className="flex items-center">
-                                <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
-                                <p className="text-sm text-blue-800">
-                                  Stai valutando la consegna di <strong>{students[submission.studentId]?.displayName || 'Studente'}</strong>
-                                </p>
+                          {/* Grading Interface */}
+                          {gradingSubmission === submission.id && (
+                            <div className="px-6 pb-6 pt-2 bg-white border-t border-gray-200">
+                              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                                <div className="flex items-center">
+                                  <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
+                                  <p className="text-sm text-blue-800">
+                                    Stai valutando la consegna di <strong>{students[submission.studentId]?.displayName || 'Studente'}</strong>
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                  <Input
+                                    label="Voto (0-10)"
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    step="0.5"
+                                    value={gradeValue}
+                                    onChange={(e) => setGradeValue(e.target.value)}
+                                    placeholder="Es: 8.5"
+                                    className="anime-input"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Feedback (opzionale)
+                                  </label>
+                                  <textarea
+                                    className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3 min-h-[120px] transition-colors"
+                                    value={feedback}
+                                    onChange={(e) => setFeedback(e.target.value)}
+                                    placeholder="Commenti sulla consegna..."
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-end space-x-3 mt-6">
+                                <Button 
+                                  variant="outline" 
+                                  onClick={cancelGrading}
+                                  leftIcon={<X className="h-4 w-4" />}
+                                  className="border-gray-300"
+                                >
+                                  Annulla
+                                </Button>
+                                <Button 
+                                  onClick={() => handleGradeSubmission(submission.id)}
+                                  disabled={!gradeValue}
+                                  leftIcon={<Save className="h-4 w-4" />}
+                                  className="anime-button"
+                                >
+                                  Salva Valutazione
+                                </Button>
                               </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div>
-                                <Input
-                                  label="Voto (0-10)"
-                                  type="number"
-                                  min="0"
-                                  max="10"
-                                  step="0.5"
-                                  value={gradeValue}
-                                  onChange={(e) => setGradeValue(e.target.value)}
-                                  placeholder="Es: 8.5"
-                                  className="anime-input"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Feedback (opzionale)
-                                </label>
-                                <textarea
-                                  className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-3 min-h-[120px] transition-colors"
-                                  value={feedback}
-                                  onChange={(e) => setFeedback(e.target.value)}
-                                  placeholder="Commenti sulla consegna..."
-                                />
-                              </div>
-                            </div>
-                            <div className="flex justify-end space-x-3 mt-6">
-                              <Button 
-                                variant="outline" 
-                                onClick={cancelGrading}
-                                leftIcon={<X className="h-4 w-4" />}
-                                className="border-gray-300"
-                              >
-                                Annulla
-                              </Button>
-                              <Button 
-                                onClick={() => handleGradeSubmission(submission.id)}
-                                disabled={!gradeValue}
-                                leftIcon={<Save className="h-4 w-4" />}
-                                className="anime-button"
-                              >
-                                Salva Valutazione
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nessuna consegna</h3>
-                  <p className="text-gray-500 max-w-md mx-auto">
-                    Non ci sono ancora consegne per questo compito. Gli studenti potrebbero non aver ancora inviato i loro lavori.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Nessuna consegna</h3>
+                    <p className="text-gray-500 max-w-md mx-auto">
+                      Non ci sono ancora consegne per questo compito. Gli studenti potrebbero non aver ancora inviato i loro lavori.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : null}
 
-      {!selectedHomework && selectedClass && homework.length > 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <ClipboardList className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">Seleziona un compito</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Scegli un compito dall'elenco per visualizzare e valutare le consegne degli studenti.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        {!selectedHomework && selectedClass && homework.length > 0 && (
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
+            <div className="p-8 text-center">
+              <ClipboardList className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-gray-900 mb-2">Seleziona un compito</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Scegli un compito dall'elenco per visualizzare e valutare le consegne degli studenti.
+              </p>
+            </div>
+          </div>
+        )}
 
-      {!selectedHomework && selectedClass && homework.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <ClipboardList className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">Nessun compito trovato</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Non hai ancora creato compiti per questa classe.
-            </p>
-            <Link to="/homework/new" className="mt-6 inline-block">
-              <Button leftIcon={<Plus className="h-4 w-4" />}>
-                Crea Nuovo Compito
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+        {!selectedHomework && selectedClass && homework.length === 0 && (
+          <div className="rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
+            <div className="p-8 text-center">
+              <ClipboardList className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-medium text-gray-900 mb-2">Nessun compito trovato</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Non hai ancora creato compiti per questa classe.
+              </p>
+              <Link to="/homework/new" className="mt-6 inline-block">
+                <Button leftIcon={<Plus className="h-4 w-4" />}>
+                  Crea Nuovo Compito
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
-      {!selectedClass && (
-        <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
-          <CardContent className="p-12 text-center">
-            <Users className="h-20 w-20 text-gray-300 mx-auto mb-6" />
-            <h3 className="text-2xl font-medium text-gray-900 mb-3">Seleziona una classe</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Scegli una delle tue classi per iniziare a valutare i compiti degli studenti.
-            </p>
-            <Link to="/teacher/classes" className="mt-6 inline-block">
-              <Button variant="outline" leftIcon={<School className="h-4 w-4" />}>
-                Gestisci Classi
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+        {!selectedClass && (
+          <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-white/20 shadow-xl overflow-hidden">
+            <div className="p-12 text-center">
+              <Users className="h-20 w-20 text-gray-300 mx-auto mb-6" />
+              <h3 className="text-2xl font-medium text-gray-900 mb-3">Seleziona una classe</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Scegli una delle tue classi per iniziare a valutare i compiti degli studenti.
+              </p>
+              <Link to="/teacher/classes" className="mt-6 inline-block">
+                <Button variant="outline" leftIcon={<School className="h-4 w-4" />}>
+                  Gestisci Classi
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Edit Homework Dialog */}
       <EditHomeworkDialog
@@ -776,6 +823,6 @@ export const GradeManagement: React.FC = () => {
         }}
         onUpdate={handleHomeworkUpdate}
       />
-    </PageContainer>
+    </div>
   );
 };

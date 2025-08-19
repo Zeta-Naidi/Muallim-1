@@ -3,36 +3,28 @@ import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { 
-  Users, 
-  BookOpen, 
-  ClipboardList, 
-  FileText, 
+import {
+  Users,
+  BookOpen,
+  ClipboardList,
   Calendar,
+  FileText,
   TrendingUp,
-  Clock,
   CheckCircle,
-  AlertTriangle,
-  Star,
-  Target,
-  Award,
-  BarChart3
+  AlertTriangle
 } from 'lucide-react';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Class, Homework, Lesson, LessonMaterial, Attendance, HomeworkSubmission } from '../../types';
+import { Class, Homework, Lesson, LessonMaterial, Attendance } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const TeacherDashboard: React.FC = () => {
   const { userProfile } = useAuth();
-  const [myClasses, setMyClasses] = useState<Class[]>([]);
+  const [, setMyClasses] = useState<Class[]>([]);
   const [recentHomework, setRecentHomework] = useState<Homework[]>([]);
   const [recentLessons, setRecentLessons] = useState<Lesson[]>([]);
-  const [recentMaterials, setRecentMaterials] = useState<LessonMaterial[]>([]);
+  const [, setRecentMaterials] = useState<LessonMaterial[]>([]);
   const [teacherStats, setTeacherStats] = useState({
     totalClasses: 0,
     totalStudents: 0,
@@ -42,7 +34,7 @@ export const TeacherDashboard: React.FC = () => {
     averageAttendance: 0
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const fetchTeacherData = async () => {
@@ -160,17 +152,11 @@ export const TeacherDashboard: React.FC = () => {
           setRecentMaterials(materials);
 
           // Calculate total students
-          const studentsQuery = allClassIds.length > 0 ? query(
-            collection(db, 'users'),
-            where('role', '==', 'student'),
-            where('classId', 'in', allClassIds)
-          ) : query(
-            collection(db, 'users'),
-            where('role', '==', 'student'),
-            where('classId', '==', 'nonExistentClassId')
-          );
-          const studentsDocs = await getDocs(studentsQuery);
-          const totalStudents = studentsDocs.docs.length;
+          let totalStudents = 0;
+          for (const teacherClass of teacherClasses) {
+            const students = teacherClass.students || [];
+            totalStudents += students.length;
+          }
 
           // Calculate attendance rate
           const attendanceQuery = allClassIds.length > 0 ? query(
@@ -262,175 +248,218 @@ export const TeacherDashboard: React.FC = () => {
       ) : (
         <>
           {/* Teacher Performance Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <Card variant="elevated" className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary-100 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-primary-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-emerald-700">Studenti Totali</div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{teacherStats.totalStudents}</div>
-                <div className="text-sm text-gray-600">Studenti Totali</div>
-              </CardContent>
-            </Card>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{teacherStats.totalStudents}</div>
+                <div className="mt-1 text-sm text-slate-500">Nelle tue classi</div>
+              </div>
+            </div>
 
-            <Card variant="elevated" className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-success-100 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-success-600" />
+            <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-amber-700">Tasso Presenze</div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{teacherStats.averageAttendance}%</div>
-                <div className="text-sm text-gray-600">Tasso Presenze</div>
-              </CardContent>
-            </Card>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{teacherStats.averageAttendance}%</div>
+                <div className="mt-1 text-sm text-slate-500">Media generale</div>
+              </div>
+            </div>
 
-            <Card variant="elevated" className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-secondary-100 flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-secondary-600" />
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-indigo-700">Classi Gestite</div>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{teacherStats.totalClasses}</div>
-                <div className="text-sm text-gray-600">Classi Gestite</div>
-              </CardContent>
-            </Card>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{teacherStats.totalClasses}</div>
+                <div className="mt-1 text-sm text-slate-500">Attive</div>
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm">
+              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-violet-50" />
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5" />
+                  </div>
+                  <div className="text-sm font-medium text-violet-700">Compiti Attivi</div>
+                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-900">{teacherStats.activeHomework}</div>
+                <div className="mt-1 text-sm text-slate-500">In scadenza</div>
+              </div>
+            </div>
           </div>
 
           {/* Quick Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Link to="/teacher/classes">
-              <Card variant="bordered" className="hover:shadow-md transition-shadow h-full cursor-pointer">
-                <CardContent className="flex items-center p-6">
-                  <div className="p-3 rounded-full bg-primary-100 text-primary-800 mr-4">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
                     <Users className="h-8 w-8" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Le Mie Classi</h3>
-                    <p className="text-sm text-gray-500">Gestisci classi e studenti</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-lg font-semibold mb-1">Le Mie Classi</h3>
+                  <p className="text-emerald-100 text-sm">Gestisci classi e studenti</p>
+                </div>
+              </div>
             </Link>
             
             <Link to="/attendance">
-              <Card variant="bordered" className="hover:shadow-md transition-shadow h-full cursor-pointer">
-                <CardContent className="flex items-center p-6">
-                  <div className="p-3 rounded-full bg-secondary-100 text-secondary-800 mr-4">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
                     <Calendar className="h-8 w-8" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Presenze</h3>
-                    <p className="text-sm text-gray-500">Registra presenze</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-lg font-semibold mb-1">Presenze</h3>
+                  <p className="text-blue-100 text-sm">Registra presenze</p>
+                </div>
+              </div>
             </Link>
             
             <Link to="/homework">
-              <Card variant="bordered" className="hover:shadow-md transition-shadow h-full cursor-pointer">
-                <CardContent className="flex items-center p-6">
-                  <div className="p-3 rounded-full bg-accent-100 text-accent-800 mr-4">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
                     <ClipboardList className="h-8 w-8" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Compiti</h3>
-                    <p className="text-sm text-gray-500">Gestisci compiti</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-lg font-semibold mb-1">Compiti</h3>
+                  <p className="text-rose-100 text-sm">Gestisci compiti</p>
+                </div>
+              </div>
             </Link>
             
             <Link to="/materials">
-              <Card variant="bordered" className="hover:shadow-md transition-shadow h-full cursor-pointer">
-                <CardContent className="flex items-center p-6">
-                  <div className="p-3 rounded-full bg-indigo-100 text-indigo-800 mr-4">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                <div className="relative">
+                  <div className="mb-4">
                     <FileText className="h-8 w-8" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Materiali</h3>
-                    <p className="text-sm text-gray-500">Carica materiali</p>
-                  </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-lg font-semibold mb-1">Materiali</h3>
+                  <p className="text-orange-100 text-sm">Carica materiali</p>
+                </div>
+              </div>
             </Link>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Recent Homework */}
-            <Card variant="elevated">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <ClipboardList className="h-5 w-5 mr-2 text-secondary-600" />
-                  Compiti Recenti
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">Compiti Recenti</h3>
+                </div>
+              </div>
+              <div className="p-6">
                 {recentHomework.length > 0 ? (
                   <div className="space-y-4">
                     {recentHomework.map((homework) => (
-                      <div key={homework.id} className="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
-                        <p className="font-medium text-gray-900">{homework.title}</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Scadenza: {formatDate(homework.dueDate)} - {homework.className}
-                        </p>
-                      </div>
-                    ))}
-                    <Link to="/homework">
-                      <Button variant="outline" size="sm" fullWidth>
-                        Vedi Tutti i Compiti
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic text-center py-4">
-                    Nessun compito assegnato di recente.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Recent Lessons */}
-            <Card variant="elevated">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BookOpen className="h-5 w-5 mr-2 text-accent-600" />
-                  Lezioni Recenti
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentLessons.length > 0 ? (
-                  <div className="space-y-4">
-                    {recentLessons.map((lesson) => (
-                      <div key={lesson.id} className="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
-                        <p className="font-medium text-gray-900">{lesson.title}</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {formatDate(lesson.date)}
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {lesson.topics.slice(0, 2).map((topic, index) => (
-                            <span key={index} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                              {topic}
-                            </span>
-                          ))}
-                          {lesson.topics.length > 2 && (
-                            <span className="text-xs text-gray-500">
-                              +{lesson.topics.length - 2} altri
-                            </span>
-                          )}
+                      <div key={homework.id} className="group rounded-xl border border-slate-100 p-4 hover:border-purple-200 hover:bg-purple-50/50 transition-all">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-slate-900 group-hover:text-purple-900">{homework.title}</h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              Scadenza: {formatDate(homework.dueDate)}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">{homework.className}</p>
+                          </div>
+                          <div className="h-2 w-2 rounded-full bg-purple-400"></div>
                         </div>
                       </div>
                     ))}
-                    <Link to="/lessons">
-                      <Button variant="outline" size="sm" fullWidth>
-                        Vedi Tutte le Lezioni
-                      </Button>
+                    <Link to="/homework" className="block mt-4">
+                      <div className="rounded-xl border-2 border-dashed border-purple-200 p-4 text-center hover:border-purple-300 hover:bg-purple-50/50 transition-all">
+                        <span className="text-sm font-medium text-purple-600">Vedi Tutti i Compiti</span>
+                      </div>
                     </Link>
                   </div>
                 ) : (
-                  <p className="text-gray-500 italic text-center py-4">
-                    Nessuna lezione registrata di recente.
-                  </p>
+                  <div className="text-center py-8">
+                    <div className="h-12 w-12 rounded-xl bg-purple-100 text-purple-400 flex items-center justify-center mx-auto mb-3">
+                      <ClipboardList className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-500 text-sm">Nessun compito assegnato di recente.</p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            {/* Recent Lessons */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900">Lezioni Recenti</h3>
+                </div>
+              </div>
+              <div className="p-6">
+                {recentLessons.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentLessons.map((lesson) => (
+                      <div key={lesson.id} className="group rounded-xl border border-slate-100 p-4 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-slate-900 group-hover:text-indigo-900">{lesson.title}</h4>
+                            <p className="text-sm text-slate-500 mt-1">
+                              {formatDate(lesson.date)}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {lesson.topics.slice(0, 2).map((topic, index) => (
+                                <span key={index} className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md">
+                                  {topic}
+                                </span>
+                              ))}
+                              {lesson.topics.length > 2 && (
+                                <span className="text-xs text-slate-400 px-2 py-1">
+                                  +{lesson.topics.length - 2} altri
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="h-2 w-2 rounded-full bg-indigo-400"></div>
+                        </div>
+                      </div>
+                    ))}
+                    <Link to="/lessons" className="block mt-4">
+                      <div className="rounded-xl border-2 border-dashed border-indigo-200 p-4 text-center hover:border-indigo-300 hover:bg-indigo-50/50 transition-all">
+                        <span className="text-sm font-medium text-indigo-600">Vedi Tutte le Lezioni</span>
+                      </div>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-400 flex items-center justify-center mx-auto mb-3">
+                      <BookOpen className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-500 text-sm">Nessuna lezione registrata di recente.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}

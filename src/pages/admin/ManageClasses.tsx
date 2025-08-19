@@ -787,12 +787,7 @@ export const ManageClasses: React.FC = () => {
                           {selectedClassDetails.turno}
                         </span>
                       )}
-                      <span className="px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full">
-                        {selectedClassDetails.studentsCount} studenti
-                      </span>
-                      <span className="px-2.5 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-full">
-                        Prossima: {getNextLessonLabel(selectedClassDetails.turno)}
-                      </span>
+                      
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">

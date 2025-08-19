@@ -55,6 +55,7 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow read: if isAuthenticated();
+      allow list: if isAuthenticated() && (isAdmin() || isTeacher());
       allow create: if isOwner(userId);
       allow update: if isAdmin() || isOwner(userId);
       allow delete: if isAdmin();

@@ -4,7 +4,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
-import { TeacherChat } from './components/chat/TeacherChat';
+import { EnhancedTeacherChat } from './components/chat/EnhancedTeacherChat';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { Dashboard } from './pages/Dashboard';
@@ -484,7 +484,7 @@ function AppRoutes() {
         {userProfile &&
           (userProfile.role === 'teacher' || userProfile.role === 'admin') &&
           userProfile.accountStatus !== 'pending_approval' && (
-            <TeacherChat />
+            <EnhancedTeacherChat />
           )}
       </div>
     </Router>

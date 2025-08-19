@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { collection, getDocs, query, where, orderBy, deleteDoc, doc } from 'firebase/firestore';
-import { format, isToday, isBefore, isAfter, addDays } from 'date-fns';
+import { format, isToday, isBefore, isAfter, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { 
   Plus, 
@@ -14,19 +14,18 @@ import {
   Edit, 
   Eye, 
   Search, 
-  Filter,
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   CheckCircle,
   AlertTriangle,
-  School
+  School,
+  BookOpenText
 } from 'lucide-react';
-import { PageContainer } from '../../components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { EditHomeworkDialog } from '../../components/dialogs/EditHomeworkDialog';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
@@ -59,6 +58,8 @@ export const HomeworkList: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [calendarView, setCalendarView] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -345,6 +346,29 @@ export const HomeworkList: React.FC = () => {
     }
   };
 
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => {
+      const newMonth = new Date(prev);
+      if (direction === 'prev') {
+        newMonth.setMonth(prev.getMonth() - 1);
+      } else {
+        newMonth.setMonth(prev.getMonth() + 1);
+      }
+      return newMonth;
+    });
+  };
+
+  const calendarDays = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth)
+  });
+
+  const getHomeworksForDay = (date: Date) => {
+    return filteredHomeworks.filter(homework => 
+      homework.dueDate && isSameDay(homework.dueDate, date)
+    );
+  };
+
   const formatDueDate = (dueDate: Date | null): string => {
     if (!dueDate || !(dueDate instanceof Date) || isNaN(dueDate.getTime())) {
       return 'Data non valida';
@@ -383,14 +407,14 @@ export const HomeworkList: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'submitted':
-        return <CheckCircle className="h-4 w-4 mr-1" />;
+        return <CheckCircle className="h-4 w-4" />;
       case 'overdue':
-        return <AlertTriangle className="h-4 w-4 mr-1" />;
+        return <AlertTriangle className="h-4 w-4" />;
       case 'today':
       case 'soon':
-        return <Clock className="h-4 w-4 mr-1" />;
+        return <Clock className="h-4 w-4" />;
       default:
-        return <CheckCircle className="h-4 w-4 mr-1" />;
+        return <CheckCircle className="h-4 w-4" />;
     }
   };
 
@@ -402,37 +426,60 @@ export const HomeworkList: React.FC = () => {
   if (!userProfile) return null;
 
   return (
-    <PageContainer
-      title="Compiti"
-      description={
-        userProfile.role === 'student'
-          ? 'I tuoi compiti assegnati' 
-          : preselectedClassName 
-            ? `Compiti per ${preselectedClassName}`
-            : 'Gestisci i compiti assegnati agli studenti'
-      }
-      actions={
-        <>
-          {returnTo === 'classes' && (
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin/classes')}
-              leftIcon={<ArrowLeft className="h-4 w-4" />}
-              className="mr-2"
-            >
-              Torna alla Gestione Classi
-            </Button>
-          )}
-          {(userProfile.role === 'teacher' || userProfile.role === 'admin') && (
-          <Link to="/homework/new">
-            <Button leftIcon={<Plus className="h-4 w-4" />} className="anime-button">
-              Nuovo Compito
-            </Button>
-          </Link>
-          )}
-        </>
-      }
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <FileText className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Compiti</h1>
+                <p className="text-blue-100 mt-1">
+                {userProfile.role === 'student'
+                  ? 'I tuoi compiti assegnati' 
+                  : preselectedClassName 
+                    ? `Compiti per ${preselectedClassName}`
+                    : 'Gestisci i compiti assegnati agli studenti'
+                }
+              </p>
+            </div>
+          </div>
+          
+            <div className="flex items-center gap-2 mt-8">
+              {returnTo === 'classes' && (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/classes')}
+                  leftIcon={<ArrowLeft className="h-4 w-4" />}
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
+                >
+                  Torna alla Gestione Classi
+                </Button>
+              )}
+              {(userProfile.role === 'teacher' || userProfile.role === 'admin') && (
+                <Link to="/homework/new">
+                  <Button
+                    leftIcon={<Plus className="h-4 w-4" />}
+                    className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                  >
+                    Nuovo Compito
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
       {message && (
         <div className={`mb-6 p-4 rounded-xl flex items-center ${
           message.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-error-50 text-error-700 border border-error-200'
@@ -446,281 +493,403 @@ export const HomeworkList: React.FC = () => {
         </div>
       )}
 
-      {/* Filters and Search */}
-      <Card variant="elevated" className="mb-6 bg-white/80 backdrop-blur-md border border-white/20 shadow-md rounded-xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-          <CardTitle className="flex items-center text-gray-900">
-            <Filter className="h-5 w-5 mr-2 text-blue-600" />
-            Filtri e Ricerca
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {userProfile.role === 'admin' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Filtra per classe
-                </label>
-                <select
-                  className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                  value={selectedClass}
-                  onChange={handleClassChange}
-                >
-                  <option value="">Tutte le classi</option>
-                  {Object.values(classes).map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+        {/* Compact Filters Bar */}
+        <div className="mb-6 bg-white/70 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg">
+          <div className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+              {/* Class Selection */}
+              {(userProfile.role === 'admin' || (userProfile.role === 'teacher' && teacherClasses.length > 1)) && (
+                <div className="lg:w-64">
+                  <div className="relative">
+                    <select
+                      className="w-full appearance-none bg-gradient-to-r from-blue-50 to-indigo-50 border-0 rounded-xl py-3 pl-4 pr-10 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                      value={selectedClass}
+                      onChange={handleClassChange}
+                    >
+                      <option value="">🏫 Tutte le classi</option>
+                      {userProfile.role === 'admin' 
+                        ? Object.values(classes).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))
+                        : teacherClasses.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} {c.isTemporary ? '(Supplenza)' : ''}
+                            </option>
+                          ))
+                      }
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Status Filter */}
+              <div className="lg:w-48">
+                <div className="relative">
+                  <select
+                    className="w-full appearance-none bg-slate-50 border-0 rounded-xl py-3 pl-4 pr-10 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                  >
+                    <option value="all">📋 Tutti gli stati</option>
+                    <option value="active">✅ Attivi</option>
+                    <option value="today">⏰ Scadenza oggi</option>
+                    <option value="overdue">⚠️ Scaduti</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  </div>
+                </div>
               </div>
-            )}
-            
-            {userProfile.role === 'teacher' && teacherClasses.length > 1 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Filtra per classe
-                </label>
-                <select
-                  className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                  value={selectedClass}
-                  onChange={handleClassChange}
+              
+              {/* Month Navigation */}
+              <div className="flex items-center gap-2 bg-slate-50 rounded-xl p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateMonth('prev')}
+                  className="h-8 w-8 p-0 hover:bg-white"
                 >
-                  <option value="">Tutte le classi</option>
-                  {teacherClasses.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.isTemporary ? '(Supplenza)' : ''}
-                    </option>
-                  ))}
-                </select>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-semibold text-slate-700 px-3 min-w-[140px] text-center">
+                  {format(currentMonth, 'MMMM yyyy', { locale: it }).replace(/^\w/, c => c.toUpperCase())}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateMonth('next')}
+                  className="h-8 w-8 p-0 hover:bg-white"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-            
-            <div className={userProfile.role === 'admin' ? 'lg:col-span-2' : 'lg:col-span-2'}>
-              <Input
-                label="Cerca compiti"
-                placeholder="Titolo o descrizione..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                leftIcon={<Search className="h-5 w-5" />}
-                fullWidth
-              />
+              
+              {/* View Toggle */}
+              <div className="flex items-center bg-slate-50 rounded-xl p-1">
+                <Button
+                  variant={!calendarView ? "primary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCalendarView(false)}
+                  className={`h-8 px-3 text-xs font-medium transition-all ${!calendarView ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+                >
+                  <BookOpenText className="h-3 w-3 mr-1" />
+                  Lista
+                </Button>
+                <Button
+                  variant={calendarView ? "primary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCalendarView(true)}
+                  className={`h-8 px-3 text-xs font-medium transition-all ${calendarView ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+                >
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Calendario
+                </Button>
+              </div>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Filtra per stato
-              </label>
-              <select
-                className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              >
-                <option value="all">Tutti</option>
-                <option value="active">Attivi</option>
-                <option value="today">Scadenza oggi</option>
-                <option value="overdue">Scaduti</option>
-              </select>
+
+            {/* Search and Sort */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cerca per titolo o descrizione..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-0 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSortChange('title')}
+                  className="whitespace-nowrap"
+                  leftIcon={<ArrowUpDown className="h-4 w-4" />}
+                  rightIcon={sortField === 'title' ? (
+                    sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                  ) : undefined}
+                >
+                  Titolo
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSortChange('dueDate')}
+                  className="whitespace-nowrap"
+                  leftIcon={<Calendar className="h-4 w-4" />}
+                  rightIcon={sortField === 'dueDate' ? (
+                    sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                  ) : undefined}
+                >
+                  Scadenza
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSortChange('className')}
+                  className="whitespace-nowrap"
+                  leftIcon={<School className="h-4 w-4" />}
+                  rightIcon={sortField === 'className' ? (
+                    sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                  ) : undefined}
+                >
+                  Classe
+                </Button>
+              </div>
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSortChange('title')}
-              leftIcon={sortField === 'title' ? (
-                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-              ) : <ArrowUpDown className="h-4 w-4" />}
-            >
-              Titolo
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSortChange('dueDate')}
-              leftIcon={sortField === 'dueDate' ? (
-                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-              ) : <ArrowUpDown className="h-4 w-4" />}
-            >
-              Scadenza
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSortChange('className')}
-              leftIcon={sortField === 'className' ? (
-                sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-              ) : <ArrowUpDown className="h-4 w-4" />}
-            >
-              Classe
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Action Button Below Filters */}
       
       {isLoading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600 font-light">Caricamento dei compiti...</p>
         </div>
-      ) : filteredHomeworks.length > 0 ? (
-        <div className="space-y-6">
+      ) : (
+        <>
+          {calendarView ? (
+            <div className="mb-8 bg-white/80 backdrop-blur-md border border-white/20 shadow-lg rounded-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-6">
+                <h3 className="flex items-center text-gray-900 text-lg font-semibold">
+                  <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                  Calendario Compiti - {format(currentMonth, 'MMMM yyyy', { locale: it }).replace(/^\w/, c => c.toUpperCase())}
+                </h3>
+              </div>
+              <div className="p-6">
+                {/* Calendar Header */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
+                    <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {calendarDays.map((date, index) => {
+                    const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                    const homeworksForDay = getHomeworksForDay(date);
+                    const hasHomeworks = homeworksForDay.length > 0;
+                    const isCurrentDay = isToday(date);
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`
+                          relative p-2 min-h-[100px] border rounded-lg transition-all
+                          ${!isCurrentMonth ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-white border-gray-200'}
+                          ${isCurrentDay ? 'ring-2 ring-blue-500' : ''}
+                          ${hasHomeworks ? 'hover:shadow-md' : ''}
+                        `}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="text-sm font-medium">
+                            {format(date, 'd')}
+                          </div>
+                        </div>
+                        
+                        {hasHomeworks && isCurrentMonth && (
+                          <div className="mt-2 space-y-1">
+                            {homeworksForDay.slice(0, 2).map((homework, idx) => {
+                              const status = getHomeworkStatus(homework);
+                              return (
+                                <div 
+                                  key={idx} 
+                                  className={`text-xs p-1 rounded truncate ${
+                                    status.status === 'overdue' ? 'bg-red-100 text-red-800' : 
+                                    status.status === 'today' || status.status === 'soon' ? 'bg-amber-100 text-amber-800' : 
+                                    status.status === 'submitted' ? 'bg-green-100 text-green-800' : 
+                                    'bg-blue-100 text-blue-800'
+                                  }`}
+                                >
+                                  {homework.title}
+                                </div>
+                              );
+                            })}
+                            {homeworksForDay.length > 2 && (
+                              <div className="text-xs text-blue-600 font-medium">
+                                +{homeworksForDay.length - 2} altri
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            filteredHomeworks.length > 0 ? (
+              <div className="space-y-6">
           {filteredHomeworks.map((homework) => {
             const status = getHomeworkStatus(homework);
             const isExpanded = expandedHomework === homework.id;
             const canEdit = canEditHomework(homework);
             
             return (
-              <Card 
+              <div 
                 key={homework.id}
-                variant="bordered"
-                className={`hover:shadow-md transition-shadow border-l-4 ${
-                  status.status === 'overdue' ? 'border-l-error-500' : 
-                  status.status === 'today' || status.status === 'soon' ? 'border-l-amber-500' : 
-                  status.status === 'submitted' ? 'border-l-success-500' : 
-                  'border-l-blue-500'
-                }`}
+                className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
               >
-                <CardContent className="p-0">
-                  <div 
-                    className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => setExpandedHomework(isExpanded ? null : homework.id)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{homework.title}</h3>
-                          <div className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                {/* Card Header */}
+                <div 
+                  className="cursor-pointer p-6 hover:bg-slate-50/50 transition-colors"
+                  onClick={() => setExpandedHomework(isExpanded ? null : homework.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`h-10 w-10 rounded-xl text-white flex items-center justify-center shadow-sm ${
+                          status.status === 'overdue' ? 'bg-gradient-to-br from-red-500 to-red-600' : 
+                          status.status === 'today' || status.status === 'soon' ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 
+                          status.status === 'submitted' ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 
+                          'bg-gradient-to-br from-blue-500 to-indigo-600'
+                        }`}>
+                          <div className="flex items-center justify-center w-full h-full">
                             {getStatusIcon(status.status)}
-                            {status.label}
                           </div>
                         </div>
-                        
-                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
-                            <span>Scadenza: {formatDueDate(homework.dueDate)}</span>
-                          </div>
-                          
-                          <div className="flex items-center">
-                            <School className="h-4 w-4 mr-1 flex-shrink-0" />
-                            <span>
-                              Classe: {homework.className || classes[homework.classId]?.name || 'Classe non trovata'}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-1 flex-shrink-0" />
-                            <span>
-                              Assegnato da: {homework.teacherName || 'Insegnante non specificato'}
-                            </span>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-slate-900 truncate">{homework.title}</h3>
+                          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${status.color}`}>
+                            {status.label}
                           </div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center space-x-2">
-                        <Link to={`/homework/${homework.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        
-                        {canEdit && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditHomework(homework);
-                              }}
-                              className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteHomework(homework.id);
-                              }}
-                              className="text-error-600 hover:text-error-800 hover:bg-error-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedHomework(isExpanded ? null : homework.id);
-                          }}
-                          className="text-gray-400"
-                        >
-                          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {isExpanded && (
-                    <div className="px-6 pb-6 pt-0 border-t border-gray-100">
-                      <div className="pt-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Descrizione</h4>
-                        <p className="text-gray-700 mb-4 whitespace-pre-line">{homework.description}</p>
-                        
-                        {homework.attachmentUrls && homework.attachmentUrls.length > 0 && (
-                          <div className="mb-4">
-                            <h4 className="font-medium text-gray-900 mb-2">Allegati</h4>
-                            <div className="flex flex-wrap gap-2">
-                              {homework.attachmentUrls.map((url, index) => (
-                                <a
-                                  key={index}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center px-3 py-2 rounded-md text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                                >
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  Allegato {index + 1}
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-end">
-                          <Link to={`/homework/${homework.id}`}>
-                            <Button
-                              variant="outline"
-                              rightIcon={<ExternalLink className="h-4 w-4" />}
-                            >
-                              Vedi dettagli completi
-                            </Button>
-                          </Link>
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-blue-500" />
+                          <span className="font-medium">{formatDueDate(homework.dueDate)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <School className="h-4 w-4 text-emerald-500" />
+                          <span>{homework.className || classes[homework.classId]?.name || 'Classe non trovata'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4 text-purple-500" />
+                          <span>{homework.teacherName || 'Insegnante non specificato'}</span>
                         </div>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    
+                    <div className="flex items-center gap-2">
+                      <Link to={`/homework/${homework.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      {canEdit && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditHomework(homework);
+                            }}
+                            className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteHomework(homework.id);
+                            }}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedHomework(isExpanded ? null : homework.id);
+                        }}
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600"
+                      >
+                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div className="border-t border-slate-200 p-6 bg-slate-50/30">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 mb-2">Descrizione</h4>
+                        <p className="text-slate-700 whitespace-pre-line">{homework.description}</p>
+                      </div>
+                      
+                      {homework.attachmentUrls && homework.attachmentUrls.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-slate-900 mb-3">Allegati</h4>
+                          <div className="space-y-2">
+                            {homework.attachmentUrls.map((url, index) => (
+                              <a
+                                key={index}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-200 transition-colors"
+                              >
+                                <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                                  <FileText className="h-4 w-4" />
+                                </div>
+                                <span className="font-medium text-slate-900">Allegato {index + 1}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end pt-2">
+                        <Link to={`/homework/${homework.id}`}>
+                          <Button
+                            variant="outline"
+                            rightIcon={<ExternalLink className="h-4 w-4" />}
+                            className="bg-white hover:bg-slate-50"
+                          >
+                            Vedi dettagli completi
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
       ) : (
-        <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
-          <CardContent className="p-12 text-center">
+        <div className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+          <div className="p-12 text-center">
             <FileText className="h-16 w-16 text-gray-400 mx-auto mb-6" />
             <h3 className="text-2xl font-light text-gray-900 mb-3">Nessun compito trovato</h3>
             <p className="text-gray-600 max-w-md mx-auto mb-8">
@@ -735,13 +904,16 @@ export const HomeworkList: React.FC = () => {
             </p>
             {(userProfile.role === 'teacher' || userProfile.role === 'admin') && !searchQuery && statusFilter === 'all' && (
               <Link to="/homework/new">
-                <Button leftIcon={<Plus className="h-4 w-4" />} className="anime-button">
+                <Button leftIcon={<Plus className="h-4 w-4" />} className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
                   Assegna un compito
                 </Button>
               </Link>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+            )
+          )}
+        </>
       )}
 
       {/* Edit Homework Dialog */}
@@ -754,6 +926,7 @@ export const HomeworkList: React.FC = () => {
         }}
         onUpdate={handleHomeworkUpdate}
       />
-    </PageContainer>
+      </div>
+    </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, getDocs, query, where, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { format, isWeekend, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { 
@@ -57,6 +57,7 @@ export const AttendanceTracking: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
+  const [selectedDateForDialog, setSelectedDateForDialog] = useState<string | null>(null);
   const [showOnlyRecordedDays, setShowOnlyRecordedDays] = useState(false);
 
   useEffect(() => {
@@ -134,18 +135,48 @@ export const AttendanceTracking: React.FC = () => {
       setIsLoading(true);
       
       try {
-        // Fetch students for this class
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student'),
-          where('classId', '==', selectedClass)
-        );
-        const studentsDocs = await getDocs(studentsQuery);
-        const studentsMap: Record<string, User> = {};
-        studentsDocs.docs.forEach(doc => {
-          const userData = { ...doc.data(), id: doc.id } as User;
-          studentsMap[doc.id] = userData;
-        });
+        // Fetch students using the class document's students array (same as ClassManagement)
+        let studentsMap: Record<string, User> = {};
+        try {
+          console.log('Fetching students for class:', selectedClass);
+          
+          // Get the class document to access the students array
+          const classDoc = await getDoc(doc(db, 'classes', selectedClass));
+          if (classDoc.exists()) {
+            const classData = classDoc.data();
+            const studentIds = classData.students || [];
+            console.log('Student IDs from class document:', studentIds);
+            
+            if (studentIds.length > 0) {
+              // Fetch student documents in batches (Firestore 'in' query limit is 10)
+              const studentBatches = [];
+              for (let i = 0; i < studentIds.length; i += 10) {
+                const batch = studentIds.slice(i, i + 10);
+                const studentsQuery = query(
+                  collection(db, 'users'),
+                  where('__name__', 'in', batch)
+                );
+                const studentsDocs = await getDocs(studentsQuery);
+                const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+                studentBatches.push(...batchStudents);
+              }
+              
+              // Convert to map format
+              studentBatches.forEach(student => {
+                studentsMap[student.id] = student;
+              });
+              
+              console.log('Fetched students:', studentBatches.map(s => ({ id: s.id, displayName: s.displayName })));
+            } else {
+              console.log('No students found in class document');
+            }
+          } else {
+            console.log('Class document not found:', selectedClass);
+          }
+        } catch (studentsError) {
+          console.error('Error fetching students:', studentsError);
+        }
+        
         setStudents(studentsMap);
 
         // Fetch all attendance records for this class
@@ -223,6 +254,7 @@ export const AttendanceTracking: React.FC = () => {
 
   const handleCreateAttendance = (date: Date) => {
     // Set the date in the state for the dialog
+    setSelectedDateForDialog(format(date, 'yyyy-MM-dd'));
     setIsCreateDialogOpen(true);
   };
 
@@ -324,8 +356,11 @@ export const AttendanceTracking: React.FC = () => {
 
   // Get attendance stats for the selected class
   const getAttendanceStats = () => {
+    const totalStudents = Object.keys(students).length;
+    console.log('Students count:', totalStudents, 'Students object:', students);
+    
     const stats = {
-      totalStudents: Object.keys(students).length,
+      totalStudents,
       presentCount: 0,
       absentCount: 0,
       justifiedCount: 0,
@@ -355,44 +390,64 @@ export const AttendanceTracking: React.FC = () => {
   }
 
   return (
-    <PageContainer
-      title="Registro Presenze"
-      description="Registra e gestisci le presenze giornaliere"
-      actions={
-        <div className="flex items-center gap-2">
-          {returnTo === 'classes' && (
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin/classes')}
-              leftIcon={<ArrowLeft className="h-4 w-4" />}
-            >
-              Torna alla Gestione Classi
-            </Button>
-          )}
-          {selectedClass && (
-            <Button
-              onClick={() => setIsCreateDialogOpen(true)}
-              leftIcon={<Plus className="h-4 w-4" />}
-            >
-              Crea Registro Presenze
-            </Button>
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <Calendar className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Registro Presenze</h1>
+                <p className="text-blue-100 mt-1">Registra e gestisci le presenze giornaliere degli studenti</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 mt-8">
+              {returnTo === 'classes' && (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/classes')}
+                  leftIcon={<ArrowLeft className="h-4 w-4" />}
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                >
+                  Torna alla Gestione Classi
+                </Button>
+              )}
+              {selectedClass && (
+                <Button
+                  onClick={() => setIsCreateDialogOpen(true)}
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                >
+                  Crea Registro Presenze
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-      }
-    >
-    
-      {message && (
-        <div className={`mb-6 p-4 rounded-xl flex items-center ${
-          message.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-error-50 text-error-700 border border-error-200'
-        }`}>
-          {message.type === 'success' ? (
-            <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-          ) : (
-            <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-          )}
-          <span>{message.text}</span>
-        </div>
-      )}
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {message && (
+          <div className={`mb-6 p-4 rounded-xl flex items-center ${
+            message.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-error-50 text-error-700 border border-error-200'
+          }`}>
+            {message.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+            )}
+            <span>{message.text}</span>
+          </div>
+        )}
       
       {selectedClass ? (
         isLoading ? (
@@ -403,22 +458,63 @@ export const AttendanceTracking: React.FC = () => {
         ) : (
           <>
             {/* Attendance Statistics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-600">Studenti</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.totalStudents}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
+              <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
+                <div className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="text-sm font-medium text-emerald-700">Studenti</div>
+                  </div>
+                  <div className="mt-4 text-3xl font-bold text-slate-900">
+                    {isLoading ? '...' : stats.totalStudents}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">Totali</div>
+                </div>
               </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-600">Presenze</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.presentCount}</p>
+
+              <div className="relative overflow-hidden rounded-2xl border border-green-200 bg-white shadow-sm">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-green-50" />
+                <div className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5" />
+                    </div>
+                    <div className="text-sm font-medium text-green-700">Presenze</div>
+                  </div>
+                  <div className="mt-4 text-3xl font-bold text-slate-900">{stats.presentCount}</div>
+                  <div className="mt-1 text-sm text-slate-500">Registrate</div>
+                </div>
               </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-600">Assenze</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.absentCount}</p>
+
+              <div className="relative overflow-hidden rounded-2xl border border-red-200 bg-white shadow-sm">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-red-50" />
+                <div className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
+                      <X className="w-5 h-5" />
+                    </div>
+                    <div className="text-sm font-medium text-red-700">Assenze</div>
+                  </div>
+                  <div className="mt-4 text-3xl font-bold text-slate-900">{stats.absentCount}</div>
+                  <div className="mt-1 text-sm text-slate-500">Registrate</div>
+                </div>
               </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-slate-600">Giustificati</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{stats.justifiedCount}</p>
+
+              <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
+                <div className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div className="text-sm font-medium text-amber-700">Giustificati</div>
+                  </div>
+                  <div className="mt-4 text-3xl font-bold text-slate-900">{stats.justifiedCount}</div>
+                  <div className="mt-1 text-sm text-slate-500">Registrati</div>
+                </div>
               </div>
             </div>
 
@@ -819,7 +915,11 @@ export const AttendanceTracking: React.FC = () => {
         <CreateAttendanceDialog
           classId={selectedClass}
           isOpen={isCreateDialogOpen}
-          onClose={() => setIsCreateDialogOpen(false)}
+          onClose={() => {
+            setIsCreateDialogOpen(false);
+            setSelectedDateForDialog(null);
+          }}
+          selectedDate={selectedDateForDialog || undefined}
           onSuccess={() => {
             // Refresh attendance data
             const fetchAttendanceData = async () => {
@@ -892,6 +992,7 @@ export const AttendanceTracking: React.FC = () => {
           setSelectedStudent(null);
         }}
       />
-    </PageContainer>
-  );
+    </div>
+  </div>
+);
 };
