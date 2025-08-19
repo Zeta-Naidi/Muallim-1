@@ -9,6 +9,7 @@ interface StudentDetailsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string; // allow overriding title (e.g., Dettagli Insegnante)
+  actionButtons?: React.ReactNode; // Optional action buttons for teacher details
 }
 
 export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
@@ -16,6 +17,7 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   isOpen,
   onClose,
   title,
+  actionButtons,
 }) => {
   if (!student) return null;
 
@@ -119,7 +121,10 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
             </div>
           </div>
 
-          <div className="border-t border-gray-200 p-4 flex justify-end">
+          <div className="border-t border-gray-200 p-4 flex justify-between items-center">
+            <div className="flex gap-2">
+              {actionButtons}
+            </div>
             <Button onClick={onClose}>
               Chiudi
             </Button>

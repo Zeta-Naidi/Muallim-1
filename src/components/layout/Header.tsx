@@ -98,61 +98,7 @@ export const Header: React.FC = () => {
     return () => unsub();
   }, [userProfile]);
 
-  // Admin-only: ensure bell lights regardless of page by creating per-admin notifications
-  // for each teacher pending approval, if not already notified for this admin.
-  useEffect(() => {
-    if (!userProfile || userProfile.role !== 'admin') return;
-
-    const qPendingTeachers = query(
-      collection(db, 'users'),
-      where('role', '==', 'teacher'),
-      where('accountStatus', '==', 'pending_approval')
-    );
-
-    const unsub = onSnapshot(qPendingTeachers, async (snap) => {
-      try {
-        // Get admin's dismissed list
-        const adminDocSnap = await getDoc(doc(db, 'users', userProfile.id));
-        const adminData = adminDocSnap.data() || {};
-        const dismissedTeachers = adminData.dismissedPendingTeachers || [];
-
-        for (const d of snap.docs) {
-          const t: any = d.data();
-          
-          // Skip if this teacher was dismissed by this admin
-          if (dismissedTeachers.includes(d.id)) {
-            continue;
-          }
-          
-          // Check if a notification for this teacher already exists for this admin
-          const existing = await getDocs(query(
-            collection(db, 'notifications'),
-            where('recipientId', '==', userProfile.id),
-            where('type', '==', 'pending_teacher'),
-            where('entityId', '==', d.id)
-          ));
-          if (existing.empty) {
-            await addDoc(collection(db, 'notifications'), {
-              recipientId: userProfile.id,
-              title: 'Nuova richiesta insegnante',
-              message: `${t.displayName} (${t.email}) è in attesa di approvazione`,
-              createdAt: new Date(),
-              read: false,
-              type: 'pending_teacher',
-              entityId: d.id,
-            });
-            await updateDoc(doc(db, 'users', userProfile.id), { hasUnread: true });
-          }
-        }
-      } catch (e) {
-        console.warn('Errore generando notifiche pending (header):', e);
-      }
-    }, (e) => {
-      console.error('Errore ascoltando pending teachers:', e);
-    });
-
-    return () => unsub();
-  }, [userProfile]);
+  // Notification creation for pending teachers is disabled
 
   // Live unread count for badge
   useEffect(() => {
@@ -270,9 +216,6 @@ export const Header: React.FC = () => {
                         </span>
                       )}
                     </button>
-                  </div>
-
-                  <div className="relative">
                     <AnimatePresence>
                       {showNotif && (
                         <motion.div
@@ -385,10 +328,7 @@ export const Header: React.FC = () => {
                                         onClick={async (e) => {
                                           e.stopPropagation();
                                           try {
-                                            await deleteDoc(doc(db, 'notifications', n.id));
-                                            setNotifications(prev => prev.filter(it => it.id !== n.id));
-                                            
-                                            // If this is a pending teacher notification, mark it as dismissed
+                                            // If this is a pending teacher notification, mark it as dismissed FIRST
                                             if ((n as any).type === 'pending_teacher' && (n as any).entityId) {
                                               const userDocRef = doc(db, 'users', userProfile!.id);
                                               const userDocSnap = await getDoc(userDocRef);
@@ -400,6 +340,10 @@ export const Header: React.FC = () => {
                                                 });
                                               }
                                             }
+                                            
+                                            // Then delete the notification
+                                            await deleteDoc(doc(db, 'notifications', n.id));
+                                            setNotifications(prev => prev.filter(it => it.id !== n.id));
                                             
                                             // Check if we need to update hasUnread flag
                                             const remaining = notifications.filter(it => it.id !== n.id && !it.read);

@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, Search, Plus, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, Mail, Phone, MapPin, Calendar, Euro, History, UserPlus, CheckCircle, AlertCircle, Shield, Save } from 'lucide-react';
+import { Users, Search, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, ChevronUp, Mail, Phone, MapPin, Calendar, Euro, History, Settings, CheckCircle, AlertCircle, Shield, Save, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, limit, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
-import { PageContainer } from '../../components/layout/PageContainer';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { StudentDetailsDialog } from '../../components/dialogs/StudentDetailsDialog';
-import { User, Class, TeacherPayment, TeacherType, Substitution } from '../../types';
+import { Class, TeacherPayment, TeacherType, Substitution } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TeacherEditForm {
@@ -42,8 +40,7 @@ export const ManageTeachers: React.FC = () => {
   // Filters (essential only)
   const [filterTeacherType, setFilterTeacherType] = useState<'' | TeacherType>('');
   const [filterClassId, setFilterClassId] = useState<string>('');
-  const [selectedTeacher, setSelectedTeacher] = useState<User | null>(null);
-  const [isTeacherDetailsOpen, setIsTeacherDetailsOpen] = useState(false);
+  const [expandedTeacherId, setExpandedTeacherId] = useState<string | null>(null);
   const [processingTeacher, setProcessingTeacher] = useState<string | null>(null);
   
   // Edit teacher state
@@ -51,9 +48,12 @@ export const ManageTeachers: React.FC = () => {
   const [editForm, setEditForm] = useState<TeacherEditForm>({
     teacherType: 'insegnante_regolare',
     assignedClassId: '',
-    assistantId: '',
-    availableForSubstitution: false,
+    assistantId: ''
   });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const TEACHERS_PER_PAGE = 10;
   
   // Payment state
   const [paymentTeacher, setPaymentTeacher] = useState<User | null>(null);
@@ -74,6 +74,10 @@ export const ManageTeachers: React.FC = () => {
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   // Reject confirmation state
   const [rejectTarget, setRejectTarget] = useState<User | null>(null);
+  
+  // View teacher details state
+  const [viewingTeacher, setViewingTeacher] = useState<User | null>(null);
+  const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
 
   // Substitution dialog state
   const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
@@ -200,33 +204,8 @@ export const ManageTeachers: React.FC = () => {
         setFilteredPending(pending);
         setAllTeachers(approved); // For assistant selection
 
-        // Bell notification to admins for newly pending teachers (one-time)
-        try {
-          const newlyPending = pending.filter(t => !(t as any).pendingNotified);
-          if (newlyPending.length > 0) {
-            const adminsSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'admin')));
-            const adminIds = adminsSnap.docs.map(d => d.id);
-
-            // Create notifications for each admin and each new pending teacher
-            await Promise.all(newlyPending.flatMap(tp => (
-              adminIds.map(adminId => addDoc(collection(db, 'notifications'), {
-                recipientId: adminId,
-                title: 'Nuova richiesta insegnante',
-                message: `${tp.displayName} (${tp.email}) è in attesa di approvazione`,
-                createdAt: new Date(),
-                read: false,
-              }))
-            )));
-
-            // Mark admins as having unread
-            await Promise.all(adminIds.map(id => updateDoc(doc(db, 'users', id), { hasUnread: true })));
-
-            // Mark teachers as notified to avoid duplicates
-            await Promise.all(newlyPending.map(tp => updateDoc(doc(db, 'users', tp.id), { pendingNotified: true } as any)));
-          }
-        } catch (notifErr) {
-          console.warn('Impossibile inviare notifica pending teachers:', notifErr);
-        }
+        // Notification creation is handled by Header.tsx real-time listener
+        // No need to create notifications here to avoid duplicates
 
         // Fetch classes
         const classesQuery = query(collection(db, 'classes'));
@@ -309,6 +288,11 @@ export const ManageTeachers: React.FC = () => {
     setFilteredTeachers(filteredApproved);
     setFilteredPending(filteredPendingList);
   }, [teachers, pendingTeachers, classes, searchQuery, filterTeacherType, filterClassId]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterTeacherType, filterClassId]);
 
   const handleApproveTeacher = async (teacherId: string) => {
     if (!userProfile) return;
@@ -522,9 +506,8 @@ export const ManageTeachers: React.FC = () => {
     }
   };
 
-  const handleViewTeacherDetails = (teacher: User) => {
-    setSelectedTeacher(teacher);
-    setIsTeacherDetailsOpen(true);
+  const handleToggleTeacherExpansion = (teacherId: string) => {
+    setExpandedTeacherId(expandedTeacherId === teacherId ? null : teacherId);
   };
 
   const formatDate = (date: Date | null): string => {
@@ -562,21 +545,41 @@ export const ManageTeachers: React.FC = () => {
 
   if (!userProfile || userProfile.role !== 'admin') {
     return (
-      <PageContainer title="Accesso non autorizzato">
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
           <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h3 className="text-2xl font-light text-gray-900 mb-2">Accesso non autorizzato</h3>
           <p className="text-gray-600">Non hai i permessi per accedere a questa pagina.</p>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title="Gestione Insegnanti"
-      description="Approva le richieste di registrazione degli insegnanti e gestisci gli account"
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <Users className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Gestione Insegnanti</h1>
+                <p className="text-blue-100 mt-1">Approva le richieste di registrazione degli insegnanti e gestisci gli account</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
       <AnimatePresence>
         {message && (
           <motion.div 
@@ -755,20 +758,31 @@ export const ManageTeachers: React.FC = () => {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl w-full max-w-lg border border-slate-200"
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white/95 backdrop-blur-md rounded-2xl p-6 max-w-lg w-full mx-4 shadow-xl border border-white/20"
             >
-              <div className="p-6 border-b border-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900">Modifica Insegnante</h3>
-                <p className="text-sm text-slate-600 mt-1">Aggiorna ruolo, classe e disponibilità</p>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-light text-gray-900 flex items-center">
+                  <Edit className="h-5 w-5 mr-2 text-blue-600" />
+                  Modifica Insegnante
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
-              <div className="p-6 space-y-4">
+
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
                   <select
-                    className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                     value={editForm.teacherType}
                     onChange={(e) => setEditForm(prev => ({
                       ...prev,
@@ -782,9 +796,9 @@ export const ManageTeachers: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Classe Assegnata</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Classe Assegnata</label>
                   <select
-                    className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-50"
                     value={editForm.assignedClassId}
                     onChange={(e) => setEditForm(prev => ({ ...prev, assignedClassId: e.target.value }))}
                     disabled={editForm.teacherType === 'assistente'}
@@ -798,9 +812,9 @@ export const ManageTeachers: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Assistente</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Assistente</label>
                   <select
-                    className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                     value={editForm.assistantId}
                     onChange={(e) => setEditForm(prev => ({ ...prev, assistantId: e.target.value }))}
                   >
@@ -810,21 +824,159 @@ export const ManageTeachers: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="availableSub"
-                    type="checkbox"
-                    className="h-4 w-4 text-emerald-600 border-slate-300 rounded"
-                    checked={!!editForm.availableForSubstitution}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, availableForSubstitution: e.target.checked }))}
-                  />
-                  <label htmlFor="availableSub" className="text-sm text-slate-700">Disponibile per supplenze</label>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="availableSub"
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      checked={!!editForm.availableForSubstitution}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, availableForSubstitution: e.target.checked }))}
+                    />
+                    <label htmlFor="availableSub" className="text-sm font-medium text-gray-700">Disponibile per supplenze</label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 ml-7">L'insegnante potrà ricevere richieste di supplenza</p>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-                <Button variant="ghost" onClick={() => { setIsEditDialogOpen(false); }} className="text-slate-600 hover:text-slate-800 hover:bg-slate-50">Annulla</Button>
-                <Button onClick={() => editingTeacher && handleSaveTeacherEdit(editingTeacher)}>
-                  <Save className="h-4 w-4 mr-1" /> Salva
+              
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                >
+                  Annulla
+                </Button>
+                <Button 
+                  onClick={() => editingTeacher && handleSaveTeacherEdit(editingTeacher)} 
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  Salva Modifiche
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Teacher Details Dialog */}
+      <AnimatePresence>
+        {isViewDetailsOpen && viewingTeacher && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-xl border border-white/20 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-light text-gray-900 flex items-center">
+                  <Eye className="h-5 w-5 mr-2 text-blue-600" />
+                  Dettagli Insegnante
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsViewDetailsOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                    {viewingTeacher.displayName}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                    {viewingTeacher.email}
+                  </div>
+                </div>
+
+                {viewingTeacher.phoneNumber && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Telefono</label>
+                    <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                      {viewingTeacher.phoneNumber}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Indirizzo</label>
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                    {viewingTeacher.address || 'Non specificato'}
+                  </div>
+                </div>
+
+                {viewingTeacher.birthDate && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Data di Nascita</label>
+                    <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                      {formatDate(viewingTeacher.birthDate)}
+                    </div>
+                  </div>
+                )}
+
+                {viewingTeacher.gender && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Genere</label>
+                    <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                      {viewingTeacher.gender === 'male' ? 'Maschio' : 'Femmina'}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Data Registrazione</label>
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900">
+                    {formatDate(viewingTeacher.createdAt)}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                      In attesa di approvazione
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">L'insegnante è in attesa della tua approvazione</p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    setIsViewDetailsOpen(false);
+                    openRejectDialog(viewingTeacher);
+                  }}
+                  className="px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Rifiuta
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setIsViewDetailsOpen(false);
+                    handleApproveTeacher(viewingTeacher.id);
+                  }} 
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2"
+                >
+                  <Check className="h-4 w-4" />
+                  Approva Insegnante
                 </Button>
               </div>
             </motion.div>
@@ -845,20 +997,20 @@ export const ManageTeachers: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl w-full max-w-md border border-slate-200"
+              className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-md border border-white/20"
             >
-              <div className="p-6 border-b border-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900">Conferma rifiuto</h3>
-                <p className="text-sm text-slate-600 mt-1">
+              <div className="bg-gradient-to-r from-red-600 via-red-600 to-red-700 p-6 rounded-t-2xl text-white">
+                <h3 className="text-lg font-semibold">Conferma rifiuto</h3>
+                <p className="text-red-100 mt-1">
                   Rifiutare la richiesta di <span className="font-medium">{rejectTarget.displayName}</span>?<br />
                   L'operazione eliminerà l'account e i dati profilo.
                 </p>
               </div>
-              <div className="px-6 py-4 flex justify-end gap-3">
+              <div className="px-6 py-4 bg-slate-50/50 rounded-b-2xl flex justify-end gap-3">
                 <Button
                   variant="ghost"
                   onClick={() => setRejectTarget(null)}
-                  className="text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                  className="text-slate-600 hover:text-slate-800 hover:bg-white"
                   disabled={processingTeacher === rejectTarget.id}
                 >
                   Annulla
@@ -866,7 +1018,7 @@ export const ManageTeachers: React.FC = () => {
                 <Button
                   onClick={() => handleRejectTeacher(rejectTarget.id)}
                   isLoading={processingTeacher === rejectTarget.id}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
                 >
                   Rifiuta definitivamente
                 </Button>
@@ -879,73 +1031,144 @@ export const ManageTeachers: React.FC = () => {
       {/* Notifications bell is now global in Header */}
 
 
-{/* Instructions for Teachers */}
-      <Card variant="elevated" className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
-        <CardContent className="p-6">
-          <div className="flex items-start">
-            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center mr-4 flex-shrink-0">
-              <UserPlus className="h-5 w-5 text-slate-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Come diventare insegnante</h3>
-              <div className="text-sm text-slate-700 space-y-2">
-                <p>1. Gli insegnanti devono registrarsi autonomamente sulla pagina di registrazione</p>
-                <p>2. Selezionare "Insegnante" durante la registrazione</p>
-                <p>3. Compilare tutti i dati richiesti</p>
-                <p>4. L'amministratore riceverà la richiesta e potrà approvarla</p>
-                <p>5. Solo dopo l'approvazione l'insegnante potrà accedere al sistema</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
       
       {/* Approved Teachers */}
-      <Card variant="elevated" className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
-        <CardHeader className="bg-white border-b border-slate-200">
-          <CardTitle className="flex items-center text-slate-900">
-            <Users className="h-5 w-5 mr-2 text-slate-600" />
-            Insegnanti Approvati ({filteredTeachers.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {/* Filters moved here */}
-          <div className="px-6 py-4 border-b border-slate-200 bg-white">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                label="Cerca"
-                placeholder="Nome o email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                leftIcon={<Search className="h-5 w-5" />}
-                fullWidth
-              />
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Tipo Insegnante</label>
-                <select
-                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
-                  value={filterTeacherType}
-                  onChange={(e) => setFilterTeacherType(e.target.value as any)}
-                >
-                  <option value="">Tutti</option>
-                  <option value="insegnante_regolare">Insegnante Regolare</option>
-                  <option value="insegnante_volontario">Insegnante Volontario</option>
-                  <option value="assistente">Assistente</option>
-                </select>
+      <div className="mb-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-0">
+          {/* Enhanced Filters Section */}
+          <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border-b border-white/20 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-xl mr-3">
+                  <Search className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Filtri Avanzati</h3>
+                  <p className="text-sm text-gray-600 font-normal">Cerca e filtra gli insegnanti</p>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Classe Assegnata</label>
-                <select
-                  className="block w-full rounded-md border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm bg-white border p-2"
-                  value={filterClassId}
-                  onChange={(e) => setFilterClassId(e.target.value)}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterTeacherType('');
+                    setFilterClassId('');
+                  }}
+                  className="text-gray-600 hover:text-gray-800 rounded-xl"
                 >
-                  <option value="">Tutte</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}{c.turno ? ` – ${c.turno}` : ''}</option>
-                  ))}
-                </select>
+                  <X className="h-4 w-4 mr-1" />
+                  Reset Filtri
+                </Button>
               </div>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Primary Filters Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    <Search className="h-4 w-4 mr-1 text-gray-500" />
+                    Nome Insegnante
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Cerca per nome o email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    <Users className="h-4 w-4 mr-1 text-gray-500" />
+                    Tipo Insegnante
+                  </label>
+                  <select
+                    value={filterTeacherType}
+                    onChange={(e) => setFilterTeacherType(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
+                  >
+                    <option value="">Tutti i tipi</option>
+                    <option value="insegnante_regolare">Insegnante Regolare</option>
+                    <option value="insegnante_volontario">Insegnante Volontario</option>
+                    <option value="assistente">Assistente</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center">
+                    <Calendar className="h-4 w-4 mr-1 text-gray-500" />
+                    Classe Assegnata
+                  </label>
+                  <select
+                    value={filterClassId}
+                    onChange={(e) => setFilterClassId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
+                  >
+                    <option value="">Tutte le classi</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.turno ? ` – ${c.turno}` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Filter Summary */}
+              {(searchQuery || filterTeacherType || filterClassId) && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-sm text-blue-700">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      <span className="font-medium">
+                        {filteredTeachers.length} insegnanti trovati
+                      </span>
+                      {filteredTeachers.length !== teachers.length && (
+                        <span className="ml-1">
+                          su {teachers.length} totali
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {searchQuery && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
+                          Nome: {searchQuery}
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="ml-1 hover:text-blue-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      )}
+                      {filterTeacherType && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-700">
+                          Tipo: {getTeacherTypeLabel(filterTeacherType)}
+                          <button
+                            onClick={() => setFilterTeacherType('')}
+                            className="ml-1 hover:text-purple-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      )}
+                      {filterClassId && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-700">
+                          Classe: {classes.find(c => c.id === filterClassId)?.name}
+                          <button
+                            onClick={() => setFilterClassId('')}
+                            className="ml-1 hover:text-green-900"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           {isLoading ? (
@@ -954,152 +1177,219 @@ export const ManageTeachers: React.FC = () => {
               <p className="mt-2 text-slate-600">Caricamento insegnanti...</p>
             </div>
           ) : filteredTeachers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr className="bg-slate-50">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">
-                      Insegnante
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ruolo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Classe Assegnata
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assistente
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Contatti
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Azioni
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredTeachers.map(teacher => {
-                    const assignedClass = teacher.assignedClassId
-                      ? classes.find(c => c.id === teacher.assignedClassId)
-                      : classes.find(c => c.teacherId === teacher.id);
-                    const assistant = allTeachers.find(t => t.id === teacher.assistantId);
-                    
-                    return (
-                      <motion.tr 
-                        key={teacher.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="hover:bg-slate-50 transition-colors odd:bg-white even:bg-slate-50"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                              <span className="text-slate-700 font-medium text-sm">
+            <>
+              {(() => {
+                // Pagination logic
+                const totalPages = Math.ceil(filteredTeachers.length / TEACHERS_PER_PAGE);
+                const startIndex = (currentPage - 1) * TEACHERS_PER_PAGE;
+                const endIndex = startIndex + TEACHERS_PER_PAGE;
+                const paginatedTeachers = filteredTeachers.slice(startIndex, endIndex);
+
+                return (
+                  <>
+                    <div className="space-y-4">
+                      {paginatedTeachers.map(teacher => {
+                const assignedClass = teacher.assignedClassId
+                  ? classes.find(c => c.id === teacher.assignedClassId)
+                  : classes.find(c => c.teacherId === teacher.id);
+                const assistant = allTeachers.find(t => t.id === teacher.assistantId);
+                
+                return (
+                  <motion.div 
+                    key={teacher.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="group"
+                  >
+                    <div 
+                      className="bg-white/80 backdrop-blur-md border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden hover:bg-white/90 cursor-pointer"
+                      onClick={() => handleToggleTeacherExpansion(teacher.id)}
+                    >
+                      <div className="p-6">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 min-w-0 flex-1">
+                            {/* Simple Avatar */}
+                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                              <span className="text-blue-600 font-semibold text-lg">
                                 {teacher.displayName.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-slate-900">
-                                {teacher.displayName}
+                            
+                            <div className="min-w-0 flex-1">
+                              {/* Header with name and type */}
+                              <div className="flex items-center gap-3 mb-1">
+                                <h3 className="text-lg font-semibold text-gray-900 truncate">{teacher.displayName}</h3>
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTeacherTypeColor(teacher.teacherType)}`}>
+                                  {getTeacherTypeLabel(teacher.teacherType)}
+                                </span>
                               </div>
-                              <div className="text-sm text-slate-600">
-                                Registrato il {formatDate(teacher.createdAt)}
+                              
+                              {/* Class info only */}
+                              <div className="text-sm text-gray-600">
+                                {assignedClass ? (
+                                  <span className="truncate font-medium text-black-600">Classe: {assignedClass.name}</span>
+                                ) : (
+                                  <span className="truncate text-gray-400">Classe: Non assegnata</span>
+                                )}
                               </div>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTeacherTypeColor(teacher.teacherType)}`}>
-                            {getTeacherTypeLabel(teacher.teacherType)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">
-                            {assignedClass ? `${assignedClass.name}${assignedClass.turno ? ' – ' + assignedClass.turno : ''}` : 'Non assegnato'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">
-                            {assistant && assistant.teacherType === 'assistente' ? assistant.displayName : 'Nessuno'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            {teacher.email}
+                          
+                          {/* Expand/Collapse Arrow */}
+                          <div className="flex items-center">
+                            <motion.div
+                              animate={{ rotate: expandedTeacherId === teacher.id ? 180 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <ChevronDown className="h-5 w-5" />
+                            </motion.div>
                           </div>
-                          {teacher.phoneNumber && (
-                            <div className="text-sm text-gray-500 flex items-center mt-1">
-                              <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                              {teacher.phoneNumber}
-                            </div>
+                          
+                        </div>
+                        
+                        {/* Expanded Details */}
+                        <AnimatePresence>
+                          {expandedTeacherId === teacher.id && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="border-t border-gray-100 bg-gray-50/50"
+                            >
+                              <div className="p-6 space-y-4">
+                                {/* Teacher Details */}
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="font-medium text-gray-500">Email:</span>
+                                    <p className="text-gray-900">{teacher.email}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-500">Telefono:</span>
+                                    <p className="text-gray-900">{teacher.phoneNumber || 'Non specificato'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-500">Indirizzo:</span>
+                                    <p className="text-gray-900">{teacher.address || 'Non specificato'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-500">Tipo:</span>
+                                    <p className="text-gray-900">{getTeacherTypeLabel(teacher.teacherType)}</p>
+                                  </div>
+                                  {assignedClass && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-500">Classe Assegnata:</span>
+                                      <p className="text-gray-900">{assignedClass.name}{assignedClass.turno ? ` – ${assignedClass.turno}` : ''}</p>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 pt-4 border-t border-gray-200">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditTeacher(teacher);
+                                      setExpandedTeacherId(null);
+                                    }}
+                                    className="text-gray-600 hover:text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                    Modifica
+                                  </Button>
+                                  
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPaymentTeacher(teacher);
+                                      setIsPaymentDialogOpen(true);
+                                      setExpandedTeacherId(null);
+                                    }}
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-100 flex items-center gap-2"
+                                  >
+                                    <Euro className="h-4 w-4" />
+                                    Pagamento
+                                  </Button>
+                                  
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleViewPaymentHistory(teacher);
+                                      setExpandedTeacherId(null);
+                                    }}
+                                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 flex items-center gap-2"
+                                  >
+                                    <History className="h-4 w-4" />
+                                    Storico Pagamenti
+                                  </Button>
+                                </div>
+                              </div>
+                            </motion.div>
                           )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewTeacherDetails(teacher)}
-                                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditTeacher(teacher)}
-                                  className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setPaymentTeacher(teacher);
-                                    setIsPaymentDialogOpen(true);
-                                  }}
-                                  className="text-green-600 hover:text-green-800 hover:bg-green-50"
-                                >
-                                  <Euro className="h-4 w-4" />
-                                </Button>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewPaymentHistory(teacher)}
-                                  className="text-purple-600 hover:text-purple-800 hover:bg-purple-50"
-                                >
-                                  <History className="h-4 w-4" />
-                                </Button>
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                        );
+                      })}
+                    </div>
 
-                                {/* Open substitution request dialog */}
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setSubTeacher(teacher);
-                                    const assigned = classes.find(c => c.teacherId === teacher.id)?.id || '';
-                                    setSubForm({ classId: assigned, date: '', startTime: '17:00', endTime: '19:00', reason: '', substituteTeacherId: '' });
-                                    setIsSubDialogOpen(true);
-                                  }}
-                                >
-                                  Richiedi supplente
-                                </Button>
-                              </>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="flex justify-center items-center gap-4 mt-6 p-4 bg-gray-50/80 rounded-xl">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          disabled={currentPage === 1}
+                          className="px-4 py-2 rounded-xl"
+                        >
+                          Precedente
+                        </Button>
+                        
+                        <div className="flex items-center gap-2">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                currentPage === page
+                                  ? 'bg-blue-600 text-white shadow-md'
+                                  : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 border border-gray-200'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-4 py-2 rounded-xl"
+                        >
+                          Successiva
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="text-center text-sm text-gray-500 mt-4">
+                      Mostrando {startIndex + 1}-{Math.min(endIndex, filteredTeachers.length)} di {filteredTeachers.length} insegnanti
+                    </div>
+                  </>
+                );
+              })()}
+            </>
           ) : (
             <div className="text-center py-12">
               <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -1113,21 +1403,23 @@ export const ManageTeachers: React.FC = () => {
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Substitutions Management */}
-      <Card variant="elevated" className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
-        <CardHeader className="bg-white border-b border-slate-200">
-          <CardTitle className="flex items-center text-slate-900 text-xl font-medium">
-            <Clock className="h-5 w-5 mr-2 text-slate-600" />
-            Supplenze
+      <div className="mb-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+              <Clock className="w-5 h-5" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900">Supplenze</h3>
             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">
               {visibleHistory.length}
             </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
+          </div>
+        </div>
+        <div className="p-6">
           {/* Enhanced Filters and Search */}
           <div className="mb-6 space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -1233,7 +1525,7 @@ export const ManageTeachers: React.FC = () => {
             </div>
           ) : (
             (() => {
-              const itemsPerPage = 5;
+              const itemsPerPage = 3;
               const startIndex = (currentSubPage - 1) * itemsPerPage;
               const endIndex = startIndex + itemsPerPage;
               const paginatedSubs = visibleHistory.slice(startIndex, endIndex);
@@ -1423,8 +1715,8 @@ export const ManageTeachers: React.FC = () => {
               );
             })()
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Edit Substitution Dialog */}
       <AnimatePresence>
@@ -1584,75 +1876,69 @@ export const ManageTeachers: React.FC = () => {
       </AnimatePresence>
 
       {/* Pending Approvals (collapsible) */}
-      <Card variant="elevated" className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
-        <CardHeader className="bg-white border-b border-slate-200">
+      <div className="mb-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-6">
           <button
             type="button"
             onClick={() => setIsPendingOpen(v => !v)}
-            className="w-full flex items-center justify-between px-0 py-0"
+            className="w-full flex items-center justify-between"
           >
-            <CardTitle className="flex items-center text-slate-900 text-xl font-medium">
-              <Clock className="h-5 w-5 mr-2 text-slate-600" />
-              Richieste in Attesa di Approvazione
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                <Clock className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">Richieste in Attesa di Approvazione</h3>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 font-medium">
                 {filteredPending.length}
               </span>
-            </CardTitle>
+            </div>
             <ChevronDown className={`h-4 w-4 text-slate-600 transition-transform ${isPendingOpen ? 'transform rotate-180' : ''}`} />
           </button>
-        </CardHeader>
+        </div>
         {isPendingOpen && (
-          <CardContent className="p-0">
+          <div className="p-0">
             {filteredPending.length > 0 ? (
-              <div className="divide-y divide-gray-200">
+              <div className="space-y-4 p-6">
               {filteredPending.map(teacher => (
                 <motion.div 
                   key={teacher.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="p-6 hover:bg-slate-50 transition-colors"
+                  className="group rounded-xl border border-amber-100 p-6 hover:border-amber-200 hover:bg-amber-50/50 transition-all bg-white shadow-sm"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center mr-4">
-                        <span className="text-slate-700 font-medium text-lg">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                        <span className="text-amber-700 font-semibold text-sm">
                           {teacher.displayName.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-medium text-slate-900">{teacher.displayName}</h3>
-                        <div className="mt-1 space-y-1">
-                          <div className="flex items-center text-sm text-slate-600">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-semibold text-slate-900 group-hover:text-amber-900">{teacher.displayName}</h4>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            In attesa
+                          </span>
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          <div className="flex items-center">
                             <Mail className="h-4 w-4 mr-2 text-slate-400" />
                             {teacher.email}
-                          </div>
-                          {teacher.phoneNumber && (
-                            <div className="flex items-center text-sm text-slate-600">
-                              <Phone className="h-4 w-4 mr-2 text-slate-400" />
-                              {teacher.phoneNumber}
-                            </div>
-                          )}
-                          {teacher.address && (
-                            <div className="flex items-center text-sm text-slate-600">
-                              <MapPin className="h-4 w-4 mr-2 text-slate-400" />
-                              {teacher.address}
-                            </div>
-                          )}
-                          <div className="flex items-center text-sm text-slate-600">
-                            <Calendar className="h-4 w-4 mr-2 text-slate-400" />
-                            Richiesta inviata il {formatDate(teacher.createdAt)}
                           </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleViewTeacherDetails(teacher)}
-                        className="text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                        onClick={() => {
+                          setViewingTeacher(teacher);
+                          setIsViewDetailsOpen(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -1663,10 +1949,9 @@ export const ManageTeachers: React.FC = () => {
                         onClick={() => openRejectDialog(teacher)}
                         disabled={processingTeacher === teacher.id}
                         isLoading={processingTeacher === teacher.id}
-                        className="text-red-600 hover:bg-red-50 border-red-200"
-                        leftIcon={<X className="h-4 w-4" />}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
                       >
-                        Rifiuta
+                        <X className="h-4 w-4" />
                       </Button>
                       
                       <Button
@@ -1674,9 +1959,9 @@ export const ManageTeachers: React.FC = () => {
                         onClick={() => handleApproveTeacher(teacher.id)}
                         disabled={processingTeacher === teacher.id}
                         isLoading={processingTeacher === teacher.id}
-                        leftIcon={<Check className="h-4 w-4" />}
-                        className="anime-button"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       >
+                        <Check className="h-4 w-4 mr-1" />
                         Approva
                       </Button>
                     </div>
@@ -1688,11 +1973,12 @@ export const ManageTeachers: React.FC = () => {
               <div className="text-center py-12">
                 <Clock className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">Nessuna richiesta in attesa</h3>
+                <p className="text-slate-500">Tutte le richieste di registrazione sono state elaborate.</p>
               </div>
             )}
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
 
       
 
@@ -1925,7 +2211,7 @@ export const ManageTeachers: React.FC = () => {
               <div className="space-y-6">
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                   <p className="text-sm text-gray-600 mb-2 flex items-center">
-                    <UserIcon className="h-4 w-4 mr-2 text-gray-400" />
+                    <User className="h-4 w-4 mr-2 text-gray-400" />
                     <strong>Insegnante:</strong> <span className="ml-2">{paymentTeacher.displayName}</span>
                   </p>
                   <p className="text-sm text-gray-600 mb-2 flex items-center">
@@ -2131,16 +2417,7 @@ export const ManageTeachers: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Teacher Details Dialog */}
-      <StudentDetailsDialog
-        student={selectedTeacher}
-        isOpen={isTeacherDetailsOpen}
-        title="Dettagli Insegnante"
-        onClose={() => {
-          setIsTeacherDetailsOpen(false);
-          setSelectedTeacher(null);
-        }}
-      />
-    </PageContainer>
+      </div>
+    </div>
   );
 };
