@@ -28,7 +28,8 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
-  Clock
+  Clock,
+  Paperclip
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
@@ -275,9 +276,9 @@ export const LessonTracking: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteLesson = async (lessonId: string, lesson: Lesson) => {
+  const handleDeleteLesson = async (lessonId: string, lesson?: Lesson) => {
     // Only allow deletion if user is admin or the teacher who created the lesson
-    if (!canEditLessons || (userProfile?.role === 'teacher' && lesson.createdBy !== userProfile.id)) return;
+    if (!canEditLessons || (userProfile?.role === 'teacher' && lesson && lesson.createdBy !== userProfile.id)) return;
 
     if (!window.confirm('Sei sicuro di voler eliminare questa lezione?')) return;
 
@@ -308,7 +309,7 @@ export const LessonTracking: React.FC = () => {
 
   const handleCreateLessonSuccess = (newLesson: Lesson) => {
     setLessons(prev => [newLesson, ...prev]);
-    if (isSameMonth(newLesson.date, currentMonth)) {
+    if (newLesson.date && isSameMonth(newLesson.date, currentMonth)) {
       setFilteredLessons(prev => [newLesson, ...prev]);
     }
     setMessage({ type: 'success', text: 'Lezione creata con successo' });
@@ -342,7 +343,9 @@ export const LessonTracking: React.FC = () => {
   const getAllTopics = () => {
     const topics = new Set<string>();
     lessons.forEach(lesson => {
-      lesson.topics.forEach(topic => topics.add(topic));
+      if (lesson.topics && Array.isArray(lesson.topics)) {
+        lesson.topics.forEach(topic => topics.add(topic));
+      }
     });
     return Array.from(topics).sort();
   };
@@ -380,138 +383,187 @@ export const LessonTracking: React.FC = () => {
   };
 
   return (
-    <PageContainer
-      title={preselectedClassName ? `Lezioni - ${preselectedClassName}` : "Lezioni"}
-      description={userProfile?.role === 'admin' 
-        ? preselectedClassName 
-          ? `Gestisci le lezioni per ${preselectedClassName}` 
-          : 'Gestisci tutte le lezioni' 
-        : 'Gestisci le lezioni delle tue classi'}
-      actions={
-        <>
-          {returnTo === 'classes' && (
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin/classes')}
-              leftIcon={<ArrowLeft className="h-4 w-4" />}
-              className="mr-2"
-            >
-              Torna alla Gestione Classi
-            </Button>
-          )}
-          {canEditLessons && (
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            leftIcon={<Plus className="h-4 w-4" />}
-            className="anime-button"
-          >
-            Nuova Lezione
-          </Button>
-          )}
-        </>
-      }
-    >
-      <AnimatePresence>
-        {message && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className={`mb-6 p-4 rounded-xl flex items-center ${
-              message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-            }`}
-          >
-            {message.type === 'success' ? (
-              <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-            )}
-            <span>{message.text}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <Card variant="elevated" className="mb-6 bg-white/80 backdrop-blur-md border border-white/20 shadow-md rounded-xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-          <CardTitle className="flex items-center text-gray-900">
-            <Filter className="h-5 w-5 mr-2 text-blue-600" />
-            Filtri e Ricerca
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Classe
-              </label>
-              <select
-                className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                value={selectedClass}
-                onChange={handleClassChange}
-                disabled={isLoading}
-              >
-                <option value="">Seleziona una classe</option>
-                {classes.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
+        
+        <div className="relative px-6 py-12">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                <BookOpen className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">
+                  {preselectedClassName ? `Lezioni - ${preselectedClassName}` : "Gestione Lezioni"}
+                </h1>
+                <p className="text-blue-100 mt-1">
+                  {userProfile?.role === 'admin' 
+                    ? preselectedClassName 
+                      ? `Gestisci le lezioni per ${preselectedClassName}` 
+                      : 'Gestisci tutte le lezioni del sistema' 
+                    : 'Crea e gestisci le lezioni delle tue classi'}
+                </p>
+              </div>
             </div>
             
-            <div className="flex items-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth('prev')}
-                disabled={isLoading}
-                leftIcon={<ChevronLeft className="h-4 w-4" />}
-              >
-                Precedente
-              </Button>
-              
-              <div className="flex-1 text-center">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mese
-                </label>
-                <div className="text-lg font-semibold text-gray-900">
-                  {format(currentMonth, 'MMMM yyyy', { locale: it })}
+            <div className="flex items-center gap-2 mt-8">
+              {returnTo === 'classes' && (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/admin/classes')}
+                  leftIcon={<ArrowLeft className="h-4 w-4" />}
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                >
+                  Torna alla Gestione Classi
+                </Button>
+              )}
+              {canEditLessons && (
+                <Button
+                  onClick={() => setIsCreateDialogOpen(true)}
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+                >
+                  Nuova Lezione
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <AnimatePresence>
+          {message && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className={`mb-6 p-4 rounded-xl flex items-center ${
+                message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
+              {message.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+              )}
+              <span>{message.text}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Compact Filters Bar */}
+        <div className="mb-8 bg-white/70 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg">
+          <div className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+              {/* Class Selection */}
+              <div className="lg:w-64">
+                <div className="relative">
+                  <select
+                    className="w-full appearance-none bg-gradient-to-r from-blue-50 to-indigo-50 border-0 rounded-xl py-3 pl-4 pr-10 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    value={selectedClass}
+                    onChange={handleClassChange}
+                    disabled={isLoading}
+                  >
+                    <option value="">🏫 Seleziona una classe</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  </div>
                 </div>
               </div>
               
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth('next')}
-                disabled={isLoading}
-                rightIcon={<ChevronRight className="h-4 w-4" />}
-              >
-                Successivo
-              </Button>
+              {/* Month Navigation */}
+              <div className="flex items-center gap-2 bg-slate-50 rounded-xl p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateMonth('prev')}
+                  disabled={isLoading}
+                  className="h-8 w-8 p-0 hover:bg-white"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-semibold text-slate-700 px-3 min-w-[140px] text-center">
+                  {format(currentMonth, 'MMMM yyyy', { locale: it }).replace(/^\w/, c => c.toUpperCase())}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigateMonth('next')}
+                  disabled={isLoading}
+                  className="h-8 w-8 p-0 hover:bg-white"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* View Toggle */}
+              <div className="flex items-center bg-slate-50 rounded-xl p-1">
+                <Button
+                  variant={!calendarView ? "primary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCalendarView(false)}
+                  className={`h-8 px-3 text-xs font-medium transition-all ${!calendarView ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+                >
+                  <BookOpenText className="h-3 w-3 mr-1" />
+                  Lista
+                </Button>
+                <Button
+                  variant={calendarView ? "primary" : "ghost"}
+                  size="sm"
+                  onClick={() => setCalendarView(true)}
+                  className={`h-8 px-3 text-xs font-medium transition-all ${calendarView ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+                >
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Calendario
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {/* Additional Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <Input
-              placeholder="Cerca lezioni..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<Search className="h-5 w-5" />}
-              className="anime-input"
-            />
+            {/* Search and Topic Filter */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cerca per titolo, descrizione o argomento..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border-0 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+              
+              <div className="sm:w-48">
+                <div className="relative">
+                  <select
+                    className="w-full appearance-none bg-slate-50 border-0 rounded-xl py-3 pl-4 pr-10 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    value={selectedTopic}
+                    onChange={(e) => setSelectedTopic(e.target.value)}
+                  >
+                    <option value="">📚 Tutti gli argomenti</option>
+                    {allTopics.map(topic => (
+                      <option key={topic} value={topic}>{topic}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
 
-            <select
-              className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-              value={selectedTopic}
-              onChange={(e) => setSelectedTopic(e.target.value)}
-            >
-              <option value="">Tutti gli argomenti</option>
-              {allTopics.map(topic => (
-                <option key={topic} value={topic}>{topic}</option>
-              ))}
-            </select>
-
-            <div className="flex gap-2">
+            {/* Additional Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -547,381 +599,390 @@ export const LessonTracking: React.FC = () => {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
-      
-      {selectedClass ? (
-        isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 font-light">Caricamento lezioni...</p>
-          </div>
-        ) : (
-          <>
-            {calendarView ? (
-              <Card variant="elevated" className="mb-8 bg-white/80 backdrop-blur-md border border-white/20 shadow-lg rounded-xl overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
-                  <CardTitle className="flex items-center text-gray-900">
-                    <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-                    Calendario Lezioni - {format(currentMonth, 'MMMM yyyy', { locale: it })}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {/* Calendar Header */}
-                  <div className="grid grid-cols-7 gap-1 mb-2">
-                    {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
-                      <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {calendarDays.map((date, index) => {
-                      const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
-                      const isWeekendDay = isWeekend(date);
-                      const lessonsForDay = getLessonsForDay(date);
-                      const hasLessons = lessonsForDay.length > 0;
-                      const isCurrentDay = isToday(date);
-                      
-                      return (
-                        <div
-                          key={index}
-                          className={`
-                            relative p-2 min-h-[100px] border rounded-lg cursor-pointer transition-all
-                            ${!isCurrentMonth ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-white border-gray-200'}
-                            ${isCurrentDay ? 'ring-2 ring-primary-500' : ''}
-                            ${isWeekendDay && isCurrentMonth ? 'bg-blue-50 hover:bg-blue-100' : ''}
-                            ${hasLessons ? 'hover:shadow-md' : ''}
-                          `}
-                          onClick={() => isCurrentMonth && isWeekendDay && !hasLessons && setIsCreateDialogOpen(true)}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="text-sm font-medium">
-                              {format(date, 'd')}
-                            </div>
-                            
-                            {isCurrentMonth && isWeekendDay && !hasLessons && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsCreateDialogOpen(true);
-                                }}
-                              >
-                                <Plus className="h-4 w-4 text-blue-500" />
-                              </Button>
-                            )}
-                          </div>
-                          
-                          {hasLessons && isCurrentMonth && (
-                            <div className="mt-2 space-y-1">
-                              {lessonsForDay.slice(0, 2).map((lesson, idx) => (
-                                <div key={idx} className="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate">
-                                  {lesson.title}
-                                </div>
-                              ))}
-                              {lessonsForDay.length > 2 && (
-                                <div className="text-xs text-blue-600 font-medium">
-                                  +{lessonsForDay.length - 2} altre
-                                </div>
-                              )}
-                            </div>
-                          )}
+        </div>
+        
+        {selectedClass ? (
+          isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600 font-light">Caricamento lezioni...</p>
+            </div>
+          ) : (
+            <>
+              {calendarView ? (
+                <Card className="mb-8 bg-white/80 backdrop-blur-md border border-white/20 shadow-lg rounded-xl overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+                    <CardTitle className="flex items-center text-gray-900">
+                      <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                      Calendario Lezioni - {format(currentMonth, 'MMMM yyyy', { locale: it })}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    {/* Calendar Header */}
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                      {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
+                        <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                          {day}
                         </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredLessons.length > 0 ? (
-                <div className="space-y-6">
-                  {filteredLessons.map((lesson) => {
-                    const isExpanded = expandedLesson === lesson.id;
-                    const lessonMaterials = materials[lesson.id] || [];
-                    const lessonHomeworks = homeworks[lesson.id] || [];
-                    
-                    return (
-                      <motion.div
-                        key={lesson.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <Card variant="bordered" className="overflow-hidden bg-white/80 backdrop-blur-md border border-white/20 shadow-md hover:shadow-lg transition-all duration-300 rounded-xl">
-                          <CardHeader 
-                            className="cursor-pointer hover:bg-gray-50 transition-colors bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200"
-                            onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
+                      ))}
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {calendarDays.map((date, index) => {
+                        const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                        const isWeekendDay = isWeekend(date);
+                        const lessonsForDay = getLessonsForDay(date);
+                        const hasLessons = lessonsForDay.length > 0;
+                        const isCurrentDay = isToday(date);
+                        
+                        return (
+                          <div
+                            key={index}
+                            className={`
+                              relative p-2 min-h-[100px] border rounded-lg cursor-pointer transition-all
+                              ${!isCurrentMonth ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-white border-gray-200'}
+                              ${isCurrentDay ? 'ring-2 ring-primary-500' : ''}
+                              ${isWeekendDay && isCurrentMonth ? 'bg-blue-50 hover:bg-blue-100' : ''}
+                              ${hasLessons ? 'hover:shadow-md' : ''}
+                            `}
+                            onClick={() => isCurrentMonth && isWeekendDay && !hasLessons && setIsCreateDialogOpen(true)}
                           >
                             <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <CardTitle className="flex items-center text-gray-900">
-                                  <BookOpenText className="h-5 w-5 mr-2 text-blue-600" />
-                                  {lesson.title}
-                                </CardTitle>
-                                <div className="flex flex-wrap items-center mt-2 space-x-4 text-sm text-gray-500">
-                                  <div className="flex items-center">
-                                    <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                                    {formatDate(lesson.date)}
-                                  </div>
-                                  <div className="flex items-center">
-                                    <Users className="h-4 w-4 mr-1 text-gray-400" />
-                                    {lesson.teacherName || 'Insegnante non specificato'}
-                                  </div>
-                                  {lessonMaterials.length > 0 && (
-                                    <div className="flex items-center">
-                                      <FileText className="h-4 w-4 mr-1 text-gray-400" />
-                                      {lessonMaterials.length} materiale/i
-                                    </div>
-                                  )}
-                                  {lessonHomeworks.length > 0 && (
-                                    <div className="flex items-center">
-                                      <ClipboardList className="h-4 w-4 mr-1 text-gray-400" />
-                                      {lessonHomeworks.length} compito/i
-                                    </div>
-                                  )}
-                                </div>
+                              <div className="text-sm font-medium">
+                                {format(date, 'd')}
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <Link to={`/lessons/${lesson.id}`}>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                {canEditSpecificLesson(lesson) && (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditLesson(lesson);
-                                      }}
-                                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteLesson(lesson.id, lesson);
-                                      }}
-                                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
+                              
+                              {isCurrentMonth && isWeekendDay && !hasLessons && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-6 w-6 p-0"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setExpandedLesson(isExpanded ? null : lesson.id);
+                                    setIsCreateDialogOpen(true);
                                   }}
-                                  className="text-gray-400"
                                 >
-                                  {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                                  <Plus className="h-4 w-4 text-blue-500" />
                                 </Button>
-                              </div>
+                              )}
                             </div>
-                          </CardHeader>
-                          
-                          {isExpanded && (
-                            <CardContent className="border-t border-gray-200 space-y-6 p-6">
-                              {/* Description */}
-                              <div>
-                                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                                  <BookOpen className="h-4 w-4 mr-2 text-gray-700" />
-                                  Descrizione
-                                </h4>
-                                <p className="text-gray-700">{lesson.description}</p>
+                            
+                            {hasLessons && isCurrentMonth && (
+                              <div className="mt-2 space-y-1">
+                                {lessonsForDay.slice(0, 2).map((lesson, idx) => (
+                                  <div key={idx} className="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate">
+                                    {lesson.title}
+                                  </div>
+                                ))}
+                                {lessonsForDay.length > 2 && (
+                                  <div className="text-xs text-blue-600 font-medium">
+                                    +{lessonsForDay.length - 2} altre
+                                  </div>
+                                )}
                               </div>
-
-                              {/* Topics */}
-                              {lesson.topics.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-gray-900 mb-2 flex items-center">
-                                    <Target className="h-4 w-4 mr-2 text-gray-700" />
-                                    Argomenti Trattati
-                                  </h4>
-                                  <div className="flex flex-wrap gap-2">
-                                    {lesson.topics.map((topic, index) => (
-                                      <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                                        <Target className="h-3 w-3 mr-1" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredLessons.length > 0 ? (
+                  <div className="space-y-6">
+                    {filteredLessons.map((lesson) => {
+                      const isExpanded = expandedLesson === lesson.id;
+                      const lessonMaterials = materials[lesson.id] || [];
+                      const lessonHomeworks = homeworks[lesson.id] || [];
+                      
+                      return (
+                        <motion.div
+                          key={lesson.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <div className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                            {/* Card Header */}
+                            <div 
+                              className="cursor-pointer p-6 hover:bg-slate-50/50 transition-colors"
+                              onClick={() => setExpandedLesson(isExpanded ? null : lesson.id)}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                                      <BookOpen className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="text-lg font-semibold text-slate-900 truncate">{lesson.title}</h3>
+                                      <p className="text-sm text-slate-500 mt-1 line-clamp-2">{lesson.description}</p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-4 w-4 text-blue-500" />
+                                      <span className="font-medium">{formatDate(lesson.date)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Users className="h-4 w-4 text-emerald-500" />
+                                      <span>{lesson.teacherName || 'Insegnante non specificato'}</span>
+                                    </div>
+                                    {lesson.topics && lesson.topics.length > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        <BookOpen className="h-4 w-4 text-purple-500" />
+                                        <span>{lesson.topics.length} argomenti</span>
+                                      </div>
+                                    )}
+                                    {lessonMaterials.length > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        <Paperclip className="h-4 w-4 text-amber-500" />
+                                        <span>{lessonMaterials.length} materiali</span>
+                                      </div>
+                                    )}
+                                    {lessonHomeworks.length > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        <FileText className="h-4 w-4 text-red-500" />
+                                        <span>{lessonHomeworks.length} compiti</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex flex-col items-end gap-3">
+                                  <div className="flex items-center gap-2">
+                                    {lesson.topics && lesson.topics.slice(0, 3).map((topic, index) => (
+                                      <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                         {topic}
                                       </span>
                                     ))}
+                                    {lesson.topics && lesson.topics.length > 3 && (
+                                      <span className="text-xs text-slate-500">+{lesson.topics.length - 3} altri</span>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                    <Link to={`/lessons/${lesson.id}`}>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                    </Link>
+                                    {canEditSpecificLesson(lesson) && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingLesson(lesson);
+                                            setIsEditDialogOpen(true);
+                                          }}
+                                          className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteLesson(lesson.id, lesson);
+                                          }}
+                                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedLesson(isExpanded ? null : lesson.id);
+                                      }}
+                                      className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600"
+                                    >
+                                      {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                                    </Button>
                                   </div>
                                 </div>
-                              )}
-
-                              {/* Materials */}
-                              {lessonMaterials.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                                    <FileText className="h-4 w-4 mr-2 text-gray-700" />
-                                    Materiali Didattici ({lessonMaterials.length})
-                                  </h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {lessonMaterials.map(material => (
-                                      <div key={material.id} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex-1">
-                                            <h5 className="font-medium text-gray-900">{material.title}</h5>
-                                            <p className="text-sm text-gray-500 mt-1">{material.description}</p>
-                                          </div>
-                                          <a
-                                            href={material.fileUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="ml-3 text-blue-600 hover:text-blue-700"
-                                          >
-                                            <Download className="h-5 w-5" />
-                                          </a>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Homework */}
-                              {lessonHomeworks.length > 0 && (
-                                <div>
-                                  <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                                    <ClipboardList className="h-4 w-4 mr-2 text-gray-700" />
-                                    Compiti Assegnati ({lessonHomeworks.length})
-                                  </h4>
-                                  <div className="space-y-4">
-                                    {lessonHomeworks.map(homework => (
-                                      <div key={homework.id} className="p-4 border border-gray-200 rounded-lg">
-                                        <div className="flex items-start justify-between">
-                                          <div className="flex-1">
-                                            <h5 className="font-medium text-gray-900">{homework.title}</h5>
-                                            <p className="text-sm text-gray-600 mb-2">{homework.description}</p>
-                                            <p className="text-sm text-gray-500 flex items-center">
-                                              <Clock className="h-4 w-4 mr-1 text-gray-400" />
-                                              Scadenza: {formatDate(homework.dueDate)}
-                                            </p>
-                                          </div>
-                                          <Link to={`/homework/${homework.id}`}>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="ml-4"
-                                            >
-                                              Dettagli
-                                            </Button>
-                                          </Link>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {lessonMaterials.length === 0 && lessonHomeworks.length === 0 && (
-                                <div className="text-center py-8 bg-gray-50 rounded-xl border border-gray-100">
-                                  <BookOpenText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                  <p className="text-gray-500">
-                                    Nessun materiale o compito associato a questa lezione.
-                                  </p>
-                                </div>
-                              )}
-
-                              <div className="flex justify-center pt-4 border-t border-gray-200">
-                                <Link to={`/lessons/${lesson.id}`}>
-                                  <Button className="anime-button">
-                                    Visualizza Dettagli Completi
-                                  </Button>
-                                </Link>
                               </div>
-                            </CardContent>
-                          )}
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-xl overflow-hidden">
-                  <CardContent className="p-12 text-center">
-                    <BookOpenText className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-                    <h3 className="text-2xl font-light text-gray-900 mb-3">
-                      {searchQuery || selectedTopic 
-                        ? 'Nessuna lezione trovata' 
-                        : 'Nessuna lezione per questo mese'
-                      }
-                    </h3>
-                    <p className="text-gray-600 max-w-md mx-auto mb-8">
-                      {searchQuery || selectedTopic
-                        ? 'Prova a modificare i filtri di ricerca.'
-                        : `Non ci sono lezioni programmate per ${format(currentMonth, 'MMMM yyyy', { locale: it })}.`
-                      }
-                    </p>
-                    {canEditLessons && (
-                      <Button
-                        onClick={() => setIsCreateDialogOpen(true)}
-                        className="anime-button"
-                        leftIcon={<Plus className="h-4 w-4" />}
-                      >
-                        Crea Nuova Lezione
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )
-            )}
-          </>
-        )
-      ) : (
-        <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-xl overflow-hidden">
-          <CardContent className="p-12 text-center">
-            <School className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-            <h3 className="text-2xl font-light text-gray-900 mb-3">Seleziona una classe</h3>
-            <p className="text-gray-600 max-w-md mx-auto mb-8">
-              Seleziona una classe per visualizzare e gestire le lezioni.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+                            </div>
+                            
+                            {/* Expanded Content */}
+                            <AnimatePresence>
+                              {isExpanded && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="border-t border-slate-200 p-6 bg-slate-50/30"
+                                >
+                                  <div className="space-y-6">
+                                    {/* Topics Details */}
+                                    {lesson.topics && lesson.topics.length > 0 && (
+                                      <div>
+                                        <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                          <BookOpenText className="h-4 w-4 text-purple-600" />
+                                          Argomenti Trattati
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                          {lesson.topics.map((topic, index) => (
+                                            <div key={index} className="flex items-center gap-2 p-3 bg-white rounded-xl border border-slate-200">
+                                              <div className="h-2 w-2 rounded-full bg-purple-500"></div>
+                                              <span className="text-sm font-medium text-slate-700">{topic}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
 
-      {/* Create Lesson Dialog */}
-      <CreateLessonDialog
-        classId={selectedClass}
-        className={selectedClassName}
-        isOpen={isCreateDialogOpen}
-        onClose={() => setIsCreateDialogOpen(false)}
-        onSuccess={(newLesson) => {
-          handleCreateLessonSuccess(newLesson);
-          setIsCreateDialogOpen(false);
-        }}
-      />
+                                    {/* Materials */}
+                                    {lessonMaterials.length > 0 && (
+                                      <div>
+                                        <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                          <Paperclip className="h-4 w-4 text-amber-600" />
+                                          Materiali Didattici
+                                        </h4>
+                                        <div className="space-y-2">
+                                          {lessonMaterials.map((material) => (
+                                            <div key={material.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 hover:border-amber-200 transition-colors">
+                                              <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                                                  <FileText className="h-4 w-4" />
+                                                </div>
+                                                <span className="font-medium text-slate-900">{material.title}</span>
+                                              </div>
+                                              <a
+                                                href={material.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-200 transition-colors"
+                                              >
+                                                Visualizza
+                                              </a>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
 
-      {/* Edit Lesson Dialog */}
-      <EditLessonDialog
-        lesson={editingLesson}
-        isOpen={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false);
-          setEditingLesson(null);
-        }}
-        onUpdate={handleLessonUpdate}
-      />
-    </PageContainer>
+                                    {/* Homeworks */}
+                                    {lessonHomeworks.length > 0 && (
+                                      <div>
+                                        <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                          <FileText className="h-4 w-4 text-red-600" />
+                                          Compiti Assegnati
+                                        </h4>
+                                        <div className="space-y-2">
+                                          {lessonHomeworks.map((homework) => (
+                                            <div key={homework.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 hover:border-red-200 transition-colors">
+                                              <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-lg bg-red-100 text-red-700 flex items-center justify-center">
+                                                  <FileText className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                  <div className="font-medium text-slate-900">{homework.title}</div>
+                                                  <div className="text-sm text-slate-500">
+                                                    Scadenza: {homework.dueDate ? format(homework.dueDate, 'd MMMM yyyy', { locale: it }) : 'Non specificata'}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <Link
+                                                to={`/homeworks/${homework.id}`}
+                                                className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+                                              >
+                                                Visualizza
+                                              </Link>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-xl overflow-hidden">
+                    <CardContent className="p-12 text-center">
+                      <BookOpenText className="h-16 w-16 text-gray-400 mx-auto mb-6" />
+                      <h3 className="text-2xl font-light text-gray-900 mb-3">
+                        {searchQuery || selectedTopic 
+                          ? 'Nessuna lezione trovata' 
+                          : 'Nessuna lezione per questo mese'
+                        }
+                      </h3>
+                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                        {searchQuery || selectedTopic
+                          ? 'Prova a modificare i filtri di ricerca.'
+                          : `Non ci sono lezioni programmate per ${format(currentMonth, 'MMMM yyyy', { locale: it })}.`
+                        }
+                      </p>
+                      {canEditLessons && (
+                        <Button
+                          onClick={() => setIsCreateDialogOpen(true)}
+                          className="anime-button"
+                          leftIcon={<Plus className="h-4 w-4" />}
+                        >
+                          Crea Nuova Lezione
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              )}
+            </>
+          )
+        ) : (
+          <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-xl overflow-hidden">
+            <CardContent className="p-12 text-center">
+              <School className="h-16 w-16 text-gray-400 mx-auto mb-6" />
+              <h3 className="text-2xl font-light text-gray-900 mb-3">Seleziona una classe</h3>
+              <p className="text-gray-600 max-w-md mx-auto mb-8">
+                Seleziona una classe per visualizzare e gestire le lezioni.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Create Lesson Dialog */}
+        <CreateLessonDialog
+          classId={selectedClass}
+          className={selectedClassName}
+          isOpen={isCreateDialogOpen}
+          onClose={() => setIsCreateDialogOpen(false)}
+          onSuccess={(newLesson) => {
+            handleCreateLessonSuccess(newLesson);
+            setIsCreateDialogOpen(false);
+          }}
+        />
+
+        {/* Edit Lesson Dialog */}
+        <EditLessonDialog
+          lesson={editingLesson}
+          isOpen={isEditDialogOpen}
+          onClose={() => {
+            setIsEditDialogOpen(false);
+            setEditingLesson(null);
+          }}
+          onUpdate={handleLessonUpdate}
+        />
+      </div>
+    </div>
   );
 };

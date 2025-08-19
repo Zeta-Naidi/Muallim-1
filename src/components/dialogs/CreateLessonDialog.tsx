@@ -13,7 +13,7 @@ interface CreateLessonDialogProps {
   className: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (lesson: any) => void;
 }
 
 export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
@@ -100,7 +100,7 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
     setError(null);
 
     try {
-      await addDoc(collection(db, 'lessons'), {
+      const lessonData = {
         title: title.trim(),
         description: description.trim(),
         classId,
@@ -117,9 +117,17 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
         createdBy: userProfile.id,
         teacherName: userProfile.displayName,
         createdAt: new Date(),
-      });
+      };
 
-      onSuccess();
+      const docRef = await addDoc(collection(db, 'lessons'), lessonData);
+      
+      // Create the lesson object with the generated ID
+      const newLesson = {
+        id: docRef.id,
+        ...lessonData
+      };
+
+      onSuccess(newLesson);
       onClose();
       
       // Reset form

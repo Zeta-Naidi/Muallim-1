@@ -276,55 +276,34 @@ export const ClassManagement: React.FC = () => {
         
         <div className="relative px-6 py-12">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
-                <School className="h-8 w-8" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">Le Mie Classi</h1>
-                <p className="text-blue-100 mt-1">Gestisci le tue classi, studenti e attività didattiche</p>
-              </div>
-            </div>
-            
-            {/* Class Selection */}
-            <div className="mt-8 p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20">
-              <div className="flex items-center text-white mb-4">
-                <GraduationCap className="h-5 w-5 mr-2" />
-                <h3 className="text-lg font-semibold">Seleziona Classe</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                  <School className="h-8 w-8" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">Le Mie Classi</h1>
+                  <p className="text-blue-100 mt-1">Gestisci le tue classi, studenti e attività didattiche</p>
+                </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-white/90 mb-2">
-                    Classe
-                  </label>
-                  <select
-                    className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                  >
-                    <option value="" className="text-gray-900">Seleziona una classe</option>
-                    {myClasses.map(c => (
-                      <option key={c.id} value={c.id} className="text-gray-900">
-                        {c.name} {c.isTemporary ? '(Supplenza)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                {selectedClassData && (
-                  <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                    <div className="flex items-center mb-2">
-                      <School className="h-5 w-5 text-white mr-2" />
-                      <h4 className="font-semibold text-white">{selectedClassData.name}</h4>
-                    </div>
-                    <p className="text-blue-100 text-sm mb-2">{selectedClassData.description}</p>
-                    <div className="flex items-center text-sm text-white/90">
-                      <Clock className="h-4 w-4 mr-1" />
-                      <span>{selectedClassData.turno || 'Turno non specificato'}</span>
-                    </div>
-                  </div>
-                )}
+              {/* Class Selection in Header */}
+              <div className="min-w-[280px]">
+                <label className="block text-sm font-medium text-white/90 mb-2">
+                  Seleziona Classe
+                </label>
+                <select
+                  className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                >
+                  <option value="" className="text-gray-900">Seleziona una classe</option>
+                  {myClasses.map(c => (
+                    <option key={c.id} value={c.id} className="text-gray-900">
+                      {c.name} {(c as any).isTemporary ? '(Supplenza)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -334,7 +313,7 @@ export const ClassManagement: React.FC = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
 
-      {selectedClass && !isLoading && (
+        {selectedClass && !isLoading && (
         <>
           {/* Class Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">

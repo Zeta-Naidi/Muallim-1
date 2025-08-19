@@ -319,61 +319,61 @@ export const GradeManagement: React.FC = () => {
               </div>
             </div>
             
-            {/* Class and Homework Selectors */}
-            <div className="mt-8 p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20">
-              <div className="flex items-center text-white mb-4">
-                <Filter className="h-5 w-5 mr-2" />
-                <h3 className="text-lg font-semibold">Filtri e Selezione</h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-white/90 mb-2">
-                    Seleziona Classe
-                  </label>
-                  <select
-                    className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
-                    value={selectedClass}
-                    onChange={(e) => {
-                      setSelectedClass(e.target.value);
-                      setSelectedHomework('');
-                    }}
-                  >
-                    <option value="" className="text-gray-900">Seleziona una classe</option>
-                    {teacherClasses.map(c => (
-                      <option key={c.id} value={c.id} className="text-gray-900">
-                        {c.name} {c.isTemporary ? '(Supplenza)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white/90 mb-2">
-                    Seleziona Compito
-                  </label>
-                  <select
-                    className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
-                    value={selectedHomework}
-                    onChange={(e) => setSelectedHomework(e.target.value)}
-                    disabled={!selectedClass}
-                  >
-                    <option value="" className="text-gray-900">Seleziona un compito</option>
-                    {homework.map(hw => (
-                      <option key={hw.id} value={hw.id} className="text-gray-900">
-                        {hw.title} - Scadenza: {formatDate(hw.dueDate)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Class and Homework Selectors */}
+        <div className="mb-6 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="flex items-center text-slate-900 mb-4">
+            <Filter className="h-5 w-5 mr-2 text-blue-600" />
+            <h3 className="text-lg font-semibold">Filtri e Selezione</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Seleziona Classe
+              </label>
+              <select
+                className="block w-full rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm py-3 px-4 transition-colors"
+                value={selectedClass}
+                onChange={(e) => {
+                  setSelectedClass(e.target.value);
+                  setSelectedHomework('');
+                }}
+              >
+                <option value="">Seleziona una classe</option>
+                {teacherClasses.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {(c as any).isTemporary ? '(Supplenza)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Seleziona Compito
+              </label>
+              <select
+                className="block w-full rounded-xl border border-slate-200 bg-white text-slate-900 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm py-3 px-4 transition-colors"
+                value={selectedHomework}
+                onChange={(e) => setSelectedHomework(e.target.value)}
+                disabled={!selectedClass}
+              >
+                <option value="">Seleziona un compito...</option>
+                {homework.map(hw => (
+                  <option key={hw.id} value={hw.id}>
+                    {hw.title} - Scadenza: {format(hw.dueDate, 'd MMM yyyy', { locale: it })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         {selectedHomeworkData ? (
           <>
             {/* Stats Overview */}
