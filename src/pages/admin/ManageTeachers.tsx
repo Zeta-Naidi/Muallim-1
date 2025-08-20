@@ -868,12 +868,14 @@ export const ManageTeachers: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => setIsViewDetailsOpen(false)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white/95 backdrop-blur-md rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-xl border border-white/20 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-light text-gray-900 flex items-center">
@@ -1177,219 +1179,110 @@ export const ManageTeachers: React.FC = () => {
               <p className="mt-2 text-slate-600">Caricamento insegnanti...</p>
             </div>
           ) : filteredTeachers.length > 0 ? (
-            <>
-              {(() => {
-                // Pagination logic
-                const totalPages = Math.ceil(filteredTeachers.length / TEACHERS_PER_PAGE);
-                const startIndex = (currentPage - 1) * TEACHERS_PER_PAGE;
-                const endIndex = startIndex + TEACHERS_PER_PAGE;
-                const paginatedTeachers = filteredTeachers.slice(startIndex, endIndex);
-
-                return (
-                  <>
-                    <div className="space-y-4">
-                      {paginatedTeachers.map(teacher => {
-                const assignedClass = teacher.assignedClassId
-                  ? classes.find(c => c.id === teacher.assignedClassId)
-                  : classes.find(c => c.teacherId === teacher.id);
-                const assistant = allTeachers.find(t => t.id === teacher.assistantId);
-                
-                return (
-                  <motion.div 
-                    key={teacher.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="group"
-                  >
-                    <div 
-                      className="bg-white/80 backdrop-blur-md border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden hover:bg-white/90 cursor-pointer"
-                      onClick={() => handleToggleTeacherExpansion(teacher.id)}
-                    >
-                      <div className="p-6">
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-4 min-w-0 flex-1">
-                            {/* Simple Avatar */}
+            <div className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+              <table className="min-w-full">
+                <thead className="bg-gradient-to-r from-gray-50/80 to-gray-100/80 backdrop-blur-sm">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                      Docente
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                      Email
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                      Tipo
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                      Classe
+                    </th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
+                      Azioni
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredTeachers.map(teacher => {
+                    const assignedClass = classes.find(c => c.teacherId === teacher.id || c.id === teacher.assignedClassId);
+                    
+                    return (
+                      <motion.tr 
+                        key={teacher.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="hover:bg-blue-50/30 transition-all duration-200"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
                             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
-                              <span className="text-blue-600 font-semibold text-lg">
+                              <span className="text-blue-700 font-semibold text-sm">
                                 {teacher.displayName.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            
-                            <div className="min-w-0 flex-1">
-                              {/* Header with name and type */}
-                              <div className="flex items-center gap-3 mb-1">
-                                <h3 className="text-lg font-semibold text-gray-900 truncate">{teacher.displayName}</h3>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTeacherTypeColor(teacher.teacherType)}`}>
-                                  {getTeacherTypeLabel(teacher.teacherType)}
-                                </span>
-                              </div>
-                              
-                              {/* Class info only */}
-                              <div className="text-sm text-gray-600">
-                                {assignedClass ? (
-                                  <span className="truncate font-medium text-black-600">Classe: {assignedClass.name}</span>
-                                ) : (
-                                  <span className="truncate text-gray-400">Classe: Non assegnata</span>
-                                )}
+                            <div>
+                              <div className="font-semibold text-gray-900">
+                                {teacher.displayName}
                               </div>
                             </div>
                           </div>
-                          
-                          {/* Expand/Collapse Arrow */}
-                          <div className="flex items-center">
-                            <motion.div
-                              animate={{ rotate: expandedTeacherId === teacher.id ? 180 : 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <ChevronDown className="h-5 w-5" />
-                            </motion.div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center text-gray-600">
+                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                            <span className="text-sm">{teacher.email}</span>
                           </div>
-                          
-                        </div>
-                        
-                        {/* Expanded Details */}
-                        <AnimatePresence>
-                          {expandedTeacherId === teacher.id && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="border-t border-gray-100 bg-gray-50/50"
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1.5 inline-flex text-sm font-medium rounded-xl ${getTeacherTypeColor(teacher.teacherType)}`}>
+                            {getTeacherTypeLabel(teacher.teacherType)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            {assignedClass ? (
+                              <span className="font-medium text-gray-900">{assignedClass.name}</span>
+                            ) : (
+                              <span className="text-gray-400">Non assegnata</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-end items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTeacher(teacher)}
+                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              leftIcon={<Edit className="h-4 w-4" />}
                             >
-                              <div className="p-6 space-y-4">
-                                {/* Teacher Details */}
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                  <div>
-                                    <span className="font-medium text-gray-500">Email:</span>
-                                    <p className="text-gray-900">{teacher.email}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-500">Telefono:</span>
-                                    <p className="text-gray-900">{teacher.phoneNumber || 'Non specificato'}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-500">Indirizzo:</span>
-                                    <p className="text-gray-900">{teacher.address || 'Non specificato'}</p>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-500">Tipo:</span>
-                                    <p className="text-gray-900">{getTeacherTypeLabel(teacher.teacherType)}</p>
-                                  </div>
-                                  {assignedClass && (
-                                    <div className="col-span-2">
-                                      <span className="font-medium text-gray-500">Classe Assegnata:</span>
-                                      <p className="text-gray-900">{assignedClass.name}{assignedClass.turno ? ` – ${assignedClass.turno}` : ''}</p>
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {/* Action Buttons */}
-                                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditTeacher(teacher);
-                                      setExpandedTeacherId(null);
-                                    }}
-                                    className="text-gray-600 hover:text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                    Modifica
-                                  </Button>
-                                  
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPaymentTeacher(teacher);
-                                      setIsPaymentDialogOpen(true);
-                                      setExpandedTeacherId(null);
-                                    }}
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-100 flex items-center gap-2"
-                                  >
-                                    <Euro className="h-4 w-4" />
-                                    Pagamento
-                                  </Button>
-                                  
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleViewPaymentHistory(teacher);
-                                      setExpandedTeacherId(null);
-                                    }}
-                                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 flex items-center gap-2"
-                                  >
-                                    <History className="h-4 w-4" />
-                                    Storico Pagamenti
-                                  </Button>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </motion.div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {totalPages > 1 && (
-                      <div className="flex justify-center items-center gap-4 mt-6 p-4 bg-gray-50/80 rounded-xl">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                          disabled={currentPage === 1}
-                          className="px-4 py-2 rounded-xl"
-                        >
-                          Precedente
-                        </Button>
-                        
-                        <div className="flex items-center gap-2">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                currentPage === page
-                                  ? 'bg-blue-600 text-white shadow-md'
-                                  : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 border border-gray-200'
-                              }`}
+                              Modifica
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenSubDialog(teacher)}
+                              className="rounded-xl transition-all duration-200 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              leftIcon={<Calendar className="h-4 w-4" />}
                             >
-                              {page}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                          disabled={currentPage === totalPages}
-                          className="px-4 py-2 rounded-xl"
-                        >
-                          Successiva
-                        </Button>
-                      </div>
-                    )}
-
-                    <div className="text-center text-sm text-gray-500 mt-4">
-                      Mostrando {startIndex + 1}-{Math.min(endIndex, filteredTeachers.length)} di {filteredTeachers.length} insegnanti
-                    </div>
-                  </>
-                );
-              })()}
-            </>
+                              Supplenza
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenPaymentDialog(teacher)}
+                              className="rounded-xl transition-all duration-200 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              leftIcon={<Euro className="h-4 w-4" />}
+                            >
+                              Pagamento
+                            </Button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="text-center py-12">
               <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
