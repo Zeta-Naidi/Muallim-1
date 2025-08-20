@@ -56,7 +56,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow list: if isAuthenticated() && (isAdmin() || isTeacher());
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) || isAdmin();
       allow update: if isAdmin() || isOwner(userId);
       allow delete: if isAdmin();
     }
@@ -188,6 +188,13 @@ service cloud.firestore {
     match /teacherPayments/{paymentId} {
       allow read: if isAdmin();
       allow create, update, delete: if isAdmin();
+    }
+
+    // Events
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() || isTeacher();
+      allow update, delete: if isAdmin() || (isTeacher() && resource.data.createdBy == request.auth.uid);
     }
 
     // Notifications
