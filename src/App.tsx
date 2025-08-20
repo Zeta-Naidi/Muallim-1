@@ -474,6 +474,7 @@ function AppRoutes() {
               </div>
             </PrivateRoute>
           } />
+
           
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

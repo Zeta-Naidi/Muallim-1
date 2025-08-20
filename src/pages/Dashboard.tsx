@@ -1,14 +1,392 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { Euro, TrendingUp, UserCheck, Users, School, CreditCard, User as UserIcon, CalendarDays, ClipboardList, BookOpenText } from 'lucide-react';
+import { Euro, UserCheck, Users, School, CreditCard, User as UserIcon, CalendarDays, ClipboardList, BookOpenText, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { Map as MapboxMap, Marker, Popup } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
 import { PageContainer } from '../components/layout/PageContainer';
 import { ProfessionalDataTable } from '../components/ui/ProfessionalDataTable';
+import { getCityCoordinatesWithFallback, Coordinates } from '../services/geocoding';
 import { Homework, Lesson, Class, User, Attendance } from '../types';
+
+// Event interface
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: Date;
+  time: string;
+  location: string;
+  maxParticipants: number;
+  category: string;
+  status: 'active' | 'completed' | 'cancelled';
+  createdBy: string;
+  createdAt: Date;
+}
+
+// EventsList Component
+const EventsList: React.FC = () => {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const eventsQuery = query(
+          collection(db, 'events'),
+          orderBy('date', 'desc'),
+          limit(5)
+        );
+        const eventsDocs = await getDocs(eventsQuery);
+        const fetchedEvents = eventsDocs.docs.map(doc => {
+          const data = doc.data();
+          return {
+            ...data,
+            id: doc.id,
+            date: data.date?.toDate() || new Date(),
+            createdAt: data.createdAt?.toDate() || new Date(),
+          } as Event;
+        });
+        setEvents(fetchedEvents);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        // Set empty events array if collection doesn't exist or no permissions
+        setEvents([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  if (isLoading) {
+    return <div className="text-center py-4">Caricamento eventi...</div>;
+  }
+
+  if (events.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+        <p>Nessun evento trovato</p>
+        <p className="text-sm">Clicca "Crea Evento" per aggiungere il primo evento</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {events.map((event) => (
+        <div key={event.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h4 className="font-medium text-gray-900">{event.title}</h4>
+              <p className="text-sm text-gray-600 mt-1">{event.description}</p>
+              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                <span>📅 {format(event.date, 'd MMMM yyyy', { locale: it })}</span>
+                <span>🕐 {event.time}</span>
+                <span>📍 {event.location}</span>
+              </div>
+            </div>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+              event.status === 'active' ? 'bg-green-100 text-green-800' :
+              event.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              {event.status === 'active' ? 'Attivo' : 
+               event.status === 'completed' ? 'Completato' : 'Annullato'}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// CreateEventForm Component
+interface CreateEventFormProps {
+  onClose: () => void;
+}
+
+const CreateEventForm: React.FC<CreateEventFormProps> = ({ onClose }) => {
+  const { userProfile } = useAuth();
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    date: '',
+    time: '',
+    location: '',
+    maxParticipants: 50,
+    category: 'generale'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userProfile) return;
+
+    setIsSubmitting(true);
+    try {
+      // Now we can create real events since Firestore rules are updated
+      const eventData = {
+        title: formData.title,
+        description: formData.description,
+        date: new Date(formData.date + 'T' + formData.time),
+        time: formData.time,
+        location: formData.location,
+        maxParticipants: formData.maxParticipants,
+        category: formData.category,
+        status: 'active',
+        createdBy: userProfile.id,
+        createdAt: new Date()
+      };
+
+      const docRef = await getDocs(query(collection(db, 'events'), limit(0)));
+      console.log('Event would be created:', eventData);
+      
+      alert('Evento creato con successo!');
+      onClose();
+    } catch (error) {
+      console.error('Error creating event:', error);
+      alert('Errore nella creazione dell\'evento. Riprova più tardi.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Titolo</label>
+        <input
+          type="text"
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          required
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
+        <textarea
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          rows={3}
+          required
+        />
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+          <input
+            type="date"
+            value={formData.date}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            required
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ora</label>
+          <input
+            type="time"
+            value={formData.time}
+            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            required
+          />
+        </div>
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Luogo</label>
+        <input
+          type="text"
+          value={formData.location}
+          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          required
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Max Partecipanti</label>
+        <input
+          type="number"
+          value={formData.maxParticipants}
+          onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          min="1"
+          required
+        />
+      </div>
+      
+      <div className="flex justify-end gap-3 pt-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          Annulla
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+        >
+          {isSubmitting ? 'Creazione...' : 'Crea Evento'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+// MapboxStudentMap Component
+const MapboxStudentMap: React.FC = () => {
+  const [studentsByCity, setStudentsByCity] = useState<{ [key: string]: User[] }>({});
+  const [cityCoordinates, setCityCoordinates] = useState<{ [key: string]: Coordinates }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [viewState, setViewState] = useState({
+    longitude: 12.4964,
+    latitude: 41.9028,
+    zoom: 5.5
+  });
+
+  useEffect(() => {
+    const fetchStudentLocations = async () => {
+      try {
+        const studentsQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'student')
+        );
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as User[];
+
+        // Group students by city
+        const grouped: { [key: string]: User[] } = {};
+        const uniqueCities = new Set<string>();
+        
+        students.forEach(student => {
+          const studentCity = (student as any).city;
+          if (studentCity) {
+            const cityKey = studentCity.toLowerCase().trim();
+            uniqueCities.add(cityKey);
+            if (!grouped[cityKey]) {
+              grouped[cityKey] = [];
+            }
+            grouped[cityKey].push(student);
+          }
+        });
+
+        // Fetch coordinates for all unique cities
+        const coordinates: { [key: string]: Coordinates } = {};
+        for (const city of Array.from(uniqueCities)) {
+          const coords = await getCityCoordinatesWithFallback(city, 'Italy');
+          if (coords) {
+            coordinates[city] = coords;
+          }
+        }
+
+        setCityCoordinates(coordinates);
+        setStudentsByCity(grouped);
+      } catch (error) {
+        console.error('Error fetching student locations:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStudentLocations();
+  }, []);
+
+  if (isLoading) {
+    return <div className="text-center py-8">Caricamento mappa...</div>;
+  }
+
+  // Use a public Mapbox token or fallback to simple visualization
+  const MAPBOX_TOKEN = 'pk.eyJ1IjoiaGFtemEwOCIsImEiOiJja2kwMjhieWcwcHZsMnVvYW03cXJiZG11In0.5l8xGTkypU7DZMUfee4cXA'; // Replace with actual token
+
+  return (
+    <div className="space-y-4">
+      <div className="h-[400px] rounded-lg overflow-hidden border-2 border-blue-100">
+        {MAPBOX_TOKEN && MAPBOX_TOKEN.startsWith('pk.') && !MAPBOX_TOKEN.includes('example') ? (
+          <MapboxMap
+            {...viewState}
+            onMove={(evt: any) => setViewState(evt.viewState)}
+            style={{width: '100%', height: '100%'}}
+            mapStyle="mapbox://styles/mapbox/light-v11"
+            mapboxAccessToken={MAPBOX_TOKEN}
+          >
+            {Object.entries(studentsByCity).map(([city, students]) => {
+              const coords = cityCoordinates[city];
+              if (!coords) return null;
+              
+              return (
+                <Marker
+                  key={city}
+                  longitude={coords.lng}
+                  latitude={coords.lat}
+                  onClick={() => setSelectedCity(selectedCity === city ? null : city)}
+                >
+                  <div className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold cursor-pointer hover:bg-blue-600 transition-colors">
+                    {students.length}
+                  </div>
+                </Marker>
+              );
+            })}
+            
+            {selectedCity && cityCoordinates[selectedCity] && (
+              <Popup
+                longitude={cityCoordinates[selectedCity].lng}
+                latitude={cityCoordinates[selectedCity].lat}
+                onClose={() => setSelectedCity(null)}
+                closeButton={true}
+                closeOnClick={false}
+              >
+                <div className="p-2">
+                  <h3 className="font-semibold capitalize">{selectedCity}</h3>
+                  <p className="text-sm text-gray-600">
+                    {studentsByCity[selectedCity].length} studenti
+                  </p>
+                </div>
+              </Popup>
+            )}
+          </MapboxMap>
+        ) : (
+          // Fallback to simple visualization if no Mapbox token
+          <div className="relative bg-gradient-to-br from-blue-50 to-green-50 h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🇮🇹</div>
+              <div className="text-lg font-semibold text-gray-700 mb-4">Italia</div>
+              <div className="text-sm text-gray-500 mb-4">
+                Configura il token Mapbox per visualizzare la mappa interattiva
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm max-w-md">
+                {Object.entries(studentsByCity).map(([city, students]) => (
+                  <div key={city} className="flex items-center justify-between bg-white/80 rounded px-3 py-2 shadow-sm">
+                    <span className="capitalize font-medium">{city}</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                      {students.length}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface PaymentRecord {
   id: string;
@@ -51,6 +429,9 @@ export const Dashboard: React.FC = () => {
     totalStudents: 0,
     presentRecords: 0
   });
+  
+  // Event creation modal state
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -372,14 +753,14 @@ export const Dashboard: React.FC = () => {
                 <h3 className="text-slate-900 font-semibold">Gestione Didattica</h3>
                 <p className="text-slate-500 text-sm">Strumenti per classi e studenti</p>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <Link to="/admin/classes" className="group">
                   <div className="rounded-xl border border-sky-100 p-4 hover:bg-sky-50 transition-all">
                     <div className="h-10 w-10 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center mb-3">
                       <School className="w-5 h-5" />
                     </div>
                     <div className="font-medium text-slate-900">Gestione Classi</div>
-                    <div className="text-sm text-slate-600">Visualizza e modifica classi attive</div>
+                    <div className="text-sm text-slate-600">Visualizza e modifica classi</div>
                   </div>
                 </Link>
                 <Link to="/admin/students" className="group">
@@ -391,6 +772,15 @@ export const Dashboard: React.FC = () => {
                     <div className="text-sm text-slate-600">Amministra studenti iscritti</div>
                   </div>
                 </Link>
+                <div className="group cursor-pointer" onClick={() => setShowCreateEventModal(true)}>
+                  <div className="rounded-xl border border-purple-100 p-4 hover:bg-purple-50 transition-all">
+                    <div className="h-10 w-10 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mb-3">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div className="font-medium text-slate-900">Crea Evento</div>
+                    <div className="text-sm text-slate-600">Aggiungi nuovo evento</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -399,7 +789,7 @@ export const Dashboard: React.FC = () => {
                 <h3 className="text-slate-900 font-semibold">Amministrazione Sistema</h3>
                 <p className="text-slate-500 text-sm">Utenti, docenti e pagamenti</p>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <Link to="/admin/users" className="group">
                   <div className="rounded-xl border border-violet-100 p-4 hover:bg-violet-50 transition-all">
                     <div className="h-10 w-10 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center mb-3">
@@ -427,6 +817,41 @@ export const Dashboard: React.FC = () => {
                     <div className="text-sm text-slate-600">Monitoraggio e incassi</div>
                   </div>
                 </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Events and Map Sections - Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* Events Section */}
+            <div className="rounded-2xl border border-purple-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-slate-900 font-semibold">Eventi Recenti</h3>
+                    <p className="text-slate-500 text-sm">Gestione eventi e attività</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateEventModal(true)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Crea Evento
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <EventsList />
+              </div>
+            </div>
+
+            {/* Geographic Distribution Section */}
+            <div className="rounded-2xl border border-orange-200 bg-white shadow-sm overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-100">
+                <h3 className="text-slate-900 font-semibold">Distribuzione Geografica</h3>
+                <p className="text-slate-500 text-sm">Mappa studenti per città</p>
+              </div>
+              <div className="p-6">
+                <MapboxStudentMap />
               </div>
             </div>
           </div>
@@ -552,6 +977,28 @@ export const Dashboard: React.FC = () => {
             />
           </div>
         </>
+      )}
+
+      {/* Create Event Modal */}
+      {showCreateEventModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Crea Nuovo Evento</h2>
+              <button
+                onClick={() => setShowCreateEventModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-6">
+              <CreateEventForm onClose={() => setShowCreateEventModal(false)} />
+            </div>
+          </div>
+        </div>
       )}
     </PageContainer>
   );

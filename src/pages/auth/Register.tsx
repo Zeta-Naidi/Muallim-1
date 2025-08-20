@@ -30,6 +30,8 @@ interface RegisterFormValues {
   displayName: string;
   phoneNumber?: string;
   address?: string;
+  city?: string;
+  postalCode?: string;
   birthDate?: string;
   gender?: string;
   emergencyContact?: string;
@@ -160,6 +162,8 @@ export const Register: React.FC = () => {
       const additionalData = {
         phoneNumber: data.phoneNumber,
         address: data.address,
+        city: data.city,
+        postalCode: data.postalCode,
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
         gender: data.gender,
         emergencyContact: data.emergencyContact,
@@ -619,9 +623,47 @@ export const Register: React.FC = () => {
                       leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
                       error={errors.address?.message}
                       fullWidth
-                      placeholder="Via, Città, CAP"
+                      placeholder="Via e numero civico"
                       className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
                       {...register('address')}
+                    />
+                  </motion.div>
+
+                  {/* City and Postal Code */}
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                  >
+                    <Input
+                      label="Città"
+                      leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                      error={errors.city?.message}
+                      fullWidth
+                      placeholder="Città di residenza"
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
+                      {...register('city')}
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                  >
+                    <Input
+                      label="CAP"
+                      leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                      error={errors.postalCode?.message}
+                      fullWidth
+                      placeholder="Codice Postale"
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
+                      {...register('postalCode', {
+                        pattern: {
+                          value: /^[0-9]{5}$/,
+                          message: 'Il CAP deve essere di 5 cifre'
+                        }
+                      })}
                     />
                   </motion.div>
 
