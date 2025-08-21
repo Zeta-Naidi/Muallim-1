@@ -590,7 +590,7 @@ export const Payments: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <Card className="mb-6 sticky top-24 z-30 bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-md border border-white/20 shadow-lg rounded-2xl overflow-hidden">
+      <Card className="mb-6 md:sticky md:top-24 z-30 bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-md border border-white/20 shadow-lg rounded-2xl overflow-hidden">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -603,7 +603,7 @@ export const Payments: React.FC = () => {
                 className="anime-input"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto md:overflow-visible pb-1">
               <Button 
                 variant="outline" 
                 size="sm"
@@ -726,17 +726,17 @@ export const Payments: React.FC = () => {
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 items-center justify-center shadow-sm hidden sm:flex">
                             <Users className="h-6 w-6 text-blue-600" />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-3 mb-1">
                               <h3 className="text-lg font-semibold text-gray-900 truncate">{group.parentName}</h3>
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${paymentStatus.color}`}>
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${paymentStatus.color} hidden sm:inline-flex`}>
                                 {paymentStatus.text}
                               </span>
                             </div>
-                            <div className="text-sm text-gray-600 truncate flex items-center gap-3">
+                            <div className="text-sm text-gray-600 truncate hidden sm:flex items-center gap-3">
                               <span className="inline-flex items-center gap-1">
                                 <Phone className="h-4 w-4 text-gray-400" />
                                 {group.parentContact}
@@ -751,14 +751,24 @@ export const Payments: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
-                            <div className="text-xl font-bold text-gray-900 mb-1">
+                            <div className={`text-xl font-bold mb-1 ${
+                              paymentStatus.status === 'paid' ? 'text-green-700' :
+                              paymentStatus.status === 'partial' ? 'text-amber-700' :
+                              paymentStatus.status === 'unpaid' ? 'text-red-700' :
+                              'text-purple-700'
+                            }`}>
                               €{group.paidAmount.toFixed(0)}
-                              <span className="text-sm font-normal text-gray-500 ml-1">
+                              <span className={`text-sm font-normal ml-1 ${
+                                paymentStatus.status === 'paid' ? 'text-green-600' :
+                                paymentStatus.status === 'partial' ? 'text-amber-600' :
+                                paymentStatus.status === 'unpaid' ? 'text-red-600' :
+                                'text-purple-600'
+                              }`}>
                                 / {group.isExempted ? '0' : `€${group.totalAmount.toFixed(0)}`}
                               </span>
                             </div>
                             {!group.isExempted && (
-                              <div className={`text-sm font-medium ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              <div className={`text-sm font-medium ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'} hidden sm:block`}>
                                 Rimanente: €{remainingAmount.toFixed(0)}
                               </div>
                             )}
@@ -775,7 +785,7 @@ export const Payments: React.FC = () => {
                     </button>
 
                     {/* Details and actions container */}
-                    <div className="mt-3 flex items-start justify-between gap-4">
+                    <div className="mt-3 flex flex-col md:flex-row items-stretch md:items-start justify-between gap-4">
 
                         {/* Details (collapsed by default) */}
                         <AnimatePresence>
@@ -821,7 +831,7 @@ export const Payments: React.FC = () => {
                         </div>
 
                         {/* Payment Summary (compact) */}
-                        <div className="grid grid-cols-3 gap-3 text-xs mb-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mb-3">
                           <div className={`p-3 rounded-xl border ${group.isExempted ? 'bg-purple-50 border-purple-100' : 'bg-gray-50 border-gray-100'}`}>
                             <span className={`text-[10px] uppercase tracking-wider ${group.isExempted ? 'text-purple-600' : 'text-gray-500'}`}>
                               Totale dovuto:
@@ -870,7 +880,7 @@ export const Payments: React.FC = () => {
                               €{remainingAmount.toFixed(0)}
                             </div>
                           </div>
-                          <div className="col-span-3 bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col justify-between">
+                          <div className="col-span-2 sm:col-span-3 bg-gray-50 p-3 rounded-xl border border-gray-100 flex flex-col justify-between">
                             <span className="text-gray-500 text-[10px] uppercase tracking-wider mb-1">Progresso</span>
                             <div className="w-full bg-gray-200 rounded-full h-2 mt-0.5 relative">
                               <div 
@@ -1019,7 +1029,7 @@ export const Payments: React.FC = () => {
 
                         {/* Actions column (only when expanded) */}
                         {expandedRow === group.parentContact && (
-                          <div className="flex flex-col space-y-3 ml-6">
+                          <div className="flex flex-col space-y-3 md:ml-6 w-full md:w-auto">
                             <div className="flex flex-col space-y-3">
                               <Button
                                 size="md"
@@ -1029,7 +1039,7 @@ export const Payments: React.FC = () => {
                                 }}
                                 disabled={group.isExempted}
                                 leftIcon={<Plus className="h-5 w-5" />}
-                                className={`bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl ${group.isExempted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl ${group.isExempted ? 'opacity-50 cursor-not-allowed' : ''} w-full md:w-auto`}
                               >
                                 Aggiungi Pagamento
                               </Button>
@@ -1049,7 +1059,7 @@ export const Payments: React.FC = () => {
                                 className={`rounded-xl transition-all duration-200 ${group.isExempted ? 
                                   "border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-300" : 
                                   "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                                } shadow-sm hover:shadow-md`}
+                                } shadow-sm hover:shadow-md w-full md:w-auto`}
                               >
                                 {group.isExempted ? 'Rimuovi Esenzione' : 'Esenta'}
                               </Button>
@@ -1096,8 +1106,8 @@ export const Payments: React.FC = () => {
             )}
           </div>
 
-          {/* Recent payments sidebar */}
-          <div>
+          {/* Recent payments sidebar (hidden on mobile) */}
+          <div className="hidden lg:block">
             <Card className="bg-white/70 backdrop-blur-md border border-white/20 shadow-md rounded-2xl overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-gray-50 to-white/60 border-b border-gray-200">
                 <CardTitle className="text-gray-900 flex items-center">

@@ -86,7 +86,7 @@ const EventsList: React.FC = () => {
             <div className="flex-1">
               <h4 className="font-medium text-gray-900">{event.title}</h4>
               <p className="text-sm text-gray-600 mt-1">{event.description}</p>
-              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+              <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500">
                 <span>📅 {format(event.date, 'd MMMM yyyy', { locale: it })}</span>
                 <span>🕐 {event.time}</span>
                 <span>📍 {event.location}</span>
@@ -182,7 +182,7 @@ const CreateEventForm: React.FC<CreateEventFormProps> = ({ onClose }) => {
         />
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
           <input
@@ -317,7 +317,7 @@ const MapboxStudentMap: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="h-[400px] rounded-lg overflow-hidden border-2 border-blue-100">
+      <div className="h-64 sm:h-80 lg:h-[400px] rounded-lg overflow-hidden border-2 border-blue-100">
         {MAPBOX_TOKEN && MAPBOX_TOKEN.startsWith('pk.') && !MAPBOX_TOKEN.includes('example') ? (
           <MapboxMap
             {...viewState}
