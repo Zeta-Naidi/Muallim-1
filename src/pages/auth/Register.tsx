@@ -22,18 +22,23 @@ import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { DatePicker } from '../../components/ui/DatePicker';
-import { Dropdown, type DropdownOption } from '../../components/ui/Dropdown';
+import { Dropdown } from '../../components/ui/Dropdown';
+import { db } from '../../services/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface RegisterFormValues {
   email: string;
   password: string;
-  displayName: string;
+  firstName: string;
+  lastName: string;
+  codiceFiscale: string;
   phoneNumber?: string;
   address?: string;
   city?: string;
   postalCode?: string;
   birthDate?: string;
   gender?: string;
+  hasDisability?: 'yes' | 'no';
   emergencyContact?: string;
   parentName?: string;
   parentContact?: string;
@@ -147,6 +152,20 @@ export const Register: React.FC = () => {
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<RegisterFormValues>();
 
+  // Function to check if Codice Fiscale exists
+  const checkCodiceFiscaleExists = async (value: string) => {
+    if (!value) return true;
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('codiceFiscale', '==', value.toUpperCase()));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.empty || 'Questo Codice Fiscale è già registrato';
+    } catch (error) {
+      console.error('Error checking Codice Fiscale:', error);
+      return 'Errore durante la verifica del Codice Fiscale';
+    }
+  };
+
   const onSubmit = async (data: RegisterFormValues) => {
     try {
       setError(null);
@@ -157,24 +176,36 @@ export const Register: React.FC = () => {
         return;
       }
 
+      // Check if Codice Fiscale already exists
+      const cfCheck = await checkCodiceFiscaleExists(data.codiceFiscale);
+      if (cfCheck !== true) {
+        setError(cfCheck);
+        setIsLoading(false);
+        return;
+      }
+
       const role: 'student' | 'teacher' = selectedRole;
 
       const additionalData = {
+        codiceFiscale: data.codiceFiscale.toUpperCase(),
         phoneNumber: data.phoneNumber,
         address: data.address,
         city: data.city,
         postalCode: data.postalCode,
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
         gender: data.gender,
+        hasDisability: data.hasDisability === 'yes',
         emergencyContact: data.emergencyContact,
         parentName: data.parentName,
         parentContact: data.parentContact,
       };
 
+      const displayName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
+
       await registerWithEmail(
         data.email,
         data.password,
-        data.displayName,
+        displayName,
         role,
         additionalData
       );
@@ -355,7 +386,7 @@ export const Register: React.FC = () => {
                 )}
               </AnimatePresence>
                 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pb-24 sm:pb-0">
                 {/* Role Selection as first form field */}
                 <motion.div
                   initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
@@ -438,17 +469,83 @@ export const Register: React.FC = () => {
                     <Input
                       label={
                         <>
-                          Nome completo <span className="text-red-500">*</span>
+                          Nome <span className="text-red-500">*</span>
                         </>
                       }
                       leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
-                      error={errors.displayName?.message}
+                      error={errors.firstName?.message}
                       fullWidth
                       required
                       className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
-                      {...register('displayName', { 
+                      {...register('firstName', { 
                         required: 'Il nome è obbligatorio',
                         minLength: { value: 2, message: 'Il nome deve avere almeno 2 caratteri' }
+                      })}
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                  >
+                    <Input
+                      label={
+                        <>
+                          Cognome <span className="text-red-500">*</span>
+                        </>
+                      }
+                      leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
+                      error={errors.lastName?.message}
+                      fullWidth
+                      required
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
+                      {...register('lastName', { 
+                        required: 'Il cognome è obbligatorio',
+                        minLength: { value: 2, message: 'Il cognome deve avere almeno 2 caratteri' }
+                      })}
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                  >
+                    <Input
+                      label={
+                        <>
+                          Codice Fiscale <span className="text-red-500">*</span>
+                        </>
+                      }
+                      error={errors.codiceFiscale?.message}
+                      fullWidth
+                      required
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300 uppercase"
+                      {...register('codiceFiscale', { 
+                        required: 'Il Codice Fiscale è obbligatorio',
+                        validate: {
+                          format: (value) => {
+                            const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i;
+                            return cfRegex.test(value) || 'Formato Codice Fiscale non valido';
+                          },
+                          async exists(value: string) {
+                            if (!value) return true;
+                            try {
+                              const usersRef = collection(db, 'users');
+                              const q = query(usersRef, where('codiceFiscale', '==', value.toUpperCase()));
+                              const querySnapshot = await getDocs(q);
+                              return querySnapshot.empty || 'Questo Codice Fiscale è già registrato';
+                            } catch (error) {
+                              console.error('Error checking Codice Fiscale:', error);
+                              return 'Errore durante la verifica del Codice Fiscale';
+                            }
+                          }
+                        },
+                        onChange: (e) => {
+                          // Automatically convert to uppercase and remove spaces
+                          e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
+                        }
                       })}
                     />
                   </motion.div>
@@ -563,14 +660,8 @@ export const Register: React.FC = () => {
                           leftIcon={<User className="h-5 w-5 text-gray-400" />}
                           placeholder="Genere"
                           options={[
-                            {
-                              value: 'male',
-                              label: 'Maschio',
-                            },
-                            {
-                              value: 'female',
-                              label: 'Femmina',
-                            }
+                            { value: 'male', label: 'Maschio' },
+                            { value: 'female', label: 'Femmina' }
                           ]}
                           value={field.value}
                           onChange={field.onChange}
@@ -582,6 +673,40 @@ export const Register: React.FC = () => {
                       )}
                     />
                   </motion.div>
+
+                  {selectedRole === 'student' && (
+                    <motion.div
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                      className="sm:col-span-2"
+                    >
+                      <Controller
+                        name="hasDisability"
+                        control={control}
+                        rules={{ required: 'Seleziona se lo studente ha disabilità' }}
+                        render={({ field }) => (
+                          <Dropdown
+                            label={
+                              <>
+                                Lo studente ha disabilità? <span className="text-red-500">*</span>
+                              </>
+                            }
+                            placeholder="Seleziona"
+                            options={[
+                              { value: 'no', label: 'No' },
+                              { value: 'yes', label: 'Sì' }
+                            ]}
+                            value={field.value}
+                            onChange={field.onChange}
+                            error={errors.hasDisability as any}
+                            fullWidth
+                            className="rounded-2xl"
+                          />
+                        )}
+                      />
+                    </motion.div>
+                  )}
 
                   {/* Phone Number - Common for both roles */}
                   <motion.div
@@ -619,13 +744,18 @@ export const Register: React.FC = () => {
                     transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <Input
-                      label="Indirizzo"
+                      label={
+                        <>
+                          Indirizzo <span className="text-red-500">*</span>
+                        </>
+                      }
                       leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
                       error={errors.address?.message}
                       fullWidth
                       placeholder="Via e numero civico"
+                      required
                       className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
-                      {...register('address')}
+                      {...register('address', { required: "L'indirizzo è obbligatorio" })}
                     />
                   </motion.div>
 
@@ -636,13 +766,18 @@ export const Register: React.FC = () => {
                     transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <Input
-                      label="Città"
+                      label={
+                        <>
+                          Città <span className="text-red-500">*</span>
+                        </>
+                      }
                       leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
                       error={errors.city?.message}
                       fullWidth
                       placeholder="Città di residenza"
+                      required
                       className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
-                      {...register('city')}
+                      {...register('city', { required: 'La città è obbligatoria' })}
                     />
                   </motion.div>
 
@@ -652,13 +787,19 @@ export const Register: React.FC = () => {
                     transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
                   >
                     <Input
-                      label="CAP"
+                      label={
+                        <>
+                          CAP <span className="text-red-500">*</span>
+                        </>
+                      }
                       leftIcon={<UserIcon className="h-5 w-5 text-gray-400" />}
                       error={errors.postalCode?.message}
                       fullWidth
                       placeholder="Codice Postale"
+                      required
                       className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
                       {...register('postalCode', {
+                        required: 'Il CAP è obbligatorio',
                         pattern: {
                           value: /^[0-9]{5}$/,
                           message: 'Il CAP deve essere di 5 cifre'
@@ -704,8 +845,9 @@ export const Register: React.FC = () => {
                           leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
                           error={errors.emergencyContact?.message}
                           fullWidth
+                          required
                           className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
-                          {...register('emergencyContact')}
+                          {...register('emergencyContact', { required: 'Il contatto di emergenza è obbligatorio' })}
                         />
                       </motion.div>
                     </>
@@ -729,36 +871,27 @@ export const Register: React.FC = () => {
                     Accetto i <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Termini di Servizio</a> e la <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Privacy Policy</a>
                   </label>
                 </motion.div>
-                    
-                <motion.div
-                  initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
-                  animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-                  transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
-                  className="pt-4"
-                >
+                <div className="pt-4">
                   <Button 
                     type="submit" 
                     fullWidth 
                     isLoading={isLoading}
                     className="h-14 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group"
-                    rightIcon={
-                      <motion.div
-                        animate={!shouldReduceMotion && !isLoading ? { x: [0, 4, 0] } : undefined}
-                        transition={!shouldReduceMotion && !isLoading ? { duration: 1.2, repeat: 2, ease: "easeInOut" } : undefined}
-                      >
-                        <ArrowRight className="h-5 w-5" />
-                      </motion.div>
-                    }
                   >
                     <span className="relative z-10">
-                      {selectedRole === 'student' ? 'Crea Account Studente' : 'Richiedi Account Insegnante'}
+                      <span className="sm:hidden">
+                        {selectedRole === 'student' ? 'Registrati' : 'Richiedi Account'}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {selectedRole === 'student' ? 'Crea Account Studente' : 'Richiedi Account Insegnante'}
+                      </span>
                     </span>
                     <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-blue-700 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                       initial={false}
                     />
                   </Button>
-                </motion.div>
+                </div>
               </form>
                 
               <motion.div 

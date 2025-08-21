@@ -79,7 +79,7 @@ export const StudentLocationMap: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<CityData | null>(null);
-  const [mapCenter, setMapCenter] = useState({ lat: 41.8719, lng: 12.5674 }); // Center of Italy
+  const [mapCenter, setMapCenter] = useState({ lat: 45.04416958064005, lng: 9.728283448330956 }); // Center of Italy
   const [zoomLevel, setZoomLevel] = useState(6);
   const [error, setError] = useState<string>('');
 
