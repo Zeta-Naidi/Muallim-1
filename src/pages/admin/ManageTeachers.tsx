@@ -162,6 +162,21 @@ export const ManageTeachers: React.FC = () => {
     return list;
   }, [historySubs, subSearchQuery, selectedSubStatus, historyStatus, historyDate]);
 
+  // Handle opening the substitution dialog
+  const handleOpenSubDialog = (teacher: User) => {
+    setSubTeacher(teacher);
+    setIsSubDialogOpen(true);
+    // Reset form when opening dialog
+    setSubForm({
+      classId: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      startTime: '17:00',
+      endTime: '19:00',
+      reason: '',
+      substituteTeacherId: ''
+    });
+  };
+
   // Notifications moved to global Header
 
   // Ensure "Pending Approvals" starts collapsed even after HMR
