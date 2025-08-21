@@ -82,14 +82,25 @@ export const ManageStudents: React.FC = () => {
           where('role', '==', 'student')
         );
         const studentsDocs = await getDocs(studentsQuery);
+        const toJsDate = (val: any): Date | null => {
+          if (!val) return null;
+          // Firestore Timestamp has a toDate function
+          if (typeof val.toDate === 'function') return val.toDate();
+          // Already a JS Date
+          if (val instanceof Date) return val;
+          // ISO string or other parseable value
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? null : d;
+        };
+
         const fetchedStudents = studentsDocs.docs.map(doc => {
           const data = doc.data();
           return {
             ...data,
             id: doc.id,
-            birthDate: data.birthDate?.toDate() || null,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            enrollmentDate: data.enrollmentDate?.toDate() || null,
+            birthDate: toJsDate(data.birthDate),
+            createdAt: toJsDate(data.createdAt) || new Date(),
+            enrollmentDate: toJsDate(data.enrollmentDate),
           } as UserType;
         });
         setStudents(fetchedStudents);
@@ -110,8 +121,9 @@ export const ManageStudents: React.FC = () => {
     
     // Apply filters
     if (filters.name) {
+      const q = filters.name.toLowerCase();
       filtered = filtered.filter(student => 
-        student.displayName.toLowerCase().includes(filters.name.toLowerCase())
+        (student.displayName || '').toLowerCase().includes(q)
       );
     }
     
@@ -126,8 +138,9 @@ export const ManageStudents: React.FC = () => {
     }
     
     if (filters.parentName) {
+      const q = filters.parentName.toLowerCase();
       filtered = filtered.filter(student => 
-        student.parentName && student.parentName.toLowerCase().includes(filters.parentName.toLowerCase())
+        (student.parentName || '').toLowerCase().includes(q)
       );
     }
     
@@ -138,6 +151,9 @@ export const ManageStudents: React.FC = () => {
     }
 
     setFilteredStudents(filtered);
+    // Reset pagination when filters change to avoid empty pages
+    setEnrolledPage(1);
+    setNotEnrolledPage(1);
   }, [students, filters]);
 
   const handleFilterChange = (field: string, value: string) => {

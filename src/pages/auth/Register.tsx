@@ -38,9 +38,10 @@ interface RegisterFormValues {
   postalCode?: string;
   birthDate?: string;
   gender?: string;
-  hasDisability?: 'yes' | 'no';
+  hasDisability?: string; // e.g., 'no', 'autismo', 'disabilita_motoria', etc.
   emergencyContact?: string;
   parentName?: string;
+  parentCodiceFiscale?: string;
   parentContact?: string;
 }
 
@@ -194,10 +195,15 @@ export const Register: React.FC = () => {
         postalCode: data.postalCode,
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
         gender: data.gender,
-        hasDisability: data.hasDisability === 'yes',
+        hasDisability: !!data.hasDisability && data.hasDisability !== 'no',
+        disabilityType: data.hasDisability === 'no' || !data.hasDisability ? null : data.hasDisability,
         emergencyContact: data.emergencyContact,
         parentName: data.parentName,
+        parentCodiceFiscale: data.parentCodiceFiscale ? data.parentCodiceFiscale.toUpperCase() : undefined,
         parentContact: data.parentContact,
+        // Enrollment status defaults for students
+        isEnrolled: role === 'student' ? false : undefined,
+        enrollmentDate: null,
       };
 
       const displayName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
@@ -684,7 +690,7 @@ export const Register: React.FC = () => {
                       <Controller
                         name="hasDisability"
                         control={control}
-                        rules={{ required: 'Seleziona se lo studente ha disabilità' }}
+                        rules={{ required: 'Seleziona una voce' }}
                         render={({ field }) => (
                           <Dropdown
                             label={
@@ -694,8 +700,14 @@ export const Register: React.FC = () => {
                             }
                             placeholder="Seleziona"
                             options={[
-                              { value: 'no', label: 'No' },
-                              { value: 'yes', label: 'Sì' }
+                              { value: 'no', label: 'Nessuna' },
+                              { value: 'disabilita_motoria', label: 'Disabilità motoria' },
+                              { value: 'dsa', label: 'Disturbo specifico dell\'apprendimento (DSA)' },
+                              { value: 'autismo', label: 'Disturbo dello spettro autistico' },
+                              { value: 'ipoacusia', label: 'Ipoacusia' },
+                              { value: 'ipovisione', label: 'Ipovisione' },
+                              { value: 'cognitiva', label: 'Disabilità cognitiva' },
+                              { value: 'altro', label: 'Altro' },
                             ]}
                             value={field.value}
                             onChange={field.onChange}
@@ -708,34 +720,35 @@ export const Register: React.FC = () => {
                     </motion.div>
                   )}
 
-                  {/* Phone Number - Common for both roles */}
-                  <motion.div
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
-                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
-                  >
-                    <Input
-                      label={
-                        <>
-                          Numero di telefono <span className="text-red-500">*</span>
-                        </>
-                      }
-                      type="tel"
-                      leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
-                      error={errors.phoneNumber?.message}
-                      fullWidth
-                      placeholder="+39 123 456 7890"
-                      required
-                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
-                      {...register('phoneNumber', {
-                        required: 'Il numero di telefono è obbligatorio',
-                        pattern: {
-                          value: /^[\+]?[1-9][\d]{0,15}$/,
-                          message: 'Inserisci un numero di telefono valido'
+                  {selectedRole !== 'student' && (
+                    <motion.div
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                    >
+                      <Input
+                        label={
+                          <>
+                            Numero di telefono <span className="text-red-500">*</span>
+                          </>
                         }
-                      })}
-                    />
-                  </motion.div>
+                        type="tel"
+                        leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
+                        error={errors.phoneNumber?.message}
+                        fullWidth
+                        placeholder="+39 123 456 7890"
+                        required
+                        className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
+                        {...register('phoneNumber', {
+                          required: 'Il numero di telefono è obbligatorio',
+                          pattern: {
+                            value: /^[\+]?[1-9][\d]{0,15}$/,
+                            message: 'Inserisci un numero di telefono valido'
+                          }
+                        })}
+                      />
+                    </motion.div>
+                  )}
 
                   {/* Address - Common for both roles */}
                   <motion.div
@@ -830,6 +843,61 @@ export const Register: React.FC = () => {
                           })}
                         />
                       </motion.div>
+
+                      {/* Phone Number - moved here for students, after parent name */}
+                      <motion.div
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                        transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                      >
+                        <Input
+                          label={
+                            <>
+                              Numero di telefono <span className="text-red-500">*</span>
+                            </>
+                          }
+                          type="tel"
+                          leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
+                          error={errors.phoneNumber?.message}
+                          fullWidth
+                          placeholder="+39 123 456 7890"
+                          required
+                          className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300"
+                          {...register('phoneNumber', {
+                            required: 'Il numero di telefono è obbligatorio',
+                            pattern: {
+                              value: /^[\+]?[1-9][\d]{0,15}$/,
+                              message: 'Inserisci un numero di telefono valido'
+                            }
+                          })}
+                        />
+                      </motion.div>
+
+                      <motion.div
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                        animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                        transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                      >
+                        <Input
+                          label={
+                            <>
+                              Codice Fiscale Genitore <span className="text-red-500">*</span>
+                            </>
+                          }
+                          error={errors.parentCodiceFiscale?.message}
+                          fullWidth
+                          required
+                          className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300 uppercase"
+                          {...register('parentCodiceFiscale', {
+                            required: 'Il Codice Fiscale del genitore è obbligatorio',
+                            pattern: {
+                              value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i,
+                              message: 'Formato Codice Fiscale non valido',
+                            },
+                            setValueAs: (v) => (v ? String(v).toUpperCase().replace(/\s/g, '') : v),
+                          })}
+                        />
+                      </motion.div>
                       
                       <motion.div
                         initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
@@ -850,6 +918,9 @@ export const Register: React.FC = () => {
                           {...register('emergencyContact', { required: 'Il contatto di emergenza è obbligatorio' })}
                         />
                       </motion.div>
+                      <p className="mt-1 text-sm text-gray-500">
+                          Nota: in caso di registrazione di fratelli, utilizzare lo stesso Codice Fiscale del genitore per poter ottenere gli sconti.
+                        </p>
                     </>
                   )}
                 </div>
