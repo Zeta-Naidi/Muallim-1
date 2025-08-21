@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Users, Search, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, ChevronUp, Mail, Phone, MapPin, Calendar, Euro, History, Settings, CheckCircle, AlertCircle, Shield, Save, User } from 'lucide-react';
+import { Users, Search, Eye, Edit, Trash2, Check, X, Clock, ChevronDown, ChevronUp, Mail, Phone, MapPin, Calendar, Euro, History, Settings, CheckCircle, AlertCircle, Shield, Save, Filter, User as UserIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapshot, updateDoc, doc } from 'firebase/firestore';
@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { StudentDetailsDialog } from '../../components/dialogs/StudentDetailsDialog';
 import { Class, TeacherPayment, TeacherType, Substitution } from '../../types';
+import type { User } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TeacherEditForm {
@@ -37,6 +38,7 @@ export const ManageTeachers: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Filters (essential only)
   const [filterTeacherType, setFilterTeacherType] = useState<'' | TeacherType>('');
   const [filterClassId, setFilterClassId] = useState<string>('');
@@ -99,6 +101,11 @@ export const ManageTeachers: React.FC = () => {
   const [isLoadingSubs, setIsLoadingSubs] = useState(false);
   const [historySubs, setHistorySubs] = useState<Substitution[]>([]);
   const [currentSubPage, setCurrentSubPage] = useState(1);
+  const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
+  const handleToggleSubExpansion = (id: string) => setExpandedSubId(prev => (prev === id ? null : id));
+  // Pending approvals mobile expansion
+  const [expandedPendingId, setExpandedPendingId] = useState<string | null>(null);
+  const handleTogglePendingExpansion = (id: string) => setExpandedPendingId(prev => (prev === id ? null : id));
   const [editingSubstitution, setEditingSubstitution] = useState<Substitution | null>(null);
   const [isEditSubDialogOpen, setIsEditSubDialogOpen] = useState(false);
   const [editSubForm, setEditSubForm] = useState({
@@ -164,17 +171,25 @@ export const ManageTeachers: React.FC = () => {
 
   // Handle opening the substitution dialog
   const handleOpenSubDialog = (teacher: User) => {
+    // Determine the teacher's assigned class (by explicit assignedClassId or by classes mapping)
+    const assigned = classes.find(c => c.teacherId === teacher.id || c.id === (teacher as any).assignedClassId);
     setSubTeacher(teacher);
-    setIsSubDialogOpen(true);
-    // Reset form when opening dialog
+    // Prefill form with detected class and sensible defaults
     setSubForm({
-      classId: '',
+      classId: assigned?.id || '',
       date: format(new Date(), 'yyyy-MM-dd'),
       startTime: '17:00',
       endTime: '19:00',
       reason: '',
       substituteTeacherId: ''
     });
+    setIsSubDialogOpen(true);
+  };
+
+  // Open payment dialog for selected teacher
+  const handleOpenPaymentDialog = (teacher: User) => {
+    setPaymentTeacher(teacher);
+    setIsPaymentDialogOpen(true);
   };
 
   // Notifications moved to global Header
@@ -1066,6 +1081,16 @@ export const ManageTeachers: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFiltersOpen(o => !o)}
+                  className="sm:hidden text-gray-600 hover:text-gray-800 rounded-xl"
+                  aria-expanded={filtersOpen}
+                  aria-controls="teachers-filters"
+                >
+                  <svg className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd"/></svg>
+                </Button>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
@@ -1073,7 +1098,7 @@ export const ManageTeachers: React.FC = () => {
                     setFilterTeacherType('');
                     setFilterClassId('');
                   }}
-                  className="text-gray-600 hover:text-gray-800 rounded-xl"
+                  className="hidden sm:inline-flex text-gray-600 hover:text-gray-800 rounded-xl"
                 >
                   <X className="h-4 w-4 mr-1" />
                   Reset Filtri
@@ -1081,9 +1106,8 @@ export const ManageTeachers: React.FC = () => {
               </div>
             </div>
             
-            <div className="space-y-4">
-              {/* Primary Filters Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-6" id="teachers-filters">
+              <div className={`${filtersOpen ? 'grid' : 'hidden'} sm:grid grid-cols-1 md:grid-cols-3 gap-4`}>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center">
                     <Search className="h-4 w-4 mr-1 text-gray-500" />
@@ -1097,10 +1121,10 @@ export const ManageTeachers: React.FC = () => {
                     className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
                   />
                 </div>
-                
-                <div className="space-y-2">
+
+                <div className="space-y-2 hidden md:block">
                   <label className="text-sm font-medium text-gray-700 flex items-center">
-                    <Users className="h-4 w-4 mr-1 text-gray-500" />
+                    <Filter className="h-4 w-4 mr-1 text-gray-500" />
                     Tipo Insegnante
                   </label>
                   <select
@@ -1108,13 +1132,13 @@ export const ManageTeachers: React.FC = () => {
                     onChange={(e) => setFilterTeacherType(e.target.value as any)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
                   >
-                    <option value="">Tutti i tipi</option>
-                    <option value="insegnante_regolare">Insegnante Regolare</option>
-                    <option value="insegnante_volontario">Insegnante Volontario</option>
+                    <option value="">Tutti</option>
+                    <option value="insegnante_regolare">Regolare</option>
+                    <option value="insegnante_volontario">Volontario</option>
                     <option value="assistente">Assistente</option>
                   </select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center">
                     <Calendar className="h-4 w-4 mr-1 text-gray-500" />
@@ -1133,59 +1157,7 @@ export const ManageTeachers: React.FC = () => {
                 </div>
               </div>
 
-              {/* Filter Summary */}
-              {(searchQuery || filterTeacherType || filterClassId) && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center text-sm text-blue-700">
-                      <AlertCircle className="h-4 w-4 mr-1" />
-                      <span className="font-medium">
-                        {filteredTeachers.length} insegnanti trovati
-                      </span>
-                      {filteredTeachers.length !== teachers.length && (
-                        <span className="ml-1">
-                          su {teachers.length} totali
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {searchQuery && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-700">
-                          Nome: {searchQuery}
-                          <button
-                            onClick={() => setSearchQuery('')}
-                            className="ml-1 hover:text-blue-900"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      )}
-                      {filterTeacherType && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-700">
-                          Tipo: {getTeacherTypeLabel(filterTeacherType)}
-                          <button
-                            onClick={() => setFilterTeacherType('')}
-                            className="ml-1 hover:text-purple-900"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      )}
-                      {filterClassId && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-700">
-                          Classe: {classes.find(c => c.id === filterClassId)?.name}
-                          <button
-                            onClick={() => setFilterClassId('')}
-                            className="ml-1 hover:text-green-900"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Summary removed on teachers page as requested */}
             </div>
           </div>
           {isLoading ? (
@@ -1194,110 +1166,204 @@ export const ManageTeachers: React.FC = () => {
               <p className="mt-2 text-slate-600">Caricamento insegnanti...</p>
             </div>
           ) : filteredTeachers.length > 0 ? (
-            <div className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
-              <table className="min-w-full">
-                <thead className="bg-gradient-to-r from-gray-50/80 to-gray-100/80 backdrop-blur-sm">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                      Docente
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                      Email
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                      Tipo
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                      Classe
-                    </th>
-                    <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
-                      Azioni
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredTeachers.map(teacher => {
-                    const assignedClass = classes.find(c => c.teacherId === teacher.id || c.id === teacher.assignedClassId);
-                    
-                    return (
-                      <motion.tr 
-                        key={teacher.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="hover:bg-blue-50/30 transition-all duration-200"
+            <>
+              {/* Mobile: compact cards with expand-on-tap */}
+              <div className="sm:hidden mt-6 space-y-3">
+                {filteredTeachers.map((teacher) => {
+                  const assignedClass = classes.find(c => c.teacherId === teacher.id || c.id === teacher.assignedClassId);
+                  const isOpen = expandedTeacherId === teacher.id;
+                  return (
+                    <motion.div
+                      key={teacher.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="border border-slate-200 rounded-2xl bg-white/90 backdrop-blur p-3 shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTeacherExpansion(teacher.id)}
+                        className="w-full flex items-center justify-between"
+                        aria-expanded={isOpen}
+                        aria-controls={`teacher-${teacher.id}-details`}
                       >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
-                              <span className="text-blue-700 font-semibold text-sm">
-                                {teacher.displayName.charAt(0).toUpperCase()}
-                              </span>
+                        <div className="flex items-center gap-3 text-left">
+                          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                            <span className="text-blue-700 font-semibold text-sm">
+                              {teacher.displayName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-slate-900">{teacher.displayName}</div>
+                            <span className={`mt-0.5 inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${getTeacherTypeColor(teacher.teacherType)}`}>
+                              {getTeacherTypeLabel(teacher.teacherType)}
+                            </span>
+                          </div>
+                        </div>
+                        {isOpen ? (
+                          <ChevronUp className="h-4 w-4 text-slate-500" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-slate-500" />
+                        )}
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            id={`teacher-${teacher.id}-details`}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="mt-3 space-y-2 border-t border-slate-100 pt-3"
+                          >
+                            <div className="flex items-center text-slate-600 text-sm">
+                              <Mail className="h-4 w-4 mr-2 text-slate-400" />
+                              {teacher.email}
                             </div>
-                            <div>
-                              <div className="font-semibold text-gray-900">
-                                {teacher.displayName}
+                            <div className="text-sm text-slate-600">
+                              <span className="font-medium text-slate-700">Classe: </span>
+                              {assignedClass ? (
+                                <span className="text-slate-800">{assignedClass.name}</span>
+                              ) : (
+                                <span className="text-slate-400">Non assegnata</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 pt-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditTeacher(teacher)}
+                                className="rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                leftIcon={<Edit className="h-4 w-4" />}
+                                aria-label="Modifica docente"
+                              >
+                                Modifica
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenSubDialog(teacher)}
+                                className="rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
+                                leftIcon={<Calendar className="h-4 w-4" />}
+                                aria-label="Assegna supplenza"
+                              >
+                                Supplenza
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenPaymentDialog(teacher)}
+                                className="rounded-xl text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                leftIcon={<Euro className="h-4 w-4" />}
+                                aria-label="Gestisci pagamenti"
+                              >
+                                Pagamento
+                              </Button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop: original table view */}
+              <div className="hidden sm:block mt-6 bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+                <table className="min-w-full">
+                  <thead className="bg-gradient-to-r from-gray-50/80 to-gray-100/80 backdrop-blur-sm">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Docente</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Email</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Tipo</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Classe</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">Azioni</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredTeachers.map(teacher => {
+                      const assignedClass = classes.find(c => c.teacherId === teacher.id || c.id === teacher.assignedClassId);
+                      
+                      return (
+                        <motion.tr 
+                          key={teacher.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.3 }}
+                          className="hover:bg-blue-50/30 transition-all duration-200"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                                <span className="text-blue-700 font-semibold text-sm">
+                                  {teacher.displayName.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="font-semibold text-gray-900">
+                                  {teacher.displayName}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center text-gray-600">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            <span className="text-sm">{teacher.email}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1.5 inline-flex text-sm font-medium rounded-xl ${getTeacherTypeColor(teacher.teacherType)}`}>
-                            {getTeacherTypeLabel(teacher.teacherType)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm">
-                            {assignedClass ? (
-                              <span className="font-medium text-gray-900">{assignedClass.name}</span>
-                            ) : (
-                              <span className="text-gray-400">Non assegnata</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-end items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditTeacher(teacher)}
-                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              leftIcon={<Edit className="h-4 w-4" />}
-                            >
-                              Modifica
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenSubDialog(teacher)}
-                              className="rounded-xl transition-all duration-200 text-green-600 hover:text-green-700 hover:bg-green-50"
-                              leftIcon={<Calendar className="h-4 w-4" />}
-                            >
-                              Supplenza
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenPaymentDialog(teacher)}
-                              className="rounded-xl transition-all duration-200 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                              leftIcon={<Euro className="h-4 w-4" />}
-                            >
-                              Pagamento
-                            </Button>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center text-gray-600">
+                              <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                              <span className="text-sm">{teacher.email}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1.5 inline-flex text-sm font-medium rounded-xl ${getTeacherTypeColor(teacher.teacherType)}`}>
+                              {getTeacherTypeLabel(teacher.teacherType)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm">
+                              {assignedClass ? (
+                                <span className="font-medium text-gray-900">{assignedClass.name}</span>
+                              ) : (
+                                <span className="text-gray-400">Non assegnata</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex justify-end items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditTeacher(teacher)}
+                                className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                leftIcon={<Edit className="h-4 w-4" />}
+                              >
+                                Modifica
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenSubDialog(teacher)}
+                                className="rounded-xl transition-all duration-200 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                leftIcon={<Calendar className="h-4 w-4" />}
+                              >
+                                Supplenza
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenPaymentDialog(teacher)}
+                                className="rounded-xl transition-all duration-200 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                leftIcon={<Euro className="h-4 w-4" />}
+                              >
+                                Pagamento
+                              </Button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
             <div className="text-center py-12">
               <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -1462,38 +1528,47 @@ export const ManageTeachers: React.FC = () => {
                           transition={{ duration: 0.2 }}
                           className="border border-slate-200 rounded-lg p-3 hover:bg-slate-50 transition-all duration-200 hover:shadow-sm"
                         >
+                          {/* Mobile header (compact) */}
+                          <button
+                            type="button"
+                            className="sm:hidden w-full flex items-center justify-between"
+                            onClick={() => handleToggleSubExpansion(s.id)}
+                            aria-expanded={expandedSubId === s.id}
+                            aria-controls={`sub-${s.id}-details`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-slate-900">{s.className}</h4>
+                            </div>
+                            {expandedSubId === s.id ? (
+                              <ChevronUp className="h-4 w-4 text-slate-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-slate-500" />
+                            )}
+                          </button>
+
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium text-slate-900">{s.className}</h4>
-                                <span className="text-slate-500">•</span>
-                                <span className="text-slate-600">{format(new Date(s.date), 'dd MMM yyyy', { locale: it })}</span>
-                                <span className="text-slate-500">•</span>
-                                <span className="text-slate-600">{s.startTime}–{s.endTime}</span>
-                              </div>
-                              <div className="text-sm text-slate-600 mb-1">
-                                <strong>Supplente:</strong> {s.teacherName}
-                              </div>
-                              {s.originalTeacherName && (
-                                <div className="text-xs text-slate-500 mb-2">
-                                  <strong>Titolare:</strong> {s.originalTeacherName}
+                              {/* Desktop always visible; Mobile only when expanded */}
+                              <div className={`mt-1 ${expandedSubId === s.id ? 'block' : 'hidden'} sm:block`} id={`sub-${s.id}-details`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-medium text-slate-900 hidden sm:block">{s.className}</h4>
                                 </div>
-                              )}
-                              {s.reason && (
-                                <div className="text-sm text-slate-500 mb-2">
-                                  <strong>Motivo:</strong> {s.reason}
+                                {s.originalTeacherName && (
+                                  <div className="text-sm text-slate-600 mb-1">
+                                    <strong>Insegnante:</strong> {s.originalTeacherName}
+                                  </div>
+                                )}
+                                <div className="text-sm text-slate-600 mb-2">
+                                  <strong>Supplente:</strong> {s.teacherName}
                                 </div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                                }`}>
-                                  {done ? 'Completata' : 'Prevista'}
-                                </span>
-                                
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {done ? 'Completata' : 'Prevista'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                            <div className={`flex items-center gap-2 ml-4 ${expandedSubId === s.id ? 'flex' : 'hidden'} sm:flex`}>
                               {(s.status === 'pending' || s.status === 'assigned') && (
                                 <>
                                 <Button
@@ -1813,32 +1888,56 @@ export const ManageTeachers: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="group rounded-xl border border-amber-100 p-6 hover:border-amber-200 hover:bg-amber-50/50 transition-all bg-white shadow-sm"
+                  className="group rounded-xl border border-amber-100 p-4 sm:p-6 hover:border-amber-200 hover:bg-amber-50/50 transition-all bg-white shadow-sm"
                 >
+                  {/* Mobile compact header */}
+                  <button
+                    type="button"
+                    className="sm:hidden w-full flex items-center justify-between"
+                    onClick={() => handleTogglePendingExpansion(teacher.id)}
+                    aria-expanded={expandedPendingId === teacher.id}
+                    aria-controls={`pending-${teacher.id}-details`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                        <span className="text-amber-700 font-semibold text-sm">
+                          {teacher.displayName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900 group-hover:text-amber-900">{teacher.displayName}</h4>
+                      </div>
+                    </div>
+                    {expandedPendingId === teacher.id ? (
+                      <ChevronUp className="h-4 w-4 text-slate-500" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                    )}
+                  </button>
+
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4 flex-1">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 sm:flex hidden items-center justify-center">
                         <span className="text-amber-700 font-semibold text-sm">
                           {teacher.displayName.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold text-slate-900 group-hover:text-amber-900">{teacher.displayName}</h4>
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            In attesa
-                          </span>
-                        </div>
-                        <div className="text-sm text-slate-600">
-                          <div className="flex items-center">
-                            <Mail className="h-4 w-4 mr-2 text-slate-400" />
-                            {teacher.email}
+                        <div className={`mb-2 ${expandedPendingId === teacher.id ? 'block' : 'hidden'} sm:block`} id={`pending-${teacher.id}-details`}>
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-semibold text-slate-900 group-hover:text-amber-900 sm:block hidden">{teacher.displayName}</h4>
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            <div className="items-center sm:flex hidden">
+                              <Mail className="h-4 w-4 mr-2 text-slate-400" />
+                              {teacher.email}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className={`items-center gap-2 ${expandedPendingId === teacher.id ? 'flex' : 'hidden'} sm:flex`}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1863,14 +1962,15 @@ export const ManageTeachers: React.FC = () => {
                       </Button>
                       
                       <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleApproveTeacher(teacher.id)}
                         disabled={processingTeacher === teacher.id}
                         isLoading={processingTeacher === teacher.id}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                        title="Approva"
                       >
-                        <Check className="h-4 w-4 mr-1" />
-                        Approva
+                        <Check className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -2119,7 +2219,7 @@ export const ManageTeachers: React.FC = () => {
               <div className="space-y-6">
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                   <p className="text-sm text-gray-600 mb-2 flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-400" />
+                    <UserIcon className="h-4 w-4 mr-2 text-gray-400" />
                     <strong>Insegnante:</strong> <span className="ml-2">{paymentTeacher.displayName}</span>
                   </p>
                   <p className="text-sm text-gray-600 mb-2 flex items-center">

@@ -483,14 +483,15 @@ export const ManageClasses: React.FC = () => {
               </div>
               <div className="flex-1">
                 <h1 className="text-3xl font-bold">Gestione Classi</h1>
-                <p className="text-blue-100 mt-1">Crea, modifica e gestisci le classi della scuola</p>
+                <p className="text-blue-100 mt-1 hidden sm:block">Crea, modifica e gestisci le classi della scuola</p>
               </div>
               <Button 
                 onClick={() => setIsCreateDialogOpen(true)}
                 className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                aria-label="Crea Classe"
               >
-                <Plus className="h-5 w-5 mr-2" />
-                Crea Classe
+                <Plus className="h-5 w-5 sm:mr-2" />
+                <span className="hidden sm:inline">Crea Classe</span>
               </Button>
             </div>
           </div>
@@ -1031,7 +1032,7 @@ export const ManageClasses: React.FC = () => {
                       className="flex items-center gap-2"
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      Precedente
+                      <span className="hidden sm:inline">Precedente</span>
                     </Button>
                     
                     <div className="flex items-center gap-2">
@@ -1053,7 +1054,7 @@ export const ManageClasses: React.FC = () => {
                       disabled={currentPage === totalPages}
                       className="flex items-center gap-2"
                     >
-                      Successiva
+                      <span className="hidden sm:inline">Successiva</span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>

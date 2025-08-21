@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
   Users, Edit, CheckCircle, X, AlertCircle, Phone, Calendar, 
-  MapPin, Search, Filter, Shield, Save,
+  MapPin, Search, Filter, Shield, Save, ChevronLeft, ChevronRight,
   LucideMessageSquareWarning
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -55,6 +55,8 @@ export const ManageStudents: React.FC = () => {
   const [enrolledPage, setEnrolledPage] = useState(1);
   const [notEnrolledPage, setNotEnrolledPage] = useState(1);
   const STUDENTS_PER_PAGE = 10;
+  const [viewMode, setViewMode] = useState<'enrolled' | 'waiting'>('enrolled');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -197,11 +199,11 @@ export const ManageStudents: React.FC = () => {
                   {student.displayName}
                 </h3>
                 <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <span className="flex items-center">
+                  <span className="hidden sm:inline-flex items-center">
                     <Phone className="h-3 w-3 mr-1" />
                     {student.phoneNumber || student.parentContact || 'N/A'}
                   </span>
-                  <span className="flex items-center">
+                  <span className="inline-flex items-center">
                     <Users className="h-3 w-3 mr-1" />
                     {(() => {
                       const cls = classes.find(c => c.id === student.classId);
@@ -214,7 +216,7 @@ export const ManageStudents: React.FC = () => {
 
             {/* Right: Status and Actions */}
             <div className="flex items-center gap-3">
-              <div className="text-right">
+              <div className="hidden sm:block text-right">
                 <div className="text-lg font-semibold text-gray-900">
                   {calculateAge(student.birthDate)} anni
                 </div>
@@ -569,7 +571,6 @@ export const ManageStudents: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-3xl font-bold">Gestione Studenti</h1>
-                <p className="text-blue-100 mt-1">Visualizza e gestisci le informazioni degli studenti</p>
               </div>
             </div>
           </div>
@@ -821,6 +822,16 @@ export const ManageStudents: React.FC = () => {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFiltersOpen(o => !o)}
+                      className="sm:hidden text-gray-600 hover:text-gray-800 rounded-xl"
+                      aria-expanded={filtersOpen}
+                      aria-controls="students-filters"
+                    >
+                      <svg className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd"/></svg>
+                    </Button>
+                    <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setFilters({
@@ -830,7 +841,7 @@ export const ManageStudents: React.FC = () => {
                         parentName: '',
                         parentPhone: ''
                       })}
-                      className="text-gray-600 hover:text-gray-800 rounded-xl"
+                      className="hidden sm:inline-flex text-gray-600 hover:text-gray-800 rounded-xl"
                     >
                       <X className="h-4 w-4 mr-1" />
                       Reset Filtri
@@ -839,7 +850,7 @@ export const ManageStudents: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="space-y-4">
+                <div id="students-filters" className={`space-y-4 ${filtersOpen ? 'block' : 'hidden'} sm:block`}>
                   {/* Primary Filters Row */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
@@ -856,9 +867,7 @@ export const ManageStudents: React.FC = () => {
                       />
                     </div>
                     
-                    
-                    
-                    <div className="space-y-2">
+                    <div className="space-y-2 hidden md:block">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Calendar className="h-4 w-4 mr-1 text-gray-500" />
                         Età
@@ -893,7 +902,7 @@ export const ManageStudents: React.FC = () => {
                   </div>
 
                   {/* Secondary Filters Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="hidden md:grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Users className="h-4 w-4 mr-1 text-gray-500" />
@@ -925,7 +934,7 @@ export const ManageStudents: React.FC = () => {
 
                   {/* Filter Summary */}
                   {(filters.name || filters.class || filters.age || filters.parentName || filters.parentPhone) && (
-                    <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                    <div className="hidden md:block mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center text-sm text-blue-700">
                           <AlertCircle className="h-4 w-4 mr-1" />
@@ -1013,7 +1022,19 @@ export const ManageStudents: React.FC = () => {
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
                 {/* Quick Stats */}
                 <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/40">
+                  <div
+                    role="button"
+                    aria-pressed={viewMode === 'enrolled'}
+                    tabIndex={0}
+                    title="Mostra studenti iscritti"
+                    onClick={() => setViewMode('enrolled')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setViewMode('enrolled'); }}
+                    className={`rounded-xl p-4 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300/60 
+                      ${viewMode === 'enrolled' 
+                        ? 'bg-blue-50/70 border-blue-400 shadow-md' 
+                        : 'bg-white/60 backdrop-blur-sm border-white/40 hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5'}
+                    `}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-lg font-semibold text-green-700">
@@ -1024,7 +1045,19 @@ export const ManageStudents: React.FC = () => {
                       <CheckCircle className="h-5 w-5 text-green-600" />
                     </div>
                   </div>
-                  <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/40">
+                  <div
+                    role="button"
+                    aria-pressed={viewMode === 'waiting'}
+                    tabIndex={0}
+                    title="Mostra lista d'attesa"
+                    onClick={() => setViewMode('waiting')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setViewMode('waiting'); }}
+                    className={`rounded-xl p-4 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-300/60 
+                      ${viewMode === 'waiting' 
+                        ? 'bg-red-50/70 border-red-400 shadow-md' 
+                        : 'bg-white/60 backdrop-blur-sm border-white/40 hover:border-red-300 hover:shadow-md hover:-translate-y-0.5'}
+                    `}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-lg font-semibold text-red-700">
@@ -1049,95 +1082,84 @@ export const ManageStudents: React.FC = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Enrolled Students Column */}
-                  <div className="space-y-4">
-                                     
-                    <div className="space-y-3">
-                      {paginatedEnrolledStudents.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                          <p>Nessuno Studente Iscritto</p>
+                <div className="space-y-6">
+                  {viewMode === 'enrolled' ? (
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        {paginatedEnrolledStudents.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p>Nessuno Studente Iscritto</p>
+                          </div>
+                        ) : (
+                          paginatedEnrolledStudents.map(student => (
+                            <StudentCard key={student.id} student={student} />
+                          ))
+                        )}
+                      </div>
+                      {totalEnrolledPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEnrolledPage(Math.max(1, enrolledPage - 1))}
+                            disabled={enrolledPage === 1}
+                            className="px-3 py-1"
+                          >
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <span className="text-sm text-gray-600">Pagina {enrolledPage} di {totalEnrolledPages}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEnrolledPage(Math.min(totalEnrolledPages, enrolledPage + 1))}
+                            disabled={enrolledPage === totalEnrolledPages}
+                            className="px-3 py-1"
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
                         </div>
-                      ) : (
-                        paginatedEnrolledStudents.map(student => (
-                          <StudentCard key={student.id} student={student} />
-                        ))
                       )}
                     </div>
-
-                    {/* Enrolled Pagination */}
-                    {totalEnrolledPages > 1 && (
-                      <div className="flex justify-center items-center gap-2 mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEnrolledPage(Math.max(1, enrolledPage - 1))}
-                          disabled={enrolledPage === 1}
-                          className="px-3 py-1"
-                        >
-                          Precedente
-                        </Button>
-                        <span className="text-sm text-gray-600">
-                          Pagina {enrolledPage} di {totalEnrolledPages}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEnrolledPage(Math.min(totalEnrolledPages, enrolledPage + 1))}
-                          disabled={enrolledPage === totalEnrolledPages}
-                          className="px-3 py-1"
-                        >
-                          Successiva
-                        </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        {paginatedNotEnrolledStudents.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p>Nessuno Studente In Lista D'Attesa</p>
+                          </div>
+                        ) : (
+                          paginatedNotEnrolledStudents.map(student => (
+                            <StudentCard key={student.id} student={student} />
+                          ))
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  {/* Not Enrolled Students Column */}
-                  <div className="space-y-4">
-                    
-                    
-                    <div className="space-y-3">
-                      {paginatedNotEnrolledStudents.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                          <p>Nessuno Studente In Lista D'Attesa</p>
+                      {totalNotEnrolledPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNotEnrolledPage(Math.max(1, notEnrolledPage - 1))}
+                            disabled={notEnrolledPage === 1}
+                            className="px-3 py-1"
+                          >
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <span className="text-sm text-gray-600">Pagina {notEnrolledPage} di {totalNotEnrolledPages}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNotEnrolledPage(Math.min(totalNotEnrolledPages, notEnrolledPage + 1))}
+                            disabled={notEnrolledPage === totalNotEnrolledPages}
+                            className="px-3 py-1"
+                          >
+                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                          </Button>
                         </div>
-                      ) : (
-                        paginatedNotEnrolledStudents.map(student => (
-                          <StudentCard key={student.id} student={student} />
-                        ))
                       )}
                     </div>
-
-                    {/* Not Enrolled Pagination */}
-                    {totalNotEnrolledPages > 1 && (
-                      <div className="flex justify-center items-center gap-2 mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setNotEnrolledPage(Math.max(1, notEnrolledPage - 1))}
-                          disabled={notEnrolledPage === 1}
-                          className="px-3 py-1"
-                        >
-                          Precedente
-                        </Button>
-                        <span className="text-sm text-gray-600">
-                          Pagina {notEnrolledPage} di {totalNotEnrolledPages}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setNotEnrolledPage(Math.min(totalNotEnrolledPages, notEnrolledPage + 1))}
-                          disabled={notEnrolledPage === totalNotEnrolledPages}
-                          className="px-3 py-1"
-                        >
-                          Successiva
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
             </div>
