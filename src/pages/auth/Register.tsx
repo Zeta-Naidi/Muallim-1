@@ -177,18 +177,28 @@ export const Register: React.FC = () => {
         return;
       }
 
-      // Check if Codice Fiscale already exists
-      const cfCheck = await checkCodiceFiscaleExists(data.codiceFiscale);
-      if (cfCheck !== true) {
-        setError(cfCheck);
-        setIsLoading(false);
-        return;
+      // Only check Codice Fiscale for students
+      if (selectedRole === 'student') {
+        const cfCheck = await checkCodiceFiscaleExists(data.codiceFiscale);
+        if (cfCheck !== true) {
+          setError(cfCheck);
+          setIsLoading(false);
+          return;
+        }
       }
 
       const role: 'student' | 'teacher' = selectedRole;
 
       const additionalData = {
-        codiceFiscale: data.codiceFiscale.toUpperCase(),
+        ...(selectedRole === 'student' && { 
+          codiceFiscale: data.codiceFiscale.toUpperCase(),
+          parentName: data.parentName,
+          parentCodiceFiscale: data.parentCodiceFiscale ? data.parentCodiceFiscale.toUpperCase() : undefined,
+          parentContact: data.parentContact,
+          // Enrollment status defaults for students
+          isEnrolled: false,
+          enrollmentDate: null,
+        }),
         phoneNumber: data.phoneNumber,
         address: data.address,
         city: data.city,
@@ -198,12 +208,6 @@ export const Register: React.FC = () => {
         hasDisability: !!data.hasDisability && data.hasDisability !== 'no',
         disabilityType: data.hasDisability === 'no' || !data.hasDisability ? null : data.hasDisability,
         emergencyContact: data.emergencyContact,
-        parentName: data.parentName,
-        parentCodiceFiscale: data.parentCodiceFiscale ? data.parentCodiceFiscale.toUpperCase() : undefined,
-        parentContact: data.parentContact,
-        // Enrollment status defaults for students
-        isEnrolled: role === 'student' ? false : undefined,
-        enrollmentDate: null,
       };
 
       const displayName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
@@ -513,53 +517,13 @@ export const Register: React.FC = () => {
                     />
                   </motion.div>
 
-                  <motion.div
-                    initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
-                    animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
-                  >
-                    <Input
-                      label={
-                        <>
-                          Codice Fiscale <span className="text-red-500">*</span>
-                        </>
-                      }
-                      error={errors.codiceFiscale?.message}
-                      fullWidth
-                      required
-                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300 uppercase"
-                      {...register('codiceFiscale', { 
-                        required: 'Il Codice Fiscale è obbligatorio',
-                        validate: {
-                          format: (value) => {
-                            const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i;
-                            return cfRegex.test(value) || 'Formato Codice Fiscale non valido';
-                          },
-                          async exists(value: string) {
-                            if (!value) return true;
-                            try {
-                              const usersRef = collection(db, 'users');
-                              const q = query(usersRef, where('codiceFiscale', '==', value.toUpperCase()));
-                              const querySnapshot = await getDocs(q);
-                              return querySnapshot.empty || 'Questo Codice Fiscale è già registrato';
-                            } catch (error) {
-                              console.error('Error checking Codice Fiscale:', error);
-                              return 'Errore durante la verifica del Codice Fiscale';
-                            }
-                          }
-                        },
-                        onChange: (e) => {
-                          // Automatically convert to uppercase and remove spaces
-                          e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
-                        }
-                      })}
-                    />
-                  </motion.div>
+                  
                       
                   <motion.div
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
                     animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
                     transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                    className={selectedRole === 'teacher' ? 'md:col-span-2' : ''}
                   >
                     <Input
                       label={
@@ -582,6 +546,51 @@ export const Register: React.FC = () => {
                       })}
                     />
                   </motion.div>
+
+                  {selectedRole === 'student' && (
+                    <motion.div
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                      animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+                      transition={shouldReduceMotion ? undefined : { duration: 0.2 }}
+                    >
+                      <Input
+                        label={
+                          <>
+                            Codice Fiscale <span className="text-red-500">*</span>
+                          </>
+                        }
+                        error={errors.codiceFiscale?.message}
+                        fullWidth
+                        required
+                        className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-blue-300 transition-all duration-300 uppercase"
+                        {...register('codiceFiscale', { 
+                          required: 'Il Codice Fiscale è obbligatorio',
+                          validate: {
+                            format: (value) => {
+                              const cfRegex = /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i;
+                              return cfRegex.test(value) || 'Formato Codice Fiscale non valido';
+                            },
+                            async exists(value: string) {
+                              if (!value) return true;
+                              try {
+                                const usersRef = collection(db, 'users');
+                                const q = query(usersRef, where('codiceFiscale', '==', value.toUpperCase()));
+                                const querySnapshot = await getDocs(q);
+                                return querySnapshot.empty || 'Questo Codice Fiscale è già registrato';
+                              } catch (error) {
+                                console.error('Error checking Codice Fiscale:', error);
+                                return 'Errore durante la verifica del Codice Fiscale';
+                              }
+                            }
+                          },
+                          onChange: (e) => {
+                            // Automatically convert to uppercase and remove spaces
+                            e.target.value = e.target.value.toUpperCase().replace(/\s/g, '');
+                          }
+                        })}
+                      />
+                    </motion.div>
+                  )}
 
                   <motion.div
                     initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
