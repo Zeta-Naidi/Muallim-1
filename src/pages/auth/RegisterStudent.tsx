@@ -13,7 +13,10 @@ import {
   User,
   Monitor,
   Users,
-  CheckCircle
+  CheckCircle,
+  MapPin,
+  Building,
+  Hash
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
@@ -35,16 +38,24 @@ interface StudentData {
 }
 
 interface ParentFormValues {
-  parentName: string;
+  parentFirstName: string;
+  parentLastName: string;
   parentCodiceFiscale: string;
   parentContact: string;
   parentEmail: string;
   parentPassword: string;
+  parentPasswordConfirm: string;
+  parentAddress: string;
+  parentCity: string;
+  parentPostalCode: string;
 }
 
+type TurnoOption = 'sabato_pomeriggio' | 'sabato_sera' | 'domenica_mattina' | 'domenica_pomeriggio';
+
 export const RegisterStudent: React.FC = () => {
-  const [step, setStep] = useState<'attendance-mode' | 'children-count' | 'student-names' | 'parent-form' | 'enrollment-type' | 'students-form'>('attendance-mode');
+  const [step, setStep] = useState<'attendance-mode' | 'turno-selection' | 'children-count' | 'student-names' | 'parent-form' | 'enrollment-type' | 'students-form'>('attendance-mode');
   const [selectedAttendanceMode, setSelectedAttendanceMode] = useState<'in_presenza' | 'online' | null>(null);
+  const [selectedTurni, setSelectedTurni] = useState<TurnoOption[]>([]);
   const [numberOfChildren, setNumberOfChildren] = useState<number>(1);
   const [studentNames, setStudentNames] = useState<string[]>([]);
   const [studentNamesInput, setStudentNamesInput] = useState<string[]>([]);
@@ -97,6 +108,23 @@ export const RegisterStudent: React.FC = () => {
 
   const handleAttendanceModeSelection = (mode: 'in_presenza' | 'online') => {
     setSelectedAttendanceMode(mode);
+    setStep('turno-selection');
+  };
+
+  const handleTurnoToggle = (turno: TurnoOption) => {
+    setSelectedTurni(prev => 
+      prev.includes(turno) 
+        ? prev.filter(t => t !== turno)
+        : [...prev, turno]
+    );
+  };
+
+  const handleTurnoNext = () => {
+    if (selectedTurni.length === 0) {
+      setError('Seleziona almeno un turno');
+      return;
+    }
+    setError(null);
     setStep('children-count');
   };
 
@@ -180,7 +208,7 @@ export const RegisterStudent: React.FC = () => {
       await registerWithEmail(
         parentData.parentEmail,
         parentData.parentPassword,
-        parentData.parentName,
+        `${parentData.parentFirstName} ${parentData.parentLastName}`.trim(),
         'parent',
         parentAdditionalData
       );
@@ -191,7 +219,7 @@ export const RegisterStudent: React.FC = () => {
         
         const studentAdditionalData = {
           codiceFiscale: studentData.codiceFiscale.toUpperCase(),
-          parentName: parentData.parentName,
+          parentName: `${parentData.parentFirstName} ${parentData.parentLastName}`.trim(),
           parentCodiceFiscale: parentData.parentCodiceFiscale.toUpperCase(),
           parentContact: parentData.parentContact,
           isEnrolled: false,
@@ -246,7 +274,7 @@ export const RegisterStudent: React.FC = () => {
           </motion.span>
         </h2>
         <p className="text-gray-600">
-          Scegli come vuoi che i tuoi figli frequentino i corsi
+          Vorresti iscrivere i tuoi figli in presenza oppure online?
         </p>
       </div>
 
@@ -303,18 +331,104 @@ export const RegisterStudent: React.FC = () => {
     </div>
   );
 
+  const renderTurnoSelection = () => {
+    const turnoOptions = [
+      {
+        id: 'sabato_pomeriggio' as TurnoOption,
+        title: 'Sabato pomeriggio',
+        time: '14:00 - 17:00'
+      },
+      {
+        id: 'sabato_sera' as TurnoOption,
+        title: 'Sabato sera',
+        time: '17:00 - 20:30'
+      },
+      {
+        id: 'domenica_mattina' as TurnoOption,
+        title: 'Domenica mattina',
+        time: '9:30 - 13:00'
+      },
+      {
+        id: 'domenica_pomeriggio' as TurnoOption,
+        title: 'Domenica pomeriggio',
+        time: '14:00 - 17:30'
+      }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Scegli i Turni
+          </h2>
+          <p className="text-gray-600">
+            Seleziona uno o più turni per i tuoi figli
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {turnoOptions.map((turno) => {
+            const isSelected = selectedTurni.includes(turno.id);
+            return (
+              <button
+                key={turno.id}
+                onClick={() => handleTurnoToggle(turno.id)}
+                className={`w-full p-4 rounded-lg border-2 text-left transition-all duration-200 ${
+                  isSelected 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 bg-white hover:border-blue-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{turno.title}</h3>
+                    <p className="text-sm text-gray-600">{turno.time}</p>
+                  </div>
+                  <CheckCircle className={`h-5 w-5 ${
+                    isSelected ? 'text-blue-500' : 'text-gray-300'
+                  }`} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <span className="text-red-700 text-sm">{error}</span>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center pt-4">
+          <button
+            onClick={() => setStep('attendance-mode')}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            ← Indietro
+          </button>
+          
+          <button
+            onClick={handleTurnoNext}
+            disabled={selectedTurni.length === 0}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              selectedTurni.length > 0
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            Continua →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderChildrenCountSelection = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
           Quanti figli vuoi iscrivere?
-          <motion.span 
-            className="inline-block ml-2"
-            animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
-            transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
-          >
-            👨‍👩‍👧‍👦
-          </motion.span>
         </h2>
         <p className="text-gray-600">
           Seleziona il numero di studenti da registrare
@@ -349,7 +463,7 @@ export const RegisterStudent: React.FC = () => {
                 {numberOfChildren}
               </div>
               <div className="text-lg text-gray-600">
-                {numberOfChildren === 1 ? 'figlio' : 'figli'}
+                {numberOfChildren === 1 ? 'Figlio' : 'Figli'}
               </div>
             </div>
             
@@ -427,13 +541,6 @@ export const RegisterStudent: React.FC = () => {
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             Nomi degli Studenti
-            <motion.span 
-              className="inline-block ml-2"
-              animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
-              transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
-            >
-              📝
-            </motion.span>
           </h2>
           <p className="text-gray-600">
             Inserisci i nomi dei tuoi {numberOfChildren} {numberOfChildren === 1 ? 'figlio' : 'figli'}
@@ -486,7 +593,7 @@ export const RegisterStudent: React.FC = () => {
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Tipo di Iscrizione
+          <span className="font-semibold text-blue-600">{studentNames[currentEnrollmentIndex]}</span> si iscrive per la prima volta oppure vorrebbe rinnovare l'iscrizione?
           <motion.span 
             className="inline-block ml-2"
             animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
@@ -495,9 +602,6 @@ export const RegisterStudent: React.FC = () => {
             📋
           </motion.span>
         </h2>
-        <p className="text-gray-600">
-          Seleziona il tipo di iscrizione per <span className="font-semibold text-blue-600">{studentNames[currentEnrollmentIndex]}</span>
-        </p>
         <div className="text-sm text-gray-500 mt-2">
           Studente {currentEnrollmentIndex + 1} di {numberOfChildren}
         </div>
@@ -533,7 +637,7 @@ export const RegisterStudent: React.FC = () => {
             Nuova Iscrizione
           </h3>
           <p className="text-gray-600 text-sm">
-            Per studenti che si iscrivono per la prima volta alla scuola
+            Per studenti che si iscrivono per la prima volta all'istituto
           </p>
         </motion.button>
 
@@ -550,7 +654,7 @@ export const RegisterStudent: React.FC = () => {
             Rinnovo
           </h3>
           <p className="text-gray-600 text-sm">
-            Per studenti già iscritti che rinnovano l'iscrizione
+            Per studenti già iscritti l'anno scorso e che rinnovano l'iscrizione per il nuovo anno scolastico.
           </p>
         </motion.button>
       </div>
@@ -617,33 +721,57 @@ export const RegisterStudent: React.FC = () => {
         
         <form onSubmit={parentForm.handleSubmit(handleParentFormSubmit)} className="relative space-y-6">
           <div className="space-y-6">
-            {/* Nome e Cognome - Full width on mobile */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome e Cognome
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+            {/* Nome e Cognome - Side by side on larger screens */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nome del genitore
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    {...parentForm.register('parentFirstName', { required: 'Nome del genitore è obbligatorio' })}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    placeholder="Inserisci nome"
+                  />
                 </div>
-                <input
-                  {...parentForm.register('parentName', { required: 'Nome e cognome sono obbligatori' })}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
-                  placeholder="Inserisci nome e cognome"
-                />
+                {parentForm.formState.errors.parentFirstName && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {parentForm.formState.errors.parentFirstName.message}
+                  </p>
+                )}
               </div>
-              {parentForm.formState.errors.parentName && (
-                <p className="text-sm text-red-600 flex items-center mt-1">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {parentForm.formState.errors.parentName.message}
-                </p>
-              )}
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cognome del genitore
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    {...parentForm.register('parentLastName', { required: 'Cognome del genitore è obbligatorio' })}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    placeholder="Inserisci cognome"
+                  />
+                </div>
+                {parentForm.formState.errors.parentLastName && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {parentForm.formState.errors.parentLastName.message}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Codice Fiscale */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Codice Fiscale
+                Codice Fiscale del genitore
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -673,7 +801,7 @@ export const RegisterStudent: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
+                  Email del genitore
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -702,7 +830,7 @@ export const RegisterStudent: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telefono
+                  Telefono del genitore
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -723,41 +851,156 @@ export const RegisterStudent: React.FC = () => {
               </div>
             </div>
 
-            {/* Password */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+            {/* Password Fields - Side by side on larger screens */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password del genitore
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    {...parentForm.register('parentPassword', { 
+                      required: 'Password è obbligatoria',
+                      minLength: {
+                        value: 6,
+                        message: 'Password deve essere di almeno 6 caratteri'
+                      }
+                    })}
+                    className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    placeholder="Inserisci password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  {...parentForm.register('parentPassword', { 
-                    required: 'Password è obbligatoria',
-                    minLength: {
-                      value: 6,
-                      message: 'Password deve essere di almeno 6 caratteri'
-                    }
-                  })}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
-                  placeholder="Inserisci password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
+                {parentForm.formState.errors.parentPassword && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {parentForm.formState.errors.parentPassword.message}
+                  </p>
+                )}
               </div>
-              {parentForm.formState.errors.parentPassword && (
-                <p className="text-sm text-red-600 flex items-center mt-1">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {parentForm.formState.errors.parentPassword.message}
-                </p>
-              )}
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reinserisci la password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    {...parentForm.register('parentPasswordConfirm', { 
+                      required: 'Conferma password è obbligatoria',
+                      validate: (value) => {
+                        const password = parentForm.getValues('parentPassword');
+                        return value === password || 'Le password non corrispondono';
+                      }
+                    })}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    placeholder="Conferma password"
+                  />
+                </div>
+                {parentForm.formState.errors.parentPasswordConfirm && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {parentForm.formState.errors.parentPasswordConfirm.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Address Fields */}
+            <div className="space-y-4">
+              {/* Address */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Indirizzo
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    {...parentForm.register('parentAddress', { 
+                      required: 'Indirizzo è obbligatorio'
+                    })}
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    placeholder="Via/Piazza, numero civico"
+                  />
+                </div>
+                {parentForm.formState.errors.parentAddress && (
+                  <p className="text-sm text-red-600 flex items-center mt-1">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {parentForm.formState.errors.parentAddress.message}
+                  </p>
+                )}
+              </div>
+
+              {/* City and Postal Code - Side by side */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comune
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Building className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      {...parentForm.register('parentCity', { 
+                        required: 'Comune è obbligatorio'
+                      })}
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                      placeholder="Nome del comune"
+                    />
+                  </div>
+                  {parentForm.formState.errors.parentCity && (
+                    <p className="text-sm text-red-600 flex items-center mt-1">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {parentForm.formState.errors.parentCity.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CAP
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Hash className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      {...parentForm.register('parentPostalCode', { 
+                        required: 'CAP è obbligatorio',
+                        pattern: {
+                          value: /^\d{5}$/,
+                          message: 'CAP deve essere di 5 cifre'
+                        }
+                      })}
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                      placeholder="12345"
+                      maxLength={5}
+                    />
+                  </div>
+                  {parentForm.formState.errors.parentPostalCode && (
+                    <p className="text-sm text-red-600 flex items-center mt-1">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {parentForm.formState.errors.parentPostalCode.message}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -792,14 +1035,7 @@ export const RegisterStudent: React.FC = () => {
       <div className="space-y-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Dati dello Studente
-            <motion.span 
-              className="inline-block ml-2"
-              animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
-              transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
-            >
-              🎒
-            </motion.span>
+            Inserisci i dati di <span className="font-semibold text-blue-600">{studentNames[currentStudentIndex] ? studentNames[currentStudentIndex] : `Studente ${currentStudentIndex + 1}`}</span>
           </h2>
           
           {/* Progress indicator */}
@@ -810,27 +1046,25 @@ export const RegisterStudent: React.FC = () => {
                     {currentStudentIndex + 1}
                   </div>
                   <span className="text-gray-800 font-medium text-sm">
-                    {studentNames[currentStudentIndex] ? studentNames[currentStudentIndex] : `Studente ${currentStudentIndex + 1}`}
                   </span>
                 </div>
                 <div className="h-3 w-px bg-gray-200"></div>
                 <div className="flex items-center space-x-2">
                   <span className="text-gray-600 text-xs">
-                    {currentStudentIndex + 1} di {numberOfChildren}
+                    di {numberOfChildren}
                   </span>
                 </div>
               </div>
           </div>
-          
-          <p className="text-gray-600">
-            Inserisci i dati per {studentNames[currentStudentIndex] || `lo studente ${currentStudentIndex + 1}`}
-          </p>
+
+          <div>
           <button
             onClick={() => setStep('parent-form')}
             className="mt-2 text-sm text-blue-600 hover:text-blue-500 transition-colors"
           >
             ← Modifica dati genitore
           </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-lg">
@@ -922,19 +1156,6 @@ export const RegisterStudent: React.FC = () => {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Telefono (opzionale)</label>
-                <input
-                  type="tel"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="+39 123 456 7890"
-                  {...currentForm.register('phoneNumber')}
-                />
-                {currentForm.formState.errors.phoneNumber && (
-                  <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.phoneNumber.message}</p>
-                )}
-              </div>
-
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ha disabilità o necessita supporto?</label>
                 <select
@@ -943,12 +1164,7 @@ export const RegisterStudent: React.FC = () => {
                 >
                   <option value="">Seleziona un'opzione</option>
                   <option value="no">No</option>
-                  <option value="fisica">Disabilità fisica</option>
-                  <option value="cognitiva">Disabilità cognitiva</option>
-                  <option value="sensoriale">Disabilità sensoriale</option>
-                  <option value="dsa">Disturbi Specifici dell'Apprendimento (DSA)</option>
-                  <option value="adhd">ADHD</option>
-                  <option value="altro">Altro</option>
+                  <option value="no">Sì</option>
                 </select>
                 {currentForm.formState.errors.hasDisability && (
                   <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.hasDisability.message}</p>
@@ -1036,6 +1252,7 @@ export const RegisterStudent: React.FC = () => {
               transition={{ duration: 0.3 }}
             >
               {step === 'attendance-mode' && renderAttendanceModeSelection()}
+              {step === 'turno-selection' && renderTurnoSelection()}
               {step === 'children-count' && renderChildrenCountSelection()}
               {step === 'student-names' && renderStudentNamesForm()}
               {step === 'enrollment-type' && renderEnrollmentTypeSelection()}
