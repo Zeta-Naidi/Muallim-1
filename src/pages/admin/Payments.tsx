@@ -744,7 +744,7 @@ export const Payments: React.FC = () => {
                               <span className="text-gray-300">•</span>
                               <span className="inline-flex items-center gap-1">
                                 <Users className="h-4 w-4 text-gray-400" />
-                                {group.children.length} {group.children.length === 1 ? 'figlio' : 'figli'}
+                                {group.children.length} {group.children.length === 1 ? 'Figlio/a' : 'figli'}
                               </span>
                             </div>
                           </div>
@@ -1182,7 +1182,7 @@ export const Payments: React.FC = () => {
                   <p className="text-sm text-gray-600 mb-2 flex items-center">
                     <Users className="h-4 w-4 mr-2 text-gray-400" />
                     <strong>Famiglia:</strong> <span className="ml-2">{selectedParent.parentName}</span>
-                    <span className="ml-2 text-xs text-gray-500">({selectedParent.children.length} {selectedParent.children.length === 1 ? 'figlio' : 'figli'})</span>
+                    <span className="ml-2 text-xs text-gray-500">({selectedParent.children.length} {selectedParent.children.length === 1 ? 'Figlio/a' : 'figli'})</span>
                   </p>
                   <p className="text-sm text-gray-600 mb-2 flex items-center">
                     <Phone className="h-4 w-4 mr-2 text-gray-400" />
@@ -1202,7 +1202,7 @@ export const Payments: React.FC = () => {
                 <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 flex items-center gap-2 flex-wrap">
                   <Euro className="h-4 w-4 text-blue-600" />
                   <span className="font-medium text-gray-900">Tariffe Annuali</span>
-                  <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">1 figlio: €120</span>
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">1 Figlio/a: €120</span>
                   <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">2: €220</span>
                   <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">3: €300</span>
                   <span className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">4+: €360</span>

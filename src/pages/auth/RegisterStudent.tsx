@@ -42,7 +42,7 @@ interface StudentData {
 interface ParentFormValues {
   parentFirstName: string;
   parentLastName: string;
-  parentCodiceFiscale: string;
+  parentCodiceFiscale?: string;
   parentContact: string;
   parentEmail: string;
   parentPassword: string;
@@ -55,7 +55,7 @@ interface ParentFormValues {
 type TurnoOption = 'sabato_pomeriggio' | 'sabato_sera' | 'domenica_mattina' | 'domenica_pomeriggio';
 
 export const RegisterStudent: React.FC = () => {
-  const [step, setStep] = useState<'attendance-mode' | 'turno-selection' | 'children-count' | 'student-names' | 'parent-form' | 'enrollment-type' | 'students-form'>('attendance-mode');
+  const [step, setStep] = useState<'attendance-mode' | 'info' | 'terms' | 'children-count' | 'student-names' | 'parent-form' | 'enrollment-type' | 'students-form' | 'turno-selection' | 'review'>('attendance-mode');
   const [selectedAttendanceMode, setSelectedAttendanceMode] = useState<'in_presenza' | 'online' | null>(null);
   const [selectedTurni, setSelectedTurni] = useState<TurnoOption[]>([]);
   const [numberOfChildren, setNumberOfChildren] = useState<number>(1);
@@ -71,6 +71,7 @@ export const RegisterStudent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
   const { registerWithEmail } = useAuth();
   const shouldReduceMotion = useReducedMotion();
@@ -111,7 +112,8 @@ export const RegisterStudent: React.FC = () => {
 
   const handleAttendanceModeSelection = (mode: 'in_presenza' | 'online') => {
     setSelectedAttendanceMode(mode);
-    setStep('turno-selection');
+    setTermsAccepted(false);
+    setStep('info');
   };
 
   const handleTurnoToggle = (turno: TurnoOption) => {
@@ -128,7 +130,7 @@ export const RegisterStudent: React.FC = () => {
       return;
     }
     setError(null);
-    setStep('children-count');
+    setStep('review');
   };
 
   const handleChildrenCountSelection = (count: number) => {
@@ -170,8 +172,8 @@ export const RegisterStudent: React.FC = () => {
       setCurrentEnrollmentIndex(currentEnrollmentIndex + 1);
       setStep('enrollment-type');
     } else {
-      // All students completed, proceed with registration
-      handleStudentsFormSubmit();
+      // All students completed, proceed to review
+      setStep('review');
     }
   };
 
@@ -191,6 +193,22 @@ export const RegisterStudent: React.FC = () => {
   const handleStudentsFormSubmit = async () => {
     if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) return;
 
+    // Check if we need to show turno selection (only for in_presenza and all new enrollments)
+    const allNewEnrollments = enrollmentTypes.every(type => type === 'nuova_iscrizione');
+    const needsTurnoSelection = selectedAttendanceMode === 'in_presenza' && allNewEnrollments;
+
+    if (needsTurnoSelection) {
+      setStep('turno-selection');
+      return;
+    } else {
+      setStep('review');
+      return;
+    }
+  };
+
+  const handleFinalRegistration = async () => {
+    if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) return;
+
     try {
       setError(null);
       setIsLoading(true);
@@ -208,7 +226,7 @@ export const RegisterStudent: React.FC = () => {
 
       // Register parent account first
       const parentAdditionalData = {
-        codiceFiscale: parentData.parentCodiceFiscale.toUpperCase(),
+        codiceFiscale: parentData.parentCodiceFiscale ? parentData.parentCodiceFiscale.toUpperCase() : null,
         phoneNumber: parentData.parentContact,
         isEnrolled: false,
         enrollmentDate: null,
@@ -224,6 +242,7 @@ export const RegisterStudent: React.FC = () => {
         parentAdditionalData
       );
 
+
       // Register each student
       for (let i = 0; i < numberOfChildren; i++) {
         const studentData = studentForms[i].getValues();
@@ -231,7 +250,7 @@ export const RegisterStudent: React.FC = () => {
         const studentAdditionalData = {
           codiceFiscale: studentData.codiceFiscale.toUpperCase(),
           parentName: `${parentData.parentFirstName} ${parentData.parentLastName}`.trim(),
-          parentCodiceFiscale: parentData.parentCodiceFiscale.toUpperCase(),
+          parentCodiceFiscale: parentData.parentCodiceFiscale ? parentData.parentCodiceFiscale.toUpperCase() : null,
           parentContact: parentData.parentContact,
           isEnrolled: false,
           enrollmentDate: null,
@@ -239,7 +258,10 @@ export const RegisterStudent: React.FC = () => {
           address: studentData.address,
           city: studentData.city,
           postalCode: studentData.postalCode,
-          birthDate: studentData.birthDate ? new Date(studentData.birthDate) : null,
+          birthDate: studentData.birthDate ? (() => {
+            const [day, month, year] = studentData.birthDate.split('/');
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          })() : null,
           gender: studentData.gender,
           hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
           disabilityType: studentData.hasDisability === 'no' || !studentData.hasDisability ? null : studentData.hasDisability,
@@ -271,6 +293,202 @@ export const RegisterStudent: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const renderReviewForm = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          Riepilogo Registrazione
+          <motion.span 
+            className="inline-block ml-2"
+            animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
+            transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
+          >
+            📋
+          </motion.span>
+        </h2>
+        <p className="text-gray-600">
+          Controlla tutti i dati inseriti prima di completare la registrazione
+        </p>
+      </div>
+
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 space-y-8">
+        
+        {/* Attendance Mode */}
+        <div className="border-b border-gray-200 pb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Modalità di Frequenza</h3>
+            <button
+              onClick={() => setStep('attendance-mode')}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              Modifica
+            </button>
+          </div>
+          <p className="text-gray-700">
+            {selectedAttendanceMode === 'in_presenza' ? 'In Presenza' : 'Online'}
+          </p>
+          {selectedAttendanceMode === 'in_presenza' && selectedTurni.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm text-gray-600">Turni selezionati:</p>
+              <ul className="list-disc list-inside text-sm text-gray-700 mt-1">
+                {selectedTurni.map(turno => (
+                  <li key={turno}>
+                    {turno === 'sabato_pomeriggio' && 'Sabato Pomeriggio'}
+                    {turno === 'sabato_sera' && 'Sabato Sera'}
+                    {turno === 'domenica_mattina' && 'Domenica Mattina'}
+                    {turno === 'domenica_pomeriggio' && 'Domenica Pomeriggio'}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Parent Information */}
+        <div className="border-b border-gray-200 pb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Dati del Genitore</h3>
+            <button
+              onClick={() => setStep('parent-form')}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              Modifica
+            </button>
+          </div>
+          {parentData && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-600">Nome:</span>
+                <p className="text-gray-900">{parentData.parentFirstName} {parentData.parentLastName}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Email:</span>
+                <p className="text-gray-900">{parentData.parentEmail}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Telefono:</span>
+                <p className="text-gray-900">{parentData.parentContact}</p>
+              </div>
+              {parentData.parentCodiceFiscale && (
+                <div>
+                  <span className="font-medium text-gray-600">Codice Fiscale:</span>
+                  <p className="text-gray-900">{parentData.parentCodiceFiscale}</p>
+                </div>
+              )}
+              {parentData.parentAddress && (
+                <div className="md:col-span-2">
+                  <span className="font-medium text-gray-600">Indirizzo:</span>
+                  <p className="text-gray-900">
+                    {parentData.parentAddress}
+                    {parentData.parentCity && `, ${parentData.parentCity}`}
+                    {parentData.parentPostalCode && ` ${parentData.parentPostalCode}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Students Information */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Studenti ({numberOfChildren})</h3>
+          {studentsData.map((student, index) => (
+            <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 last:mb-0">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-medium text-gray-900">
+                  {studentNames[index]} - {enrollmentTypes[index] === 'rinnovo' ? 'Rinnovo' : 'Nuova Iscrizione'}
+                </h4>
+                <button
+                  onClick={() => {
+                    setCurrentStudentIndex(index);
+                    setCurrentEnrollmentIndex(index);
+                    setStep('enrollment-type');
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  Modifica
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="font-medium text-gray-600">Nome completo:</span>
+                  <p className="text-gray-900">{student.firstName} {student.lastName}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Codice Fiscale:</span>
+                  <p className="text-gray-900">{student.codiceFiscale}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Data di nascita:</span>
+                  <p className="text-gray-900">{student.birthDate}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Genere:</span>
+                  <p className="text-gray-900">{student.gender === 'M' ? 'Maschio' : 'Femmina'}</p>
+                </div>
+                {student.phoneNumber && (
+                  <div>
+                    <span className="font-medium text-gray-600">Telefono:</span>
+                    <p className="text-gray-900">{student.phoneNumber}</p>
+                  </div>
+                )}
+                {student.emergencyContact && (
+                  <div>
+                    <span className="font-medium text-gray-600">Contatto di emergenza:</span>
+                    <p className="text-gray-900">{student.emergencyContact}</p>
+                  </div>
+                )}
+                {student.hasDisability && (
+                  <div className="md:col-span-2">
+                    <span className="font-medium text-gray-600">Disabilità:</span>
+                    <p className="text-gray-900">{student.hasDisability}</p>
+                  </div>
+                )}
+                {enrollmentTypes[index] === 'rinnovo' && student.previousYearClass && (
+                  <div className="md:col-span-2">
+                    <span className="font-medium text-gray-600">Classe precedente:</span>
+                    <p className="text-gray-900">{student.previousYearClass}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-6 gap-4">
+          <motion.button
+            type="button"
+            onClick={() => setStep('students-form')}
+            className="flex items-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            ← Modifica Studenti
+          </motion.button>
+
+          <motion.button
+            type="button"
+            onClick={handleFinalRegistration}
+            disabled={isLoading}
+            className="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Registrazione in corso...
+              </>
+            ) : (
+              'Completa Registrazione'
+            )}
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderAttendanceModeSelection = () => (
     <div className="space-y-6">
@@ -469,7 +687,7 @@ export const RegisterStudent: React.FC = () => {
                 {numberOfChildren}
               </div>
               <div className="text-lg text-gray-600">
-                {numberOfChildren === 1 ? 'Figlio' : 'Figli'}
+                {numberOfChildren === 1 ? 'Figlio/a' : 'Figli'}
               </div>
             </div>
             
@@ -502,7 +720,7 @@ export const RegisterStudent: React.FC = () => {
               whileTap={{ scale: 0.98 }}
               className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 order-1 sm:order-2"
             >
-              Continua con {numberOfChildren} {numberOfChildren === 1 ? 'figlio' : 'figli'}
+              Continua con {numberOfChildren} {numberOfChildren === 1 ? 'figlio/a' : 'figli'}
             </motion.button>
           </div>
         </div>
@@ -558,17 +776,17 @@ export const RegisterStudent: React.FC = () => {
             Nomi degli Studenti
           </h2>
           <p className="text-gray-600">
-            Inserisci i nomi dei tuoi {numberOfChildren} {numberOfChildren === 1 ? 'figlio' : 'figli'}
+            Inserisci i nomi dei tuoi {numberOfChildren} {numberOfChildren === 1 ? 'Figlio/a' : 'figli'}
           </p>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8">
+        <div className={`bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 ${numberOfChildren === 1 ? 'p-4 sm:p-6 max-w-lg mx-auto' : 'p-6 sm:p-8'}`}>
           <form onSubmit={handleStudentNamesFormSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid gap-6 ${numberOfChildren === 1 ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 md:grid-cols-2'}`}>
               {Array.from({ length: numberOfChildren }, (_, index) => (
                 <div key={index}>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome {numberOfChildren === 1 ? 'del figlio' : `del ${index + 1}° figlio`}
+                    Nome {numberOfChildren === 1 ? 'del Figlio/a' : `del ${index + 1}° Figlio/a`}
                   </label>
                   <input
                     type="text"
@@ -611,8 +829,8 @@ export const RegisterStudent: React.FC = () => {
   const renderEnrollmentTypeSelection = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          <span className="font-semibold text-blue-600">{studentNames[currentEnrollmentIndex]}</span> si iscrive per la prima volta oppure vorrebbe rinnovare l'iscrizione?
+        <h2 className="text-2xl font-medium text-gray-900 mb-2">
+          Scegli tipologia di iscrizione per <span className="font-bold text-6xl text-blue-600">{studentNames[currentEnrollmentIndex]}</span>.
           <motion.span 
             className="inline-block ml-2"
             animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
@@ -704,7 +922,7 @@ export const RegisterStudent: React.FC = () => {
                     {numberOfChildren}
                   </div>
                   <span className="text-gray-800 font-medium text-sm">
-                    {numberOfChildren === 1 ? 'Figlio' : 'Figli'}
+                    {numberOfChildren === 1 ? 'Figlio/a' : 'Figli'}
                   </span>
                 </div>
                 <div className="h-3 w-px bg-gray-200"></div>
@@ -785,91 +1003,62 @@ export const RegisterStudent: React.FC = () => {
               </div>
             </div>
 
-            {/* Codice Fiscale */}
+
+            {/* Email Field */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Codice Fiscale del genitore
+                Email del genitore
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <UserIcon className="h-5 w-5 text-gray-400" />
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  {...parentForm.register('parentCodiceFiscale', { 
-                    required: 'Codice Fiscale è obbligatorio',
+                  type="email"
+                  {...parentForm.register('parentEmail', { 
+                    required: 'Email è obbligatoria',
                     pattern: {
-                      value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i,
-                      message: 'Formato Codice Fiscale non valido'
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: 'Email non valida'
                     }
                   })}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70 uppercase"
-                  placeholder="RSSMRA80A01H501Z"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                  placeholder="email@esempio.com"
                 />
               </div>
-              {parentForm.formState.errors.parentCodiceFiscale && (
+              {parentForm.formState.errors.parentEmail && (
                 <p className="text-sm text-red-600 flex items-center mt-1">
                   <AlertCircle className="h-4 w-4 mr-1" />
-                  {parentForm.formState.errors.parentCodiceFiscale.message}
+                  {parentForm.formState.errors.parentEmail.message}
                 </p>
               )}
             </div>
 
-            {/* Email and Phone - Side by side on larger screens */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email del genitore
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="email"
-                    {...parentForm.register('parentEmail', { 
-                      required: 'Email è obbligatoria',
-                      pattern: {
-                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: 'Email non valida'
-                      }
-                    })}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
-                    placeholder="email@esempio.com"
-                  />
+            {/* Phone Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Telefono del genitore che riceverà le comunicazioni (compiti, eventi,ecc..)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-gray-400" />
                 </div>
-                {parentForm.formState.errors.parentEmail && (
-                  <p className="text-sm text-red-600 flex items-center mt-1">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {parentForm.formState.errors.parentEmail.message}
-                  </p>
-                )}
+                <input
+                  {...parentForm.register('parentContact', { required: 'Telefono è obbligatorio' })}
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                  placeholder="+39 123 456 7890"
+                />
               </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telefono del genitore
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    {...parentForm.register('parentContact', { required: 'Telefono è obbligatorio' })}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
-                    placeholder="+39 123 456 7890"
-                  />
-                </div>
-                {parentForm.formState.errors.parentContact && (
-                  <p className="text-sm text-red-600 flex items-center mt-1">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {parentForm.formState.errors.parentContact.message}
-                  </p>
-                )}
-                <p className="text-green-600 text-xs mt-1 flex items-center">
-                  <span className="mr-1">📱</span>
-                  Questo numero deve avere accesso a WhatsApp per le comunicazioni di gruppo
+              {parentForm.formState.errors.parentContact && (
+                <p className="text-sm text-red-600 flex items-center mt-1">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {parentForm.formState.errors.parentContact.message}
                 </p>
-              </div>
+              )}
+              <p className="text-gray-700 text-xs mt-1 flex items-center">
+                <span className="mr-1">📱</span>
+                Questo numero deve avere accesso a WhatsApp per le comunicazioni di gruppo
+              </p>
             </div>
 
             {/* Password Fields - Side by side on larger screens */}
@@ -908,6 +1097,10 @@ export const RegisterStudent: React.FC = () => {
                     {parentForm.formState.errors.parentPassword.message}
                   </p>
                 )}
+                <p className="text-gray-700 text-xs mt-1 flex items-center">
+                  <span className="mr-1">💡</span>
+                  Si raccomanda di salvare la password in quanto sarà necessaria per effettuare l'accesso in futuro
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -1105,7 +1298,7 @@ export const RegisterStudent: React.FC = () => {
 
           <form onSubmit={currentForm.handleSubmit(handleStudentFormSubmit)} className="space-y-4 sm:space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nome</label>
                 <input
                   type="text"
@@ -1118,7 +1311,7 @@ export const RegisterStudent: React.FC = () => {
                 )}
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Cognome</label>
                 <input
                   type="text"
@@ -1131,7 +1324,7 @@ export const RegisterStudent: React.FC = () => {
                 )}
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Codice Fiscale</label>
                 <input
                   type="text"
@@ -1160,19 +1353,53 @@ export const RegisterStudent: React.FC = () => {
                 )}
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Data di Nascita</label>
                 <input
-                  type="date"
+                  type="text"
+                  placeholder="gg/mm/aaaa"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  {...currentForm.register('birthDate', { required: 'Data di nascita è obbligatoria' })}
+                  {...currentForm.register('birthDate', { 
+                    required: 'Data di nascita è obbligatoria',
+                    pattern: {
+                      value: /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/,
+                      message: 'Formato data non valido (gg/mm/aaaa)'
+                    },
+                    validate: (value) => {
+                      const [day, month, year] = value.split('/');
+                      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                      const today = new Date();
+                      if (date > today) {
+                        return 'La data di nascita non può essere nel futuro';
+                      }
+                      if (date.getFullYear() < 1900) {
+                        return 'Anno non valido';
+                      }
+                      return true;
+                    }
+                  })}
+                  onChange={(e) => {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length >= 2) {
+                      value = value.substring(0, 2) + '/' + value.substring(2);
+                    }
+                    if (value.length >= 5) {
+                      value = value.substring(0, 5) + '/' + value.substring(5, 9);
+                    }
+                    e.target.value = value;
+                    currentForm.setValue('birthDate', value);
+                  }}
+                  maxLength={10}
                 />
                 {currentForm.formState.errors.birthDate && (
                   <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.birthDate.message}</p>
                 )}
+                <p className="text-gray-500 text-xs mt-1">
+                  Inserisci la data nel formato gg/mm/aaaa
+                </p>
               </div>
 
-              <div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Genere</label>
                 <select
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -1187,7 +1414,7 @@ export const RegisterStudent: React.FC = () => {
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ha disabilità o necessita supporto?</label>
                 <select
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
@@ -1204,33 +1431,18 @@ export const RegisterStudent: React.FC = () => {
 
               {/* Previous Year Class - Only show for renewals */}
               {enrollmentTypes[currentStudentIndex] === 'rinnovo' && (
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 space-y-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Classe frequentata l'anno scorso
                   </label>
-                  <select
+                  <input
+                    type="text"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder={selectedAttendanceMode === 'online' ? '' : 'Preparatoria Domenica Mattina, 5C Sabato Sera..'}
                     {...currentForm.register('previousYearClass', {
                       required: enrollmentTypes[currentStudentIndex] === 'rinnovo' ? 'Classe precedente è obbligatoria per i rinnovi' : false
                     })}
-                  >
-                    <option value="">Seleziona la classe precedente</option>
-                    <option value="1A">1A</option>
-                    <option value="1B">1B</option>
-                    <option value="1C">1C</option>
-                    <option value="2A">2A</option>
-                    <option value="2B">2B</option>
-                    <option value="2C">2C</option>
-                    <option value="3A">3A</option>
-                    <option value="3B">3B</option>
-                    <option value="3C">3C</option>
-                    <option value="4A">4A</option>
-                    <option value="4B">4B</option>
-                    <option value="4C">4C</option>
-                    <option value="5A">5A</option>
-                    <option value="5B">5B</option>
-                    <option value="5C">5C</option>
-                  </select>
+                  />
                   {currentForm.formState.errors.previousYearClass && (
                     <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.previousYearClass.message}</p>
                   )}
@@ -1266,7 +1478,7 @@ export const RegisterStudent: React.FC = () => {
                     <span>Caricamento...</span>
                   </div>
                 ) : currentStudentIndex === numberOfChildren - 1 ? (
-                  'Completa Registrazione'
+                  'Controlla i dati'
                 ) : (
                   'Prossimo →'
                 )}
@@ -1277,6 +1489,110 @@ export const RegisterStudent: React.FC = () => {
       </div>
     );
   };
+
+  const renderInfoStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          Informazioni
+          <motion.span
+            className="inline-block ml-2"
+            animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
+            transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
+          >
+            ℹ️
+          </motion.span>
+        </h2>
+        <p className="text-gray-600">Leggi con attenzione le informazioni prima di proseguire.</p>
+      </div>
+
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 space-y-4">
+        {selectedAttendanceMode === 'in_presenza' ? (
+          <div className="space-y-3 text-gray-800">
+            <p>Si possono iscrivere tutti gli alunni a partire da 6 anni (solo chi ha già iniziato almeno la prima elementare) e fino a 14 anni.</p>
+            <p>Gli orari previsti per le lezioni sono; sabato pomeriggio, sabato sera, domenica mattina e domenica pomeriggio.</p>
+            <p>Dopo la conferma dell'iscrizione l'orario sarà stabilito dall'amministrazione e vi sarà comunicato successivamente.</p>
+            <p>I corsi sono in lingua Italiana e si studia le seguenti materie; Educazione Islamica (Fiqh, Hadith, Sira, Aqidah, Tarikh, Adab e Akhlaq) Corano e lingua araba.</p>
+            <p>Il contributo scolastico annuale è di 120 euro per il primo figlio, 100 per il secondo e 80 per il terzo.</p>
+            <p className="text-sm text-gray-700">per maggiori info <span className="font-medium">+39 329 6736454</span> mail: <span className="font-medium">istitutoaverroepc@gmail.com</span></p>
+          </div>
+        ) : (
+          <div className="space-y-3 text-gray-800">
+            <p>Si possono iscrivere tutti gli alunni a partire da 7 anni (solo chi ha già iniziato almeno la seconda elementare) e fino a 14 anni.</p>
+            <p>Le classi saranno composte da circa 10 alunni.</p>
+            <p>Dopo la conferma dell'iscrizione l'orario sarà stabilito tra il docente e i genitori.</p>
+            <p>I corsi sono in lingua Italiana e si studiano le seguenti materie:  Fiqh, Hadith, Sira, Aqidah, Tarikh, Adab, Akhlaq e Corano.</p>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-6 gap-4">
+          <motion.button
+            type="button"
+            onClick={() => setStep('attendance-mode')}
+            className="flex items-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            ← Indietro
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={() => setStep('terms')}
+            className="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            Vai ai Termini
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTermsStep = () => (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Termini e condizioni</h2>
+        <p className="text-gray-600">Accetta i termini per proseguire con la registrazione.</p>
+      </div>
+
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 space-y-4">
+        <div className="prose prose-sm max-w-none text-gray-800">
+          <p>Autorizzo il trattamento dei dati personali presenti ai sensi del D.Lgs. 2018/101 e del GDPR (Regolamento UE 2016/679).</p>
+          <p>Autorizzo senza limiti di tempo, anche ai sensi degli artt. 10 e 320 cod.civ. e degli artt. 96 e 97 legge 22.4.1941, n. 633, Legge sul diritto d'autore, alla pubblicazione e/o diffusione in qualsiasi forma delle immagini sul sito internet dell'Istituto Averroè su qualsiasi altro mezzo di diffusione, nonché autorizza la conservazione delle foto e dei video stessi negli archivi informatici del Istituto e prendo atto che la finalità di tali pubblicazioni sono meramente di carattere informativo ed eventualmente promozionale.</p>
+        </div>
+
+        <label className="flex items-start gap-3 mt-4">
+          <input type="checkbox" className="mt-1" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} />
+          <span className="text-sm text-gray-800">Confermo di aver letto e accettato i termini e le condizioni</span>
+        </label>
+
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-6 gap-4">
+          <motion.button
+            type="button"
+            onClick={() => setStep('info')}
+            className="flex items-center px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            ← Indietro
+          </motion.button>
+          <motion.button
+            type="button"
+            disabled={!termsAccepted}
+            onClick={() => {
+              setStep('children-count');
+            }}
+            className="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+          >
+            Continua
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderSuccessPopup = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1365,12 +1681,15 @@ export const RegisterStudent: React.FC = () => {
               transition={{ duration: 0.3 }}
             >
               {step === 'attendance-mode' && renderAttendanceModeSelection()}
+              {step === 'info' && renderInfoStep()}
+              {step === 'terms' && renderTermsStep()}
               {step === 'turno-selection' && renderTurnoSelection()}
               {step === 'children-count' && renderChildrenCountSelection()}
               {step === 'student-names' && renderStudentNamesForm()}
               {step === 'enrollment-type' && renderEnrollmentTypeSelection()}
               {step === 'parent-form' && renderParentForm()}
               {step === 'students-form' && renderStudentsForm()}
+              {step === 'review' && renderReviewForm()}
             </motion.div>
           </AnimatePresence>
 
