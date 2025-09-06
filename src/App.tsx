@@ -6,7 +6,8 @@ import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
 import { EnhancedTeacherChat } from './components/chat/EnhancedTeacherChat';
 import { Login } from './pages/auth/Login';
-import { Register } from './pages/auth/Register';
+import { RegisterStudent } from './pages/auth/RegisterStudent';
+import { RegisterTeacher } from './pages/auth/RegisterTeacher';
 import { Dashboard } from './pages/Dashboard';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { GradeTracker } from './pages/student/GradeTracker';
@@ -168,9 +169,14 @@ function AppRoutes() {
                 <Login />
               </PublicRoute>
             } />
-            <Route path="/register" element={
+            <Route path="/register/student" element={
               <PublicRoute>
-                <Register />
+                <RegisterStudent />
+              </PublicRoute>
+            } />
+            <Route path="/register/teacher" element={
+              <PublicRoute>
+                <RegisterTeacher />
               </PublicRoute>
             } />
             

@@ -409,18 +409,7 @@ export const Login: React.FC = () => {
                 className="mt-8 text-center"
               >
                 <p className="text-gray-600">
-                  Non hai un account?{' '}
-                  <Link 
-                    to="/register" 
-                    className="font-semibold text-blue-600 hover:text-blue-700 transition-colors relative group"
-                  >
-                    Registrati ora
-                    <motion.div
-                      className="absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600"
-                      whileHover={{ width: "100%" }}
-                      transition={{ duration: 0.2 }}
-                    />
-                  </Link>
+                  Non hai un account? Iscriviti tramite link inviato dall'istituto
                 </p>
               </motion.div>
             </div>

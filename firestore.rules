@@ -55,7 +55,10 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow list: if isAuthenticated() && (isAdmin() || isTeacher());
+      // Allow querying for Codice Fiscale validation during registration
+      allow list: if isAuthenticated() && (isAdmin() || isTeacher()) ||
+        // Allow unauthenticated queries for registration validation
+        !isAuthenticated();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isAdmin() || isOwner(userId);
       allow delete: if isAdmin();
