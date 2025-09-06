@@ -653,7 +653,7 @@ export const RegisterStudent: React.FC = () => {
                   {...parentForm.register('parentCodiceFiscale', { 
                     required: 'Codice Fiscale è obbligatorio',
                     pattern: {
-                      value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/,
+                      value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i,
                       message: 'Formato Codice Fiscale non valido'
                     }
                   })}
@@ -833,13 +833,13 @@ export const RegisterStudent: React.FC = () => {
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-lg">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">
             {studentNames[currentStudentIndex] || `Studente ${currentStudentIndex + 1}`}
           </h3>
 
-          <form onSubmit={currentForm.handleSubmit(handleStudentFormSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={currentForm.handleSubmit(handleStudentFormSubmit)} className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nome</label>
                 <input
@@ -875,7 +875,7 @@ export const RegisterStudent: React.FC = () => {
                   {...currentForm.register('codiceFiscale', {
                     required: 'Codice Fiscale è obbligatorio',
                     pattern: {
-                      value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/,
+                      value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i,
                       message: 'Formato Codice Fiscale non valido',
                     },
                     validate: {
@@ -957,14 +957,14 @@ export const RegisterStudent: React.FC = () => {
             </div>
 
             {/* Navigation buttons */}
-            <div className="flex justify-between items-center pt-6">
+            <div className="flex flex-col sm:flex-row justify-between items-center pt-4 sm:pt-6 gap-3 sm:gap-0">
               <motion.button
                 type="button"
                 onClick={handlePreviousStudent}
                 disabled={currentStudentIndex === 0}
                 whileHover={{ scale: currentStudentIndex === 0 ? 1 : 1.02 }}
                 whileTap={{ scale: currentStudentIndex === 0 ? 1 : 0.98 }}
-                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                className={`w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
                   currentStudentIndex === 0
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -978,7 +978,7 @@ export const RegisterStudent: React.FC = () => {
                 disabled={isLoading}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-8 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 sm:px-8 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
@@ -1005,23 +1005,23 @@ export const RegisterStudent: React.FC = () => {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pink-400/20 to-orange-600/20 rounded-full blur-2xl" />
       </div>
 
-      <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 relative">
+      <div className="flex-1 flex flex-col justify-center py-6 sm:py-12 px-4 sm:px-6 lg:px-20 xl:px-24 relative">
         <motion.div
           initial={{ x: 50, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="mx-auto w-full max-w-4xl"
         >
-          <div className="lg:hidden text-center mb-8">
+          <div className="lg:hidden text-center mb-6 sm:mb-8">
             <Link to="/" className="inline-flex items-center justify-center group">
               <motion.div 
-                className="w-14 h-14 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mr-3 shadow-xl"
+                className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mr-3 shadow-xl"
                 whileHover={{ scale: 1.05, rotate: 5 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <GraduationCap className="h-7 w-7 text-white" />
+                <GraduationCap className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
               </motion.div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
                 Muallim
               </span>
             </Link>
