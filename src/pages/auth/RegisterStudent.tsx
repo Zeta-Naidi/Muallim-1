@@ -16,7 +16,8 @@ import {
   CheckCircle,
   MapPin,
   Building,
-  Hash
+  Hash,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
@@ -35,6 +36,7 @@ interface StudentData {
   gender?: string;
   hasDisability?: string;
   emergencyContact?: string;
+  previousYearClass?: string;
 }
 
 interface ParentFormValues {
@@ -68,6 +70,7 @@ export const RegisterStudent: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const navigate = useNavigate();
   const { registerWithEmail } = useAuth();
   const shouldReduceMotion = useReducedMotion();
@@ -173,7 +176,15 @@ export const RegisterStudent: React.FC = () => {
   };
 
   const handlePreviousStudent = () => {
-    setStep('enrollment-type');
+    if (currentStudentIndex > 0) {
+      // Go to previous student's enrollment type selection
+      setCurrentStudentIndex(currentStudentIndex - 1);
+      setCurrentEnrollmentIndex(currentStudentIndex - 1);
+      setStep('enrollment-type');
+    } else {
+      // Go back to enrollment type selection for current student
+      setStep('enrollment-type');
+    }
   };
 
 
@@ -235,6 +246,7 @@ export const RegisterStudent: React.FC = () => {
           emergencyContact: studentData.emergencyContact,
           attendanceMode: selectedAttendanceMode,
           enrollmentType: enrollmentTypes[i],
+          previousYearClass: enrollmentTypes[i] === 'rinnovo' ? studentData.previousYearClass : null,
         };
 
         const displayName = `${studentData.firstName.trim()} ${studentData.lastName.trim()}`.trim();
@@ -251,7 +263,7 @@ export const RegisterStudent: React.FC = () => {
         );
       }
 
-      navigate('/dashboard');
+      setShowSuccessPopup(true);
     } catch (error: any) {
       console.error('Errore di registrazione:', error);
       setError(error.message || 'Errore durante la registrazione');
@@ -320,10 +332,17 @@ export const RegisterStudent: React.FC = () => {
         </motion.button>
       </div>
 
-      <div className="text-center">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <Link
           to="/login"
-          className="text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200"
+          className="w-full sm:w-auto px-6 py-3 text-center text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          ← Precedente
+        </Link>
+        
+        <Link
+          to="/login"
+          className="text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200 text-center"
         >
           Hai già un account? Accedi
         </Link>
@@ -400,18 +419,18 @@ export const RegisterStudent: React.FC = () => {
           </div>
         )}
 
-        <div className="flex justify-between items-center pt-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-3">
           <button
             onClick={() => setStep('attendance-mode')}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50"
           >
-            ← Indietro
+            ← Precedente
           </button>
           
           <button
             onClick={handleTurnoNext}
             disabled={selectedTurni.length === 0}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+            className={`w-full sm:w-auto px-6 py-3 rounded-lg font-medium transition-colors ${
               selectedTurni.length > 0
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -433,12 +452,6 @@ export const RegisterStudent: React.FC = () => {
         <p className="text-gray-600">
           Seleziona il numero di studenti da registrare
         </p>
-        <button
-          onClick={() => setStep('attendance-mode')}
-          className="mt-2 text-sm text-blue-600 hover:text-blue-500 transition-colors"
-        >
-          ← Cambia modalità di frequenza
-        </button>
       </div>
 
       <div className="max-w-md mx-auto">
@@ -482,14 +495,23 @@ export const RegisterStudent: React.FC = () => {
             </motion.button>
           </div>
           
-          <motion.button
-            onClick={() => handleChildrenCountSelection(numberOfChildren)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            Continua con {numberOfChildren} {numberOfChildren === 1 ? 'figlio' : 'figli'}
-          </motion.button>
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-3">
+            <button
+              onClick={() => setStep('turno-selection')}
+              className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+            >
+              ← Precedente
+            </button>
+            
+            <motion.button
+              onClick={() => handleChildrenCountSelection(numberOfChildren)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 order-1 sm:order-2"
+            >
+              Continua con {numberOfChildren} {numberOfChildren === 1 ? 'figlio' : 'figli'}
+            </motion.button>
+          </div>
         </div>
         
         {numberOfChildren === 5 && (
@@ -545,12 +567,6 @@ export const RegisterStudent: React.FC = () => {
           <p className="text-gray-600">
             Inserisci i nomi dei tuoi {numberOfChildren} {numberOfChildren === 1 ? 'figlio' : 'figli'}
           </p>
-          <button
-            onClick={() => setStep('children-count')}
-            className="mt-2 text-sm text-blue-600 hover:text-blue-500 transition-colors"
-          >
-            ← Cambia numero figli
-          </button>
         </div>
 
         <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8">
@@ -575,14 +591,24 @@ export const RegisterStudent: React.FC = () => {
               ))}
             </div>
 
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              Continua con i dati del genitore
-            </motion.button>
+            <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-3">
+              <button
+                type="button"
+                onClick={() => setStep('children-count')}
+                className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+              >
+                ← Precedente
+              </button>
+              
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 order-1 sm:order-2"
+              >
+                Continua con i dati del genitore
+              </motion.button>
+            </div>
           </form>
         </div>
       </div>
@@ -605,20 +631,18 @@ export const RegisterStudent: React.FC = () => {
         <div className="text-sm text-gray-500 mt-2">
           Studente {currentEnrollmentIndex + 1} di {numberOfChildren}
         </div>
-        <div className="flex gap-4 justify-center mt-2">
-          {currentEnrollmentIndex > 0 && (
-            <button
-              onClick={() => setCurrentEnrollmentIndex(currentEnrollmentIndex - 1)}
-              className="text-sm text-blue-600 hover:text-blue-500 transition-colors"
-            >
-              ← Studente precedente
-            </button>
-          )}
+        <div className="flex justify-center mt-4">
           <button
-            onClick={() => setStep('parent-form')}
-            className="text-sm text-blue-600 hover:text-blue-500 transition-colors"
+            onClick={() => {
+              if (currentEnrollmentIndex > 0) {
+                setCurrentEnrollmentIndex(currentEnrollmentIndex - 1);
+              } else {
+                setStep('parent-form');
+              }
+            }}
+            className="w-full sm:w-auto px-6 py-3 text-blue-600 hover:text-blue-500 transition-colors border border-blue-300 rounded-lg hover:bg-blue-50"
           >
-            ← Modifica dati genitore
+            ← Precedente
           </button>
         </div>
       </div>
@@ -1015,14 +1039,24 @@ export const RegisterStudent: React.FC = () => {
             </motion.div>
           )}
 
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl"
-          >
-            Continua con i dati degli studenti
-          </motion.button>
+          <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-3">
+            <button
+              type="button"
+              onClick={() => setStep('student-names')}
+              className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
+            >
+              ← Precedente
+            </button>
+            
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full sm:w-auto py-4 px-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl order-1 sm:order-2"
+            >
+              Continua con i dati degli studenti
+            </motion.button>
+          </div>
         </form>
       </motion.div>
     </div>
@@ -1170,6 +1204,44 @@ export const RegisterStudent: React.FC = () => {
                   <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.hasDisability.message}</p>
                 )}
               </div>
+
+              {/* Previous Year Class - Only show for renewals */}
+              {enrollmentTypes[currentStudentIndex] === 'rinnovo' && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Classe frequentata l'anno scorso
+                  </label>
+                  <select
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    {...currentForm.register('previousYearClass', {
+                      required: enrollmentTypes[currentStudentIndex] === 'rinnovo' ? 'Classe precedente è obbligatoria per i rinnovi' : false
+                    })}
+                  >
+                    <option value="">Seleziona la classe precedente</option>
+                    <option value="1A">1A</option>
+                    <option value="1B">1B</option>
+                    <option value="1C">1C</option>
+                    <option value="2A">2A</option>
+                    <option value="2B">2B</option>
+                    <option value="2C">2C</option>
+                    <option value="3A">3A</option>
+                    <option value="3B">3B</option>
+                    <option value="3C">3C</option>
+                    <option value="4A">4A</option>
+                    <option value="4B">4B</option>
+                    <option value="4C">4C</option>
+                    <option value="5A">5A</option>
+                    <option value="5B">5B</option>
+                    <option value="5C">5C</option>
+                  </select>
+                  {currentForm.formState.errors.previousYearClass && (
+                    <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.previousYearClass.message}</p>
+                  )}
+                  <p className="text-gray-500 text-xs mt-1">
+                    Indica la classe che {studentNames[currentStudentIndex] || 'lo studente'} ha frequentato nell'anno scolastico precedente
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Navigation buttons */}
@@ -1177,14 +1249,9 @@ export const RegisterStudent: React.FC = () => {
               <motion.button
                 type="button"
                 onClick={handlePreviousStudent}
-                disabled={currentStudentIndex === 0}
-                whileHover={{ scale: currentStudentIndex === 0 ? 1 : 1.02 }}
-                whileTap={{ scale: currentStudentIndex === 0 ? 1 : 0.98 }}
-                className={`w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                  currentStudentIndex === 0
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 ← Precedente
               </motion.button>
@@ -1213,6 +1280,55 @@ export const RegisterStudent: React.FC = () => {
       </div>
     );
   };
+
+  const renderSuccessPopup = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl"
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            Iscrizione Completata!
+          </h2>
+          
+          <p className="text-gray-600 mb-6 leading-relaxed">
+            La registrazione è stata inviata con successo. L'istituto ti contatterà il prima possibile per confermare l'iscrizione e fornirti tutte le informazioni necessarie.
+          </p>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-blue-800 text-sm">
+              <strong>Prossimi passi:</strong><br />
+              • Riceverai una email di conferma<br />
+              • L'istituto ti contatterà per i dettagli<br />
+              • Tieni a portata di mano i documenti richiesti
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => navigate('/login')}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300"
+            >
+              Vai al Login
+            </button>
+            
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Chiudi
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex relative overflow-hidden">
@@ -1283,6 +1399,8 @@ export const RegisterStudent: React.FC = () => {
           </motion.div>
         </motion.div>
       </div>
+      
+      {showSuccessPopup && renderSuccessPopup()}
     </div>
   );
 };
