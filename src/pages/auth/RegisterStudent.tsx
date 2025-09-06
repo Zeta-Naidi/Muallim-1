@@ -332,17 +332,10 @@ export const RegisterStudent: React.FC = () => {
         </motion.button>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="text-center">
         <Link
           to="/login"
-          className="w-full sm:w-auto px-6 py-3 text-center text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          ← Precedente
-        </Link>
-        
-        <Link
-          to="/login"
-          className="text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200 text-center"
+          className="text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200"
         >
           Hai già un account? Accedi
         </Link>
@@ -872,6 +865,10 @@ export const RegisterStudent: React.FC = () => {
                     {parentForm.formState.errors.parentContact.message}
                   </p>
                 )}
+                <p className="text-green-600 text-xs mt-1 flex items-center">
+                  <span className="mr-1">📱</span>
+                  Questo numero deve avere accesso a WhatsApp per le comunicazioni di gruppo
+                </p>
               </div>
             </div>
 
