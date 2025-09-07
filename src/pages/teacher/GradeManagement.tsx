@@ -118,7 +118,7 @@ export const GradeManagement: React.FC = () => {
             for (let i = 0; i < studentIds.length; i += 10) {
               const batch = studentIds.slice(i, i + 10);
               const studentsQuery = query(
-                collection(db, 'users'),
+                collection(db, 'students'),
                 where('__name__', 'in', batch)
               );
               const studentsDocs = await getDocs(studentsQuery);

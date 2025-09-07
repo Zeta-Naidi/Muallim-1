@@ -37,14 +37,11 @@ import { SubstitutionRequests } from './pages/teacher/SubstitutionRequests';
 import { UserProfile } from './pages/profile/UserProfile';
 import { NotFound } from './pages/NotFound';
 import { ErrorFallback } from './components/error/ErrorFallback';
-import { Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Button } from './components/ui/Button';
 import { ToastProvider } from './components/ui/Toast';
 
 // Route Guard Component
 const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: string[] }) => {
-  const { userProfile, loading, logout } = useAuth();
+  const { userProfile, loading } = useAuth();
   
   if (loading) {
     return (
@@ -58,70 +55,10 @@ const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: 
     return <Navigate to="/login" />;
   }
   
-  // Check if account is pending approval (for both teachers and parents/students)
+  // Check if account is pending approval - redirect to approval page
   if ((userProfile.role === 'teacher' && userProfile.accountStatus === 'pending_approval') ||
-      (userProfile.approvalStatus === 'pending')) {
-    return (
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-        {/* Soft background accents (match Login) */}
-        <motion.div 
-          className="pointer-events-none absolute -top-24 -left-24 h-64 w-64 rounded-full blur-3xl opacity-40 bg-gradient-to-br from-blue-400/20 to-purple-600/20"
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        />
-        <motion.div 
-          className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full blur-3xl opacity-40 bg-gradient-to-tr from-pink-400/20 to-orange-600/20"
-          animate={{ scale: [1.2, 1, 1.2], rotate: [360, 180, 0] }}
-          transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-        />
-
-        <motion.div 
-          className="relative max-w-lg w-full"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-        >
-          <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl ring-1 ring-blue-100 border border-white/20">
-            {/* Top accent bar */}
-            <div className="h-1 w-full rounded-t-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600" />
-
-            <div className="p-10 text-center">
-              <motion.div 
-                className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm"
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <Clock className="h-8 w-8 text-blue-600 animate-pulse" />
-              </motion.div>
-
-              <h2 className="text-3xl font-semibold tracking-tight mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
-                Ci Sei Quasi!
-              </h2>
-              <p className="text-sm text-gray-600 mb-1">È in corso la verifica del tuo account...</p>
-              <div className="h-px w-full bg-gradient-to-r from-transparent via-blue-200 to-transparent my-6" />
-
-              <p className="text-sm text-gray-500 mb-8">
-                Riceverai una notifica via email quando il tuo account sarà approvato.
-              </p>
-
-              <Button
-                onClick={async () => {
-                  try {
-                    await logout();
-                  } catch (error) {
-                    console.error('Logout error:', error);
-                  }
-                }}
-                variant="outline"
-                
-              >
-                Logout
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
+      (userProfile.role === 'parent' && userProfile.accountStatus === 'pending_approval')) {
+    return <Navigate to="/approval-pending" />;
   }
   
   if (roles && !roles.includes(userProfile.role)) {

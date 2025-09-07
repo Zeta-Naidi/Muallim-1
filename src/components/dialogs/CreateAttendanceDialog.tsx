@@ -39,8 +39,7 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
   const fetchStudents = async () => {
     try {
       const studentsQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'student'),
+        collection(db, 'students'),
         where('classId', '==', classId)
       );
       const studentsDocs = await getDocs(studentsQuery);

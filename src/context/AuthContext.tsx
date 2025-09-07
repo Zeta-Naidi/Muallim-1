@@ -178,9 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await setDoc(doc(db, 'users', user.uid), userProfile);
       
-      // Don't auto-login users who need approval
-      // They will need to login manually after approval
-      await signOut(auth);
+      // Keep user logged in temporarily to show approval pending page
+      // They will be signed out when they navigate away or close the browser
     } catch (error) {
       console.error('Registration error:', error);
       const authError = error as AuthError;

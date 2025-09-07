@@ -91,6 +91,21 @@ export const RegisterStudent: React.FC = () => {
   
   const studentForms = [studentForm1, studentForm2, studentForm3, studentForm4, studentForm5];
 
+  const checkEmailExists = async (email: string) => {
+    if (!email) return true;
+    
+    try {
+      // Check in users collection
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email.toLowerCase()));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.empty || 'Questa email è già registrata. Usa un\'altra email o accedi con le tue credenziali esistenti.';
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return true; // Allow validation to pass if there's a network error
+    }
+  };
+
   const checkCodiceFiscaleExists = async (value: string) => {
     if (!value || value.length < 16) return true;
     
@@ -104,10 +119,20 @@ export const RegisterStudent: React.FC = () => {
     }
     
     try {
+      // Check in both users and students collections
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('codiceFiscale', '==', value.toUpperCase()));
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.empty || 'Questo Codice Fiscale è già registrato. Se lo studente è già iscritto, contatta la scuola per assistenza.';
+      const studentsRef = collection(db, 'students');
+      
+      const [usersQuery, studentsQuery] = await Promise.all([
+        getDocs(query(usersRef, where('codiceFiscale', '==', value.toUpperCase()))),
+        getDocs(query(studentsRef, where('codiceFiscale', '==', value.toUpperCase())))
+      ]);
+      
+      if (!usersQuery.empty || !studentsQuery.empty) {
+        return 'Questo Codice Fiscale è già registrato. Se lo studente è già iscritto, contatta la scuola per assistenza.';
+      }
+      
+      return true;
     } catch (error) {
       console.error('Error checking Codice Fiscale:', error);
       return true; // Allow validation to pass if there's a network error
@@ -1136,10 +1161,11 @@ export const RegisterStudent: React.FC = () => {
                     required: 'Email è obbligatoria',
                     pattern: {
                       value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Email non valida'
-                    }
+                      message: 'Formato email non valido'
+                    },
+                    validate: checkEmailExists
                   })}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   placeholder="email@esempio.com"
                 />
               </div>
@@ -1451,14 +1477,17 @@ export const RegisterStudent: React.FC = () => {
                     required: 'Codice Fiscale è obbligatorio',
                     pattern: {
                       value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i,
-                      message: 'Formato Codice Fiscale non valido',
+                      message: 'Formato Codice Fiscale non valido'
                     },
-                    validate: {
-                      checkExists: async (value) => {
-                        if (!value || value.length < 16) return true;
-                        return await checkCodiceFiscaleExists(value);
-                      }
+                    minLength: {
+                      value: 16,
+                      message: 'Il Codice Fiscale deve essere di 16 caratteri'
                     },
+                    maxLength: {
+                      value: 16,
+                      message: 'Il Codice Fiscale deve essere di 16 caratteri'
+                    },
+                    validate: checkCodiceFiscaleExists
                   })}
                   onBlur={() => {
                     // Trigger validation on blur
@@ -1696,7 +1725,7 @@ export const RegisterStudent: React.FC = () => {
             whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
           >
-            Vai ai Termini
+            Continua
           </motion.button>
         </div>
       </div>
