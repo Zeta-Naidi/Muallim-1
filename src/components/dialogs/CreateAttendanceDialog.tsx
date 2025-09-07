@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
-import { X, Save, Calendar, Check, AlertCircle, CheckCircle } from 'lucide-react';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { X, Save, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { collection, addDoc, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
 import { format, isWeekend } from 'date-fns';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -38,15 +38,37 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
 
   const fetchStudents = async () => {
     try {
-      const studentsQuery = query(
-        collection(db, 'students'),
-        where('classId', '==', classId)
-      );
-      const studentsDocs = await getDocs(studentsQuery);
-      let fetchedStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+      // Get the class document to access the students array
+      const classDoc = await getDoc(doc(db, 'classes', classId));
+      if (!classDoc.exists()) {
+        setError('Classe non trovata');
+        return;
+      }
+      
+      const classData = classDoc.data();
+      const studentIds = classData.students || [];
+      
+      if (studentIds.length === 0) {
+        setStudents([]);
+        setAttendanceData({});
+        return;
+      }
+      
+      // Fetch student documents in batches (Firestore 'in' query limit is 10)
+      const studentBatches = [];
+      for (let i = 0; i < studentIds.length; i += 10) {
+        const batch = studentIds.slice(i, i + 10);
+        const studentsQuery = query(
+          collection(db, 'students'),
+          where('__name__', 'in', batch)
+        );
+        const studentsDocs = await getDocs(studentsQuery);
+        const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        studentBatches.push(...batchStudents);
+      }
       
       // Sort students by name
-      fetchedStudents = fetchedStudents.sort((a, b) => 
+      const fetchedStudents = studentBatches.sort((a, b) => 
         a.displayName.localeCompare(b.displayName)
       );
       

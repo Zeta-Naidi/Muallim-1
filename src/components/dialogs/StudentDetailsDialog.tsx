@@ -35,9 +35,32 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
     return age >= 0 ? age : null;
   };
 
-  const birthdate = (student as any).birthdate || (student as any).birthDate || (student as any).dateOfBirth;
+  // Handle different birthdate field names from both User and Student types
+  const birthdate = (student as any).birthDate || (student as any).birthdate || (student as any).dateOfBirth;
   const ageFromBirthdate = computeAge(birthdate);
-  const ageDisplay = (ageFromBirthdate != null ? String(ageFromBirthdate) : (student as any).age) || 'Non specificato';
+  const ageDisplay = ageFromBirthdate != null ? `${ageFromBirthdate} anni` : ((student as any).age ? `${(student as any).age} anni` : 'Non specificato');
+
+  // Handle gender display - convert from Student format (M/F) to readable format
+  const genderDisplay = () => {
+    const gender = student.gender || (student as any).sex;
+    if (gender === 'M' || gender === 'male') return 'Maschio';
+    if (gender === 'F' || gender === 'female') return 'Femmina';
+    return 'Non specificato';
+  };
+
+  // Get full name - prioritize firstName + lastName if available
+  const fullName = (student as any).firstName && (student as any).lastName 
+    ? `${(student as any).firstName} ${(student as any).lastName}`
+    : student.displayName;
+
+  // Get parent information - handle both direct fields and nested parent data
+  const parentName = (student as any).parentName || 'Non specificato';
+  const parentContact = (student as any).parentContact || 'Non specificato';
+  const parentEmail = (student as any).parentEmail || 'Non specificato';
+  const parentAddress = (student as any).parentAddress || 'Non specificato';
+  
+  // Get student address - prioritize student's own address
+  const studentAddress = student.address || parentAddress;
 
   return (
     <Dialog
@@ -66,7 +89,7 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Nome Completo</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.displayName}</p>
+                <p className="mt-1 text-sm text-gray-900">{fullName}</p>
               </div>
               
               <div>
@@ -80,13 +103,13 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Sesso</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.sex || 'Non specificato'}</p>
+                <h3 className="text-sm font-medium text-gray-500">Genere</h3>
+                <p className="mt-1 text-sm text-gray-900">{genderDisplay()}</p>
               </div>
 
               <div className="col-span-2">
                 <h3 className="text-sm font-medium text-gray-500">Indirizzo</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.address || 'Non specificato'}</p>
+                <p className="mt-1 text-sm text-gray-900">{studentAddress}</p>
               </div>
 
               <div>
@@ -95,29 +118,49 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Contatto di Emergenza</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.emergencyContact || 'Non specificato'}</p>
-              </div>
-
-              <div>
                 <h3 className="text-sm font-medium text-gray-500">Nome Genitore</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.parentName || 'Non specificato'}</p>
+                <p className="mt-1 text-sm text-gray-900">{parentName}</p>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Contatto Genitore</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.parentContact || 'Non specificato'}</p>
+                <h3 className="text-sm font-medium text-gray-500">Telefono Genitore</h3>
+                <p className="mt-1 text-sm text-gray-900">{parentContact}</p>
               </div>
 
-              <div className="col-span-2">
-                <h3 className="text-sm font-medium text-gray-500">Informazioni Mediche</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.medicalInfo || 'Nessuna informazione medica'}</p>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Email Genitore</h3>
+                <p className="mt-1 text-sm text-gray-900">{parentEmail}</p>
               </div>
 
-              <div className="col-span-2">
-                <h3 className="text-sm font-medium text-gray-500">Note</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.notes || 'Nessuna nota'}</p>
-              </div>
+              {(student as any).codiceFiscale && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Codice Fiscale</h3>
+                  <p className="mt-1 text-sm text-gray-900">{(student as any).codiceFiscale}</p>
+                </div>
+              )}
+
+              {(student as any).emergencyContact && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Contatto di Emergenza</h3>
+                  <p className="mt-1 text-sm text-gray-900">{(student as any).emergencyContact}</p>
+                </div>
+              )}
+
+              {(student as any).attendanceMode && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Modalità di Frequenza</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {(student as any).attendanceMode === 'in_presenza' ? 'In Presenza' : 'Online'}
+                  </p>
+                </div>
+              )}
+
+              {(student as any).currentClass && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Classe Attuale</h3>
+                  <p className="mt-1 text-sm text-gray-900">{(student as any).currentClass}</p>
+                </div>
+              )}
             </div>
           </div>
 

@@ -103,34 +103,33 @@ export const ManageStudents: React.FC = () => {
           } as Student;
         });
 
-        // Fetch parent data for each student
-        const studentsWithParents: StudentWithParent[] = [];
-        for (const student of fetchedStudents) {
-          try {
-            const parentDoc = await getDocs(query(collection(db, 'users'), where('id', '==', student.parentId)));
-            const parentData = parentDoc.docs[0]?.data();
-            
-            studentsWithParents.push({
-              ...student,
-              role: 'student' as UserRole,
-              gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
-              parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() : undefined,
-              parentCodiceFiscale: parentData?.codiceFiscale,
-              parentContact: parentData?.phoneNumber,
-              parentEmail: parentData?.email,
-              parentAddress: parentData?.address,
-              parentCity: parentData?.city,
-              parentPostalCode: parentData?.postalCode,
-            });
-          } catch (error) {
-            console.error('Error fetching parent data for student:', student.id, error);
-            studentsWithParents.push({
-              ...student,
-              role: 'student' as UserRole,
-              gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
-            });
-          }
-        }
+        // Fetch all parents first to optimize queries
+        const parentsQuery = query(collection(db, 'users'), where('role', '==', 'parent'));
+        const parentsDocs = await getDocs(parentsQuery);
+        const parentsMap = new Map();
+        
+        parentsDocs.docs.forEach(doc => {
+          const parentData = doc.data();
+          parentsMap.set(doc.id, parentData);
+        });
+
+        // Map students with parent data
+        const studentsWithParents: StudentWithParent[] = fetchedStudents.map(student => {
+          const parentData = parentsMap.get(student.parentId);
+          
+          return {
+            ...student,
+            role: 'student' as UserRole,
+            gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
+            parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
+            parentCodiceFiscale: parentData?.codiceFiscale,
+            parentContact: parentData?.phoneNumber || parentData.contact,
+            parentEmail: parentData?.email,
+            parentAddress: parentData?.address,
+            parentCity: parentData?.city,
+            parentPostalCode: parentData?.postalCode,
+          };
+        });
 
         setStudents(studentsWithParents);
         setFilteredStudents(studentsWithParents);
@@ -214,7 +213,6 @@ export const ManageStudents: React.FC = () => {
         'Indirizzo',
         'Città',
         'CAP',
-        'Contatto di Emergenza',
         'Modalità di Frequenza',
         'Tipo di Iscrizione',
         'Classe Precedente',
@@ -252,7 +250,7 @@ export const ManageStudents: React.FC = () => {
           student.previousYearClass || '',
           student.italianSchoolClass || '',
           student.hasDisability ? 'Sì' : 'No',
-          student.disabilityType || '',
+          '',
           student.parentName || '',
           student.parentCodiceFiscale || '',
           student.parentContact || '',
@@ -332,7 +330,7 @@ export const ManageStudents: React.FC = () => {
                   <span className="inline-flex items-center">
                     <Users className="h-3 w-3 mr-1" />
                     {(() => {
-                      const cls = classes.find(c => c.id === student.classId);
+                      const cls = classes.find(c => c.id === (student as any).currentClass);
                       return cls ? `${cls.name}` : 'Non assegnato';
                     })()}
                   </span>
@@ -421,12 +419,20 @@ export const ManageStudents: React.FC = () => {
                           <span className="text-gray-900">{formatDate(student.birthDate)}</span>
                         </div>
                         <div className="flex justify-between">
+                          <span className="text-gray-500">Codice Fiscale:</span>
+                          <span className="text-gray-900">{(student as any).codiceFiscale || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
                           <span className="text-gray-500">Indirizzo:</span>
                           <span className="text-gray-900">{student.address || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Genere:</span>
-                          <span className="text-gray-900">{student.gender || 'N/A'}</span>
+                          <span className="text-gray-900">{student.gender === 'male' ? 'Maschio' : student.gender === 'female' ? 'Femmina' : 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Modalità frequenza:</span>
+                          <span className="text-gray-900">{(student as any).attendanceMode === 'in_presenza' ? 'In presenza' : (student as any).attendanceMode === 'online' ? 'Online' : 'N/A'}</span>
                         </div>
                       </div>
                     </div>
@@ -442,8 +448,12 @@ export const ManageStudents: React.FC = () => {
                           <span className="text-gray-900">{student.parentContact || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Emergenza:</span>
-                          <span className="text-gray-900">{student.emergencyContact || 'N/A'}</span>
+                          <span className="text-gray-500">Email genitore:</span>
+                          <span className="text-gray-900">{(student as any).parentEmail || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Classe italiana:</span>
+                          <span className="text-gray-900">{(student as any).italianSchoolClass || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
@@ -513,7 +523,7 @@ export const ManageStudents: React.FC = () => {
     setValue('emergencyContact', student.emergencyContact || '');
     setValue('parentName', student.parentName || '');
     setValue('parentContact', student.parentContact || '');
-    setValue('classId', student.classId || '');
+    setValue('classId', (student as any).currentClass || '');
   };
 
   const handleCancelEdit = () => {
@@ -554,12 +564,13 @@ export const ManageStudents: React.FC = () => {
 
   const openEnrollmentDialog = (student: UserType) => {
     const isCurrentlyEnrolled = !!student.isEnrolled;
-    if (isCurrentlyEnrolled && student.classId) {
-      const studentClass = classes.find(c => c.id === student.classId);
+    const studentCurrentClass = (student as any).currentClass;
+    if (isCurrentlyEnrolled && studentCurrentClass) {
+      const studentClass = classes.find(c => c.id === studentCurrentClass);
       setShowEnrollError({ open: true, name: student.displayName, className: studentClass?.name || 'una classe' });
       return;
     }
-    setEnrollTarget({ id: student.id, name: student.displayName, classId: student.classId, currentStatus: student.isEnrolled });
+    setEnrollTarget({ id: student.id, name: student.displayName, classId: studentCurrentClass, currentStatus: student.isEnrolled });
     setTargetEnrollStatus(!isCurrentlyEnrolled);
     setShowEnrollConfirm(true);
   };
@@ -877,12 +888,6 @@ export const ManageStudents: React.FC = () => {
                         <option value="female">Femmina</option>
                       </select>
                     </div>
-
-                    <Input
-                      label="Contatto di emergenza"
-                      className="anime-input"
-                      {...register('emergencyContact')}
-                    />
 
                     <Input
                       label="Nome del genitore"

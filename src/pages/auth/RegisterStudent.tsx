@@ -30,14 +30,9 @@ interface StudentData {
   firstName: string;
   lastName: string;
   codiceFiscale: string;
-  phoneNumber?: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
   birthDate?: string;
   gender?: string;
   hasDisability?: string;
-  emergencyContact?: string;
   previousYearClass?: string;
   currentClass?: string;
   italianSchoolClass?: string;
@@ -369,12 +364,11 @@ export const RegisterStudent: React.FC = () => {
             return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           })() : new Date(),
           gender: studentData.gender as 'M' | 'F',
-          // Contact information
-          phoneNumber: studentData.phoneNumber || '',
-          address: studentData.address || '',
-          city: studentData.city || '',
-          postalCode: studentData.postalCode || '',
-          emergencyContact: studentData.emergencyContact || '',
+          // Contact information (inherited from parent)
+          phoneNumber: parentData.parentContact || '',
+          address: parentData.parentAddress || '',
+          city: parentData.parentCity || '',
+          postalCode: parentData.parentPostalCode || '',
           // Academic information
           attendanceMode: selectedAttendanceMode,
           enrollmentType: enrollmentTypes[i],
@@ -384,7 +378,6 @@ export const RegisterStudent: React.FC = () => {
           selectedTurni: selectedAttendanceMode === 'in_presenza' ? selectedTurni : [],
           // Special needs
           hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
-          disabilityType: studentData.hasDisability === 'no' || !studentData.hasDisability ? '' : studentData.hasDisability || '',
           // Parent reference only - no duplicated data
           // Registration metadata
           registrationDate: new Date(),
@@ -574,18 +567,6 @@ export const RegisterStudent: React.FC = () => {
                   <span className="font-medium text-gray-600">Genere:</span>
                   <p className="text-gray-900">{student.gender === 'M' ? 'Maschio' : 'Femmina'}</p>
                 </div>
-                {student.phoneNumber && (
-                  <div>
-                    <span className="font-medium text-gray-600">Telefono:</span>
-                    <p className="text-gray-900">{student.phoneNumber}</p>
-                  </div>
-                )}
-                {student.emergencyContact && (
-                  <div>
-                    <span className="font-medium text-gray-600">Contatto di emergenza:</span>
-                    <p className="text-gray-900">{student.emergencyContact}</p>
-                  </div>
-                )}
                 {student.italianSchoolClass && (
                   <div>
                     <span className="font-medium text-gray-600">Classe Scuola Italiana:</span>
