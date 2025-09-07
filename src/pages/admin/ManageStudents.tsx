@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
-  Users, Edit, CheckCircle, X, AlertCircle, Phone, Calendar, 
-  MapPin, Search, Filter, Shield, Save, ChevronLeft, ChevronRight,
-  LucideMessageSquareWarning
+  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -16,11 +14,10 @@ import {
   doc, 
   updateDoc, 
   query, 
-  where, 
- 
+  where
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { User as UserType, Class } from '../../types';
+import { User as UserType, Class, Student, StudentWithParent, UserRole } from '../../types';
 import { isValid, format } from 'date-fns';
 
 interface StudentFormValues {
@@ -39,8 +36,8 @@ interface StudentFormValues {
 export const ManageStudents: React.FC = () => {
   const { userProfile } = useAuth();
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<StudentFormValues>();
-  const [students, setStudents] = useState<UserType[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<UserType[]>([]);
+  const [students, setStudents] = useState<StudentWithParent[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<StudentWithParent[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,10 +75,9 @@ export const ManageStudents: React.FC = () => {
         const fetchedClasses = classesDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Class));
         setClasses(fetchedClasses);
 
-        // Fetch students with proper date conversion
+        // Fetch students from students collection
         const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student')
+          collection(db, 'students')
         );
         const studentsDocs = await getDocs(studentsQuery);
         const toJsDate = (val: any): Date | null => {
@@ -103,10 +99,40 @@ export const ManageStudents: React.FC = () => {
             birthDate: toJsDate(data.birthDate),
             createdAt: toJsDate(data.createdAt) || new Date(),
             enrollmentDate: toJsDate(data.enrollmentDate),
-          } as UserType;
+          } as Student;
         });
-        setStudents(fetchedStudents);
-        setFilteredStudents(fetchedStudents);
+
+        // Fetch parent data for each student
+        const studentsWithParents: StudentWithParent[] = [];
+        for (const student of fetchedStudents) {
+          try {
+            const parentDoc = await getDocs(query(collection(db, 'users'), where('id', '==', student.parentId)));
+            const parentData = parentDoc.docs[0]?.data();
+            
+            studentsWithParents.push({
+              ...student,
+              role: 'student' as UserRole,
+              gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
+              parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() : undefined,
+              parentCodiceFiscale: parentData?.codiceFiscale,
+              parentContact: parentData?.phoneNumber,
+              parentEmail: parentData?.email,
+              parentAddress: parentData?.address,
+              parentCity: parentData?.city,
+              parentPostalCode: parentData?.postalCode,
+            });
+          } catch (error) {
+            console.error('Error fetching parent data for student:', student.id, error);
+            studentsWithParents.push({
+              ...student,
+              role: 'student' as UserRole,
+              gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
+            });
+          }
+        }
+
+        setStudents(studentsWithParents);
+        setFilteredStudents(studentsWithParents);
       } catch (error) {
         console.error('Error fetching data:', error);
         setMessage({ type: 'error', text: 'Error fetching data' });
@@ -130,7 +156,7 @@ export const ManageStudents: React.FC = () => {
     }
     
     if (filters.class) {
-      filtered = filtered.filter(student => student.classId === filters.class);
+      filtered = filtered.filter(student => student.currentClass === filters.class);
     }
     
     if (filters.age) {
@@ -171,6 +197,108 @@ export const ManageStudents: React.FC = () => {
     if (!isValid(date)) return 'N/A';
     const age = new Date().getFullYear() - date.getFullYear();
     return age.toString();
+  };
+
+  // CSV Export function
+  const exportToCSV = () => {
+    try {
+      // Define CSV headers
+      const headers = [
+        'Nome',
+        'Cognome', 
+        'Nome Completo',
+        'Email',
+        'Codice Fiscale',
+        'Data di Nascita',
+        'Età',
+        'Genere',
+        'Telefono',
+        'Indirizzo',
+        'Città',
+        'CAP',
+        'Contatto di Emergenza',
+        'Modalità Frequenza',
+        'Tipo Iscrizione',
+        'Classe Precedente',
+        'Classe Attuale',
+        'Turni Selezionati',
+        'Ha Disabilità',
+        'Tipo Disabilità',
+        'Nome Genitore',
+        'Codice Fiscale Genitore',
+        'Contatto Genitore',
+        'Email Genitore',
+        'Indirizzo Genitore',
+        'Città Genitore',
+        'CAP Genitore',
+        'Data Registrazione',
+        'Iscritto',
+        'Data Iscrizione',
+        'Stato Account'
+      ];
+
+      // Convert student data to CSV rows
+      const csvData = students.map(student => {
+        return [
+          student.firstName || '',
+          student.lastName || '',
+          student.codiceFiscale || '',
+          student.birthDate && isValid(new Date(student.birthDate)) ? format(new Date(student.birthDate), 'dd/MM/yyyy') : '',
+          student.gender || '',
+          student.phoneNumber || '',
+          student.address || '',
+          student.city || '',
+          student.postalCode || '',
+          student.emergencyContact || '',
+          student.attendanceMode || '',
+          student.enrollmentType || '',
+          student.previousYearClass || '',
+          student.hasDisability ? 'Sì' : 'No',
+          student.disabilityType || '',
+          student.parentName || '',
+          student.parentCodiceFiscale || '',
+          student.parentContact || '',
+          student.parentEmail || '',
+          student.parentAddress || '',
+          student.parentCity || '',
+          student.parentPostalCode || '',
+          student.selectedTurni ? student.selectedTurni.join(', ') : '',
+          student.registrationDate && isValid(new Date(student.registrationDate)) ? format(new Date(student.registrationDate), 'dd/MM/yyyy HH:mm') : '',
+          student.isEnrolled ? 'Sì' : 'No',
+          student.enrollmentDate && isValid(new Date(student.enrollmentDate)) ? format(new Date(student.enrollmentDate), 'dd/MM/yyyy') : '',
+          student.accountStatus || ''
+        ];
+      });
+
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => 
+          row.map(field => 
+            // Escape commas and quotes in CSV fields
+            typeof field === 'string' && (field.includes(',') || field.includes('"')) 
+              ? `"${field.replace(/"/g, '""')}"` 
+              : field
+          ).join(',')
+        )
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `studenti_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setMessage({ type: 'success', text: 'File CSV scaricato con successo!' });
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      setMessage({ type: 'error', text: 'Errore durante l\'esportazione del CSV' });
+    }
   };
 
   // Student Card Component
@@ -446,10 +574,11 @@ export const ManageStudents: React.FC = () => {
     setProcessingStudent(studentId);
 
     try {
-      const studentRef = doc(db, 'users', studentId);
+      const studentRef = doc(db, 'students', studentId);
       await updateDoc(studentRef, {
         isEnrolled: newStatus,
-        enrollmentDate: newStatus ? new Date() : null
+        enrollmentDate: newStatus ? new Date() : null,
+        accountStatus: newStatus ? 'active' : 'pending_approval'
       });
 
       setStudents(prev => prev.map(student =>
@@ -488,9 +617,9 @@ export const ManageStudents: React.FC = () => {
     setMessage(null);
     
     try {
-      const studentRef = doc(db, 'users', editingStudent);
+      const studentRef = doc(db, 'students', editingStudent);
       const currentStudent = students.find(s => s.id === editingStudent);
-      const oldClassId = currentStudent?.classId;
+      const oldClassId = currentStudent?.currentClass;
       const newClassIdDb = data.classId ?? null; // value sent to Firestore (nullable)
       const newClassIdState = data.classId ?? undefined; // value kept in local state (undefined preferred over null)
       
@@ -503,7 +632,7 @@ export const ManageStudents: React.FC = () => {
         emergencyContact: data.emergencyContact || null,
         parentName: data.parentName || null,
         parentContact: data.parentContact || null,
-        classId: newClassIdDb,
+        currentClass: newClassIdDb,
         updatedAt: new Date()
       });
 
@@ -521,11 +650,16 @@ export const ManageStudents: React.FC = () => {
         student.id === editingStudent
           ? {
               ...student,
-              ...data,
-              gender: data.gender === 'male' || data.gender === 'female' ? data.gender : undefined,
-              classId: newClassIdState,
-              birthDate: data.birthDate ? new Date(data.birthDate) : undefined
-            }
+              displayName: data.displayName,
+              phoneNumber: data.phoneNumber || undefined,
+              address: data.address || undefined,
+              gender: data.gender === 'M' ? 'M' : data.gender === 'F' ? 'F' : student.gender,
+              emergencyContact: data.emergencyContact || undefined,
+              parentName: data.parentName || undefined,
+              parentContact: data.parentContact || undefined,
+              currentClass: newClassIdState || student.currentClass,
+              birthDate: data.birthDate ? new Date(data.birthDate) : student.birthDate
+            } as StudentWithParent
           : student
       ));
 
@@ -822,6 +956,14 @@ export const ManageStudents: React.FC = () => {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
+                      onClick={exportToCSV}
+                      className="bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                      size="sm"
+                      leftIcon={<Download className="h-4 w-4" />}
+                    >
+                      Esporta CSV
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setFiltersOpen(o => !o)}
@@ -829,7 +971,7 @@ export const ManageStudents: React.FC = () => {
                       aria-expanded={filtersOpen}
                       aria-controls="students-filters"
                     >
-                      <svg className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd"/></svg>
+                      <Filter className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"

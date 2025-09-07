@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, addDoc } from 'firebase/firestore';
 import { Euro, UserCheck, Users, School, CreditCard, User as UserIcon, CalendarDays, ClipboardList, BookOpenText, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -145,7 +145,7 @@ const CreateEventForm: React.FC<CreateEventFormProps> = ({ onClose }) => {
         createdAt: new Date()
       };
 
-      const docRef = await getDocs(query(collection(db, 'events'), limit(0)));
+      await addDoc(collection(db, 'events'), eventData);
       console.log('Event would be created:', eventData);
       
       alert('Evento creato con successo!');
@@ -264,14 +264,12 @@ const MapboxStudentMap: React.FC = () => {
   useEffect(() => {
     const fetchStudentLocations = async () => {
       try {
-        const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student')
-        );
-        const studentsSnapshot = await getDocs(studentsQuery);
-        const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as User[];
+        const studentsSnapshot = await getDocs(collection(db, 'students'));
+        const students = studentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as User[];
 
-        // Group students by city
         const grouped: { [key: string]: User[] } = {};
         const uniqueCities = new Set<string>();
         
@@ -415,7 +413,6 @@ export const Dashboard: React.FC = () => {
   const [userClass, setUserClass] = useState<Class | null>(null);
   
   // Admin statistics
-  const [enrolledStudents, setEnrolledStudents] = useState<User[]>([]);
   const [paymentStats, setPaymentStats] = useState({
     totalFamilies: 0,
     paidFamilies: 0,
@@ -453,15 +450,14 @@ export const Dashboard: React.FC = () => {
 
   const fetchAdminStats = async () => {
     try {
-      // Fetch enrolled students
+      // Fetch enrolled students from students collection
       const studentsQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'student'),
+        collection(db, 'students'),
         where('isEnrolled', '==', true)
       );
       const studentsDocs = await getDocs(studentsQuery);
       const students = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
-      setEnrolledStudents(students);
+      // Students data fetched for statistics calculation
 
       // Calculate payment statistics
       const paymentRecordsQuery = query(collection(db, 'paymentRecords'), orderBy('date', 'desc'));

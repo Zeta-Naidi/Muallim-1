@@ -8,6 +8,7 @@ import { EnhancedTeacherChat } from './components/chat/EnhancedTeacherChat';
 import { Login } from './pages/auth/Login';
 import { RegisterStudent } from './pages/auth/RegisterStudent';
 import { RegisterTeacher } from './pages/auth/RegisterTeacher';
+import { ApprovalPending } from './pages/auth/ApprovalPending';
 import { Dashboard } from './pages/Dashboard';
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { GradeTracker } from './pages/student/GradeTracker';
@@ -57,8 +58,9 @@ const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: 
     return <Navigate to="/login" />;
   }
   
-  // Check if teacher account is pending approval
-  if (userProfile.role === 'teacher' && userProfile.accountStatus === 'pending_approval') {
+  // Check if account is pending approval (for both teachers and parents/students)
+  if ((userProfile.role === 'teacher' && userProfile.accountStatus === 'pending_approval') ||
+      (userProfile.approvalStatus === 'pending')) {
     return (
       <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         {/* Soft background accents (match Login) */}
@@ -179,6 +181,7 @@ function AppRoutes() {
                 <RegisterTeacher />
               </PublicRoute>
             } />
+            <Route path="/approval-pending" element={<ApprovalPending />} />
             
             {/* Private Routes */}
             <Route path="/dashboard" element={

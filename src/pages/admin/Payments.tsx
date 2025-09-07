@@ -84,10 +84,9 @@ export const Payments: React.FC = () => {
         });
         setClasses(classesMap);
 
-        // Fetch ONLY enrolled students
+        // Fetch ONLY enrolled students from students collection
         const studentsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'student'),
+          collection(db, 'students'),
           where('isEnrolled', '==', true)
         );
         const studentsDocs = await getDocs(studentsQuery);
