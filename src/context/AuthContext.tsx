@@ -143,8 +143,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName,
         role,
         createdAt: new Date(),
-        // Teachers need approval, students are active immediately
-        accountStatus: role === 'teacher' ? 'pending_approval' : 'active',
+        // All users need approval now
+        accountStatus: 'pending_approval',
       };
 
       // Only add student-specific fields for students
@@ -164,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userProfile.birthDate = additionalData.birthDate;
       }
       if (additionalData?.gender) {
-        userProfile.gender = additionalData.gender;
+        userProfile.gender = additionalData.gender as 'male' | 'female';
       }
       if (additionalData?.emergencyContact) {
         userProfile.emergencyContact = additionalData.emergencyContact;
@@ -177,10 +177,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       await setDoc(doc(db, 'users', user.uid), userProfile);
-      setUserProfile(userProfile as User);
       
-      const token = await user.getIdToken();
-      setSession({ access_token: token });
+      // Don't auto-login users who need approval
+      // They will need to login manually after approval
+      await signOut(auth);
     } catch (error) {
       console.error('Registration error:', error);
       const authError = error as AuthError;

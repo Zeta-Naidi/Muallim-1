@@ -1,6 +1,6 @@
 // (removed unused Timestamp import)
 
-export type UserRole = 'admin' | 'teacher' | 'student';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 export type TeacherType = 'insegnante_regolare' | 'insegnante_volontario' | 'assistente';
 
@@ -49,9 +49,13 @@ export interface User {
   // Substitution management
   availableForSubstitution?: boolean; // Teacher opt-in for substitution availability
   attendanceRate?: number;
-  // Additional student details
-  parentName?: string;
-  parentContact?: string;
+  // Parent specific fields
+  children?: Array<{
+    name: string;
+    codiceFiscale: string;
+    email: string;
+  }>; // For parents - references to their children
+  // Additional fields for all users
   age?: number;
   gender?: 'male' | 'female';
   address?: string;
@@ -60,12 +64,71 @@ export interface User {
   medicalInfo?: string;
   notes?: string;
   birthDate?: Date;
+  codiceFiscale?: string;
+  city?: string;
+  postalCode?: string;
   temporaryClasses?: string[]; // IDs of classes where teacher is substituting
   // Account activation status
   accountStatus?: 'active' | 'pending_approval';
   tempId?: string; // Temporary ID for pre-created accounts
   // Notification meta
   pendingNotified?: boolean; // Whether admins have been notified about this pending teacher
+  // Registration metadata
+  registrationDate?: Date;
+  // Student-specific properties (for backward compatibility when using User type for students)
+  parentName?: string;
+  parentContact?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface Student {
+  id: string;
+  parentId: string; // Reference to parent in users collection
+  // Personal information
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  codiceFiscale: string;
+  birthDate: Date;
+  gender: 'M' | 'F';
+  // Contact information
+  phoneNumber?: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  emergencyContact?: string;
+  // Academic information
+  attendanceMode: 'in_presenza' | 'online';
+  enrollmentType: 'nuova_iscrizione' | 'rinnovo';
+  previousYearClass?: string;
+  currentClass: string;
+  selectedTurni: string[]; // For presence mode students
+  // Special needs
+  hasDisability: boolean;
+  disabilityType?: string;
+  // Registration metadata
+  registrationDate: Date;
+  isEnrolled: boolean;
+  enrollmentDate?: Date;
+  // Account status
+  accountStatus: 'active' | 'pending_approval';
+  // Authentication (students will have accounts in users collection too)
+  email: string; // Generated email for student account
+  createdAt: Date;
+}
+
+// Extended Student interface with parent data for UI display
+export interface StudentWithParent extends Omit<Student, 'gender'> {
+  role: UserRole; // Added for compatibility with User type
+  gender?: 'male' | 'female'; // Override to match User type
+  parentName?: string;
+  parentCodiceFiscale?: string;
+  parentContact?: string;
+  parentEmail?: string;
+  parentAddress?: string;
+  parentCity?: string;
+  parentPostalCode?: string;
 }
 
 export interface Payment {

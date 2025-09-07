@@ -17,7 +17,7 @@ export const ManageClasses: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [teachers, setTeachers] = useState<Record<string, User>>({});
-  const [students, setStudents] = useState<Record<string, User>>({});
+  const [students, setStudents] = useState<Record<string, any>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTurno, setSelectedTurno] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -30,8 +30,8 @@ export const ManageClasses: React.FC = () => {
   const [loadingStats, setLoadingStats] = useState(false);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
-  const [availableStudents, setAvailableStudents] = useState<User[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [availableStudents, setAvailableStudents] = useState<any[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [isRemoveStudentDialogOpen, setIsRemoveStudentDialogOpen] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState<{id: string, name: string} | null>(null);
@@ -62,13 +62,13 @@ export const ManageClasses: React.FC = () => {
         });
         setTeachers(teachersMap);
 
-        // Fetch all students
-        const studentsQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+        // Fetch all students from students collection
+        const studentsQuery = query(collection(db, 'students'));
         const studentsDocs = await getDocs(studentsQuery);
-        const studentsMap: Record<string, User> = {};
+        const studentsMap: Record<string, any> = {};
         studentsDocs.docs.forEach(doc => {
-          const userData = { ...doc.data(), id: doc.id } as User;
-          studentsMap[doc.id] = userData;
+          const studentData = { ...doc.data(), id: doc.id };
+          studentsMap[doc.id] = studentData;
         });
         setStudents(studentsMap);
 
@@ -210,9 +210,9 @@ export const ManageClasses: React.FC = () => {
       if (!isAddStudentDialogOpen || !selectedClass) return;
       
       try {
-        const studentsQuery = query(collection(db, 'users'), where('role', '==', 'student'));
+        const studentsQuery = query(collection(db, 'students'));
         const studentsDocs = await getDocs(studentsQuery);
-        const allStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        const allStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         
         // Filter out students already in the class
         const available = allStudents.filter(student => 
@@ -275,7 +275,7 @@ export const ManageClasses: React.FC = () => {
     }
   };
 
-  const handleViewStudentDetails = (student: User) => {
+  const handleViewStudentDetails = (student: any) => {
     setSelectedStudent(student);
     setIsStudentDetailsOpen(true);
   };

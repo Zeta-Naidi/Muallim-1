@@ -88,8 +88,7 @@ export const StudentLocationMap: React.FC = () => {
     try {
       setIsLoading(true);
       const studentsQuery = query(
-        collection(db, 'users'),
-        where('role', '==', 'student'),
+        collection(db, 'students'),
         where('accountStatus', '==', 'active')
       );
       

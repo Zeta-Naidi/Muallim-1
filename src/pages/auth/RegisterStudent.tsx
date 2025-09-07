@@ -22,7 +22,9 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from '../../services/firebase';
 
 interface StudentData {
   firstName: string;
@@ -37,6 +39,7 @@ interface StudentData {
   hasDisability?: string;
   emergencyContact?: string;
   previousYearClass?: string;
+  currentClass?: string;
 }
 
 interface ParentFormValues {
@@ -73,7 +76,7 @@ export const RegisterStudent: React.FC = () => {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const navigate = useNavigate();
-  const { registerWithEmail } = useAuth();
+  const { registerWithEmail, currentUser } = useAuth();
   const shouldReduceMotion = useReducedMotion();
 
   const parentForm = useForm<ParentFormValues>();
@@ -172,8 +175,15 @@ export const RegisterStudent: React.FC = () => {
       setCurrentEnrollmentIndex(currentEnrollmentIndex + 1);
       setStep('enrollment-type');
     } else {
-      // All students completed, proceed to review
-      setStep('review');
+      // All students completed, check if we need turno selection before review
+      const allNewEnrollments = enrollmentTypes.every(type => type === 'nuova_iscrizione');
+      const needsTurnoSelection = selectedAttendanceMode === 'in_presenza' && allNewEnrollments;
+
+      if (needsTurnoSelection) {
+        setStep('turno-selection');
+      } else {
+        setStep('review');
+      }
     }
   };
 
@@ -192,35 +202,63 @@ export const RegisterStudent: React.FC = () => {
 
   const handleStudentsFormSubmit = async () => {
     if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) return;
-
-    // Check if we need to show turno selection (only for in_presenza and all new enrollments)
-    const allNewEnrollments = enrollmentTypes.every(type => type === 'nuova_iscrizione');
-    const needsTurnoSelection = selectedAttendanceMode === 'in_presenza' && allNewEnrollments;
-
-    if (needsTurnoSelection) {
-      setStep('turno-selection');
-      return;
-    } else {
-      setStep('review');
-      return;
-    }
+    
+    // This function is no longer used as the logic has been moved to handleStudentFormSubmit
+    // Keeping for backward compatibility but should not be called
+    setStep('review');
   };
 
   const handleFinalRegistration = async () => {
-    if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) return;
+    console.log('handleFinalRegistration called');
+    console.log('parentData:', parentData);
+    console.log('selectedAttendanceMode:', selectedAttendanceMode);
+    console.log('enrollmentTypes:', enrollmentTypes);
+    
+    if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) {
+      console.log('Early return - missing required data');
+      return;
+    }
 
     try {
+      console.log('Starting registration process...');
       setError(null);
       setIsLoading(true);
 
       // Validate all student Codice Fiscale values
+      const allCodiciFiscali: string[] = [];
       for (let i = 0; i < numberOfChildren; i++) {
         const studentData = studentForms[i].getValues();
-        const cfCheck = await checkCodiceFiscaleExists(studentData.codiceFiscale);
-        if (cfCheck !== true) {
-          setError(`Studente ${i + 1}: ${cfCheck}`);
+        console.log(`Student ${i + 1} data:`, studentData);
+        
+        if (!studentData.codiceFiscale) {
+          console.log(`Student ${i + 1} missing Codice Fiscale`);
+          setError(`Studente ${i + 1}: Codice Fiscale mancante`);
           setIsLoading(false);
           return;
+        }
+        
+        // Check for duplicates within current registration
+        const cfUpper = studentData.codiceFiscale.toUpperCase();
+        if (allCodiciFiscali.includes(cfUpper)) {
+          setError(`Studente ${i + 1}: Questo Codice Fiscale è già stato inserito per un altro studente in questa registrazione.`);
+          setIsLoading(false);
+          return;
+        }
+        allCodiciFiscali.push(cfUpper);
+        
+        // Check if CF exists in database
+        try {
+          const usersRef = collection(db, 'users');
+          const q = query(usersRef, where('codiceFiscale', '==', cfUpper));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            setError(`Studente ${i + 1}: Questo Codice Fiscale è già registrato. Se lo studente è già iscritto, contatta la scuola per assistenza.`);
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking Codice Fiscale:', error);
+          // Continue with registration if there's a network error
         }
       }
 
@@ -228,12 +266,17 @@ export const RegisterStudent: React.FC = () => {
       const parentAdditionalData = {
         codiceFiscale: parentData.parentCodiceFiscale ? parentData.parentCodiceFiscale.toUpperCase() : null,
         phoneNumber: parentData.parentContact,
+        address: parentData.parentAddress,
+        city: parentData.parentCity,
+        postalCode: parentData.parentPostalCode,
         isEnrolled: false,
         enrollmentDate: null,
         role: 'parent',
         children: [],
+        registrationDate: new Date(),
       };
 
+      // Register parent and capture their user ID before they get signed out
       await registerWithEmail(
         parentData.parentEmail,
         parentData.parentPassword,
@@ -242,54 +285,115 @@ export const RegisterStudent: React.FC = () => {
         parentAdditionalData
       );
 
+      // Get parent's user ID by querying the database with their email
+      const parentQuery = query(collection(db, 'users'), where('email', '==', parentData.parentEmail));
+      const parentSnapshot = await getDocs(parentQuery);
+      let parentUserId = null;
+      if (!parentSnapshot.empty) {
+        const parentDoc = parentSnapshot.docs[0];
+        parentUserId = parentDoc.id; // Use Firestore document ID
+        console.log('Parent ID found:', parentUserId);
+        console.log('Parent data:', parentDoc.data());
+      } else {
+        console.error('Parent not found in database!');
+        throw new Error('Errore: genitore non trovato nel database');
+      }
 
-      // Register each student
+      // Register each student in the students collection and collect their IDs
+      const childrenIds = [];
       for (let i = 0; i < numberOfChildren; i++) {
         const studentData = studentForms[i].getValues();
         
-        const studentAdditionalData = {
-          codiceFiscale: studentData.codiceFiscale.toUpperCase(),
-          parentName: `${parentData.parentFirstName} ${parentData.parentLastName}`.trim(),
-          parentCodiceFiscale: parentData.parentCodiceFiscale ? parentData.parentCodiceFiscale.toUpperCase() : null,
-          parentContact: parentData.parentContact,
-          isEnrolled: false,
-          enrollmentDate: null,
-          phoneNumber: studentData.phoneNumber,
-          address: studentData.address,
-          city: studentData.city,
-          postalCode: studentData.postalCode,
-          birthDate: studentData.birthDate ? (() => {
-            const [day, month, year] = studentData.birthDate.split('/');
-            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-          })() : null,
-          gender: studentData.gender,
-          hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
-          disabilityType: studentData.hasDisability === 'no' || !studentData.hasDisability ? null : studentData.hasDisability,
-          emergencyContact: studentData.emergencyContact,
-          attendanceMode: selectedAttendanceMode,
-          enrollmentType: enrollmentTypes[i],
-          previousYearClass: enrollmentTypes[i] === 'rinnovo' ? studentData.previousYearClass : null,
-        };
-
         const displayName = `${studentData.firstName.trim()} ${studentData.lastName.trim()}`.trim();
         // Create unique email using Codice Fiscale to avoid conflicts
         const studentEmail = `${studentData.codiceFiscale.toLowerCase()}@student.muallim.it`;
         const tempPassword = Math.random().toString(36).slice(-8);
 
-        await registerWithEmail(
-          studentEmail,
-          tempPassword,
-          displayName,
-          'student',
-          studentAdditionalData
-        );
+        // Create student Firebase authentication account only (no Firestore document in users)
+        await createUserWithEmailAndPassword(auth, studentEmail, tempPassword);
+        // Sign out immediately to prevent auto-login
+        await signOut(auth);
+
+        // Create complete student record in students collection
+        const studentRecord = {
+          parentId: parentUserId,
+          // Personal information
+          firstName: studentData.firstName.trim(),
+          lastName: studentData.lastName.trim(),
+          displayName: displayName,
+          codiceFiscale: studentData.codiceFiscale.toUpperCase(),
+          birthDate: studentData.birthDate ? (() => {
+            const [day, month, year] = studentData.birthDate.split('/');
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          })() : new Date(),
+          gender: studentData.gender as 'M' | 'F',
+          // Contact information
+          phoneNumber: studentData.phoneNumber || '',
+          address: studentData.address || '',
+          city: studentData.city || '',
+          postalCode: studentData.postalCode || '',
+          emergencyContact: studentData.emergencyContact || '',
+          // Academic information
+          attendanceMode: selectedAttendanceMode,
+          enrollmentType: enrollmentTypes[i],
+          previousYearClass: enrollmentTypes[i] === 'rinnovo' ? studentData.previousYearClass || '' : '',
+          currentClass: enrollmentTypes[i] === 'nuova_iscrizione' ? 'NA' : (studentData.previousYearClass || 'NA'),
+          selectedTurni: selectedAttendanceMode === 'in_presenza' ? selectedTurni : [],
+          // Special needs
+          hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
+          disabilityType: studentData.hasDisability === 'no' || !studentData.hasDisability ? '' : studentData.hasDisability || '',
+          // Parent reference only - no duplicated data
+          // Registration metadata
+          registrationDate: new Date(),
+          isEnrolled: false,
+          enrollmentDate: null,
+          // Account status
+          accountStatus: 'pending_approval' as const,
+          // Authentication
+          email: studentEmail,
+          createdAt: new Date(),
+        };
+
+        // Save student to students collection
+        console.log('Saving student to students collection:', studentRecord);
+        try {
+          const studentDocRef = await addDoc(collection(db, 'students'), studentRecord);
+          console.log('Student saved successfully with ID:', studentDocRef.id);
+        } catch (error) {
+          console.error('Error saving student:', error);
+          throw error;
+        }
+        
+        // Collect student info for parent's children array
+        childrenIds.push({
+          name: displayName,
+          codiceFiscale: studentData.codiceFiscale.toUpperCase(),
+          email: studentEmail
+        });
       }
 
-      setShowSuccessPopup(true);
+      // Update parent record with children information after all students are registered
+      if (childrenIds.length > 0 && parentUserId) {
+        await updateDoc(doc(db, 'users', parentUserId), {
+          children: childrenIds
+        });
+      }
+
+      // Navigate to approval pending page instead of showing success popup
+      console.log('Registration completed successfully, navigating to approval pending...');
+      navigate('/approval-pending');
     } catch (error: any) {
       console.error('Errore di registrazione:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        name: error.name
+      });
       setError(error.message || 'Errore durante la registrazione');
+      // Don't navigate on error, stay on the form to show the error
     } finally {
+      console.log('Registration process finished, setting loading to false');
       setIsLoading(false);
     }
   };
@@ -632,7 +736,12 @@ export const RegisterStudent: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-3">
           <button
-            onClick={() => setStep('attendance-mode')}
+            onClick={() => {
+              // Go back to the last student's form
+              setCurrentStudentIndex(numberOfChildren - 1);
+              setCurrentEnrollmentIndex(numberOfChildren - 1);
+              setStep('students-form');
+            }}
             className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             ← Precedente
@@ -1414,6 +1523,7 @@ export const RegisterStudent: React.FC = () => {
                 )}
               </div>
 
+
               <div className="md:col-span-2 space-y-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ha disabilità o necessita supporto?</label>
                 <select
@@ -1433,7 +1543,7 @@ export const RegisterStudent: React.FC = () => {
               {enrollmentTypes[currentStudentIndex] === 'rinnovo' && (
                 <div className="md:col-span-2 space-y-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Classe frequentata l'anno scorso
+                    Classe frequentata l'anno scorso (il nome del gruppo WhatsApp)
                   </label>
                   <input
                     type="text"
@@ -1522,6 +1632,8 @@ export const RegisterStudent: React.FC = () => {
             <p>Le classi saranno composte da circa 10 alunni.</p>
             <p>Dopo la conferma dell'iscrizione l'orario sarà stabilito tra il docente e i genitori.</p>
             <p>I corsi sono in lingua Italiana e si studiano le seguenti materie:  Fiqh, Hadith, Sira, Aqidah, Tarikh, Adab, Akhlaq e Corano.</p>
+            <p>Il contributo scolastico annuale è di 100 euro.</p>
+            <p className="text-sm text-gray-700">per maggiori info <span className="font-medium">+39 329 6736454</span> mail: <span className="font-medium">istitutoaverroepc@gmail.com</span></p>
           </div>
         )}
 
