@@ -107,7 +107,6 @@ export interface Student {
   selectedTurni: string[]; // For presence mode students
   // Special needs
   hasDisability: boolean;
-  disabilityType?: string;
   // Registration metadata
   registrationDate: Date;
   isEnrolled: boolean;

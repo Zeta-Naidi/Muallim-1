@@ -30,14 +30,9 @@ interface StudentData {
   firstName: string;
   lastName: string;
   codiceFiscale: string;
-  phoneNumber?: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
   birthDate?: string;
   gender?: string;
   hasDisability?: string;
-  emergencyContact?: string;
   previousYearClass?: string;
   currentClass?: string;
   italianSchoolClass?: string;
@@ -192,7 +187,23 @@ export const RegisterStudent: React.FC = () => {
     setStep('enrollment-type');
   };
 
-  const handleStudentFormSubmit = (data: StudentData) => {
+  const handleStudentFormSubmit = async (data: StudentData) => {
+    // Check if codice fiscale already exists in database
+    try {
+      const studentsRef = collection(db, 'students');
+      const q = query(studentsRef, where('codiceFiscale', '==', data.codiceFiscale));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        setError(`Uno studente con codice fiscale ${data.codiceFiscale} è già registrato nel sistema.`);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking duplicate codice fiscale:', error);
+      setError('Errore durante la verifica del codice fiscale. Riprova.');
+      return;
+    }
+
     const updatedStudentsData = [...studentsData];
     updatedStudentsData[currentStudentIndex] = data;
     setStudentsData(updatedStudentsData);
@@ -353,12 +364,11 @@ export const RegisterStudent: React.FC = () => {
             return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
           })() : new Date(),
           gender: studentData.gender as 'M' | 'F',
-          // Contact information
-          phoneNumber: studentData.phoneNumber || '',
-          address: studentData.address || '',
-          city: studentData.city || '',
-          postalCode: studentData.postalCode || '',
-          emergencyContact: studentData.emergencyContact || '',
+          // Contact information (inherited from parent)
+          phoneNumber: parentData.parentContact || '',
+          address: parentData.parentAddress || '',
+          city: parentData.parentCity || '',
+          postalCode: parentData.parentPostalCode || '',
           // Academic information
           attendanceMode: selectedAttendanceMode,
           enrollmentType: enrollmentTypes[i],
@@ -368,7 +378,6 @@ export const RegisterStudent: React.FC = () => {
           selectedTurni: selectedAttendanceMode === 'in_presenza' ? selectedTurni : [],
           // Special needs
           hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
-          disabilityType: studentData.hasDisability === 'no' || !studentData.hasDisability ? '' : studentData.hasDisability || '',
           // Parent reference only - no duplicated data
           // Registration metadata
           registrationDate: new Date(),
@@ -558,18 +567,6 @@ export const RegisterStudent: React.FC = () => {
                   <span className="font-medium text-gray-600">Genere:</span>
                   <p className="text-gray-900">{student.gender === 'M' ? 'Maschio' : 'Femmina'}</p>
                 </div>
-                {student.phoneNumber && (
-                  <div>
-                    <span className="font-medium text-gray-600">Telefono:</span>
-                    <p className="text-gray-900">{student.phoneNumber}</p>
-                  </div>
-                )}
-                {student.emergencyContact && (
-                  <div>
-                    <span className="font-medium text-gray-600">Contatto di emergenza:</span>
-                    <p className="text-gray-900">{student.emergencyContact}</p>
-                  </div>
-                )}
                 {student.italianSchoolClass && (
                   <div>
                     <span className="font-medium text-gray-600">Classe Scuola Italiana:</span>
@@ -1690,20 +1687,20 @@ export const RegisterStudent: React.FC = () => {
       <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 space-y-4">
         {selectedAttendanceMode === 'in_presenza' ? (
           <div className="space-y-3 text-gray-800">
-            <p>Si possono iscrivere tutti gli alunni a partire da 6 anni (solo chi ha già iniziato almeno la prima elementare) e fino a 14 anni.</p>
+            <p>Si possono iscrivere tutti gli alunni a partire da 6 anni <b>(solo chi ha già iniziato almeno la prima elementare)</b> e fino a 14 anni.</p>
             <p>Gli orari previsti per le lezioni sono; sabato pomeriggio, sabato sera, domenica mattina e domenica pomeriggio.</p>
             <p>Dopo la conferma dell'iscrizione l'orario sarà stabilito dall'amministrazione e vi sarà comunicato successivamente.</p>
             <p>I corsi sono in lingua Italiana e si studia le seguenti materie; Educazione Islamica (Fiqh, Hadith, Sira, Aqidah, Tarikh, Adab e Akhlaq) Corano e lingua araba.</p>
-            <p>Il contributo scolastico annuale è di 120 euro per il primo figlio, 100 per il secondo e 80 per il terzo.</p>
+            <p><b>Il contributo scolastico annuale è di 120 euro per il primo figlio, 100 per il secondo e 80 per il terzo.</b></p>
             <p className="text-sm text-gray-700">per maggiori info <span className="font-medium">+39 329 6736454</span> mail: <span className="font-medium">istitutoaverroepc@gmail.com</span></p>
           </div>
         ) : (
           <div className="space-y-3 text-gray-800">
-            <p>Si possono iscrivere tutti gli alunni a partire da 7 anni (solo chi ha già iniziato almeno la seconda elementare) e fino a 14 anni.</p>
+            <p>Si possono iscrivere tutti gli alunni a partire da 7 anni <b>(solo chi ha già iniziato almeno la seconda elementare)</b> e fino a 14 anni.</p>
             <p>Le classi saranno composte da circa 10 alunni.</p>
             <p>Dopo la conferma dell'iscrizione l'orario sarà stabilito tra il docente e i genitori.</p>
             <p>I corsi sono in lingua Italiana e si studiano le seguenti materie:  Fiqh, Hadith, Sira, Aqidah, Tarikh, Adab, Akhlaq e Corano.</p>
-            <p>Il contributo scolastico annuale è di 100 euro.</p>
+            <p><b>Il contributo scolastico annuale è di 100 euro.</b></p>
             <p className="text-sm text-gray-700">per maggiori info <span className="font-medium">+39 329 6736454</span> mail: <span className="font-medium">istitutoaverroepc@gmail.com</span></p>
           </div>
         )}
