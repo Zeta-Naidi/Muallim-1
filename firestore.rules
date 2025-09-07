@@ -74,7 +74,8 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
          resource.data.parentId == request.auth.uid)
       );
-      allow list: if isAuthenticated() && (isAdmin() || isTeacher());
+      // Allow list queries for registration validation (unauthenticated) and authenticated users
+      allow list: if !isAuthenticated() || isAuthenticated() && (isAdmin() || isTeacher());
       // Allow creation during registration (unauthenticated) or by admin
       allow create: if !isAuthenticated() || isAdmin();
       allow update: if isAdmin();

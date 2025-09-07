@@ -1,29 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Trash2, AlertCircle, CheckCircle, UserCog, Search, Users, Shield, Filter, X, Mail, Eye, Calendar, Clock } from 'lucide-react';
+import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
-import { User, UserRole } from '../../types';
+import { User, UserRole, Student } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const ManageUsers: React.FC = () => {
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [showStudents, setShowStudents] = useState(false);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [roleUpdating, setRoleUpdating] = useState<Record<string, boolean>>({});
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleDialogUser, setRoleDialogUser] = useState<User | null>(null);
   const [userInfoModalOpen, setUserInfoModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [savingRole, setSavingRole] = useState(false);
 
@@ -32,11 +38,20 @@ export const ManageUsers: React.FC = () => {
       setIsLoading(true);
       
       try {
+        // Fetch users
         const usersQuery = collection(db, 'users');
         const usersDocs = await getDocs(usersQuery);
         const usersList = usersDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        
+        // Fetch students
+        const studentsQuery = collection(db, 'students');
+        const studentsDocs = await getDocs(studentsQuery);
+        const studentsList = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Student));
+        
         setUsers(usersList);
+        setStudents(studentsList);
         setFilteredUsers(usersList);
+        setFilteredStudents(studentsList);
         
       } catch (error) {
         console.error('Errore nel recupero dei dati:', error);
@@ -50,22 +65,99 @@ export const ManageUsers: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let filtered = [...users];
-    
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
+    if (showStudents) {
+      // Filter students
+      let filteredStudentsList = [...students];
+      
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        filteredStudentsList = filteredStudentsList.filter(student => 
+          student.displayName.toLowerCase().includes(query) || 
+          student.firstName.toLowerCase().includes(query) ||
+          student.lastName.toLowerCase().includes(query) ||
+          student.codiceFiscale.toLowerCase().includes(query) ||
+          student.email.toLowerCase().includes(query)
+        );
+      }
+      
+      // Sort students by registration date
+      filteredStudentsList.sort((a, b) => {
+        let dateA = 0;
+        let dateB = 0;
+        
+        if (a.createdAt) {
+          if (typeof a.createdAt === 'string') {
+            dateA = new Date(a.createdAt).getTime();
+          } else if ((a.createdAt as any).toDate) {
+            dateA = (a.createdAt as any).toDate().getTime();
+          } else {
+            dateA = new Date(a.createdAt).getTime();
+          }
+        }
+        
+        if (b.createdAt) {
+          if (typeof b.createdAt === 'string') {
+            dateB = new Date(b.createdAt).getTime();
+          } else if ((b.createdAt as any).toDate) {
+            dateB = (b.createdAt as any).toDate().getTime();
+          } else {
+            dateB = new Date(b.createdAt).getTime();
+          }
+        }
+        
+        return sortDirection === 'desc' ? dateB - dateA : dateA - dateB;
+      });
+      
+      setFilteredStudents(filteredStudentsList);
+      setFilteredUsers([]);
+    } else {
+      // Filter users
+      let filteredUsersList = [...users];
+      
+      if (roleFilter !== 'all') {
+        filteredUsersList = filteredUsersList.filter(user => user.role === roleFilter);
+      }
+      
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        filteredUsersList = filteredUsersList.filter(user => 
+          user.displayName.toLowerCase().includes(query) || 
+          user.email.toLowerCase().includes(query)
+        );
+      }
+      
+      // Sort users by registration date
+      filteredUsersList.sort((a, b) => {
+        let dateA = 0;
+        let dateB = 0;
+        
+        if (a.createdAt) {
+          if (typeof a.createdAt === 'string') {
+            dateA = new Date(a.createdAt).getTime();
+          } else if ((a.createdAt as any).toDate) {
+            dateA = (a.createdAt as any).toDate().getTime();
+          } else {
+            dateA = new Date(a.createdAt).getTime();
+          }
+        }
+        
+        if (b.createdAt) {
+          if (typeof b.createdAt === 'string') {
+            dateB = new Date(b.createdAt).getTime();
+          } else if ((b.createdAt as any).toDate) {
+            dateB = (b.createdAt as any).toDate().getTime();
+          } else {
+            dateB = new Date(b.createdAt).getTime();
+          }
+        }
+        
+        return sortDirection === 'desc' ? dateB - dateA : dateA - dateB;
+      });
+      
+      setFilteredUsers(filteredUsersList);
+      setFilteredStudents([]);
     }
-    
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(user => 
-        user.displayName.toLowerCase().includes(query) || 
-        user.email.toLowerCase().includes(query)
-      );
-    }
-    
-    setFilteredUsers(filtered);
-  }, [users, searchQuery, roleFilter]);
+  }, [users, students, searchQuery, roleFilter, showStudents, sortDirection]);
 
   const openDeleteDialog = (user: User) => {
     if (user.id === userProfile?.id) {
@@ -76,23 +168,41 @@ export const ManageUsers: React.FC = () => {
     setShowDeleteDialog(true);
   };
 
+  const openStudentDeleteDialog = (student: Student) => {
+    setStudentToDelete(student);
+    setShowDeleteDialog(true);
+  };
+
+  const openStudentInfoModal = (student: Student) => {
+    setSelectedStudent(student);
+    setUserInfoModalOpen(true);
+  };
+
   const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete && !studentToDelete) return;
 
     try {
-      await deleteDoc(doc(db, 'users', userToDelete.id));
-      setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
-      setFilteredUsers(prev => prev.filter(user => user.id !== userToDelete.id));
-      setMessage({ type: 'success', text: 'Utente eliminato con successo' });
+      if (userToDelete) {
+        await deleteDoc(doc(db, 'users', userToDelete.id));
+        setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
+        setFilteredUsers(prev => prev.filter(user => user.id !== userToDelete.id));
+        setMessage({ type: 'success', text: 'Utente eliminato con successo' });
+      } else if (studentToDelete) {
+        await deleteDoc(doc(db, 'students', studentToDelete.id));
+        setStudents(prev => prev.filter(student => student.id !== studentToDelete.id));
+        setFilteredStudents(prev => prev.filter(student => student.id !== studentToDelete.id));
+        setMessage({ type: 'success', text: 'Studente eliminato con successo' });
+      }
       
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
-      console.error('Errore nell\'eliminazione dell\'utente:', error);
-      setMessage({ type: 'error', text: 'Errore nell\'eliminazione dell\'utente' });
+      console.error('Errore nell\'eliminazione:', error);
+      setMessage({ type: 'error', text: 'Errore nell\'eliminazione' });
     } finally {
       setShowDeleteDialog(false);
       setUserToDelete(null);
+      setStudentToDelete(null);
     }
   };
 
@@ -240,11 +350,11 @@ export const ManageUsers: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <Input
-                label="Cerca utenti"
-                placeholder="Nome o email..."
+                label={showStudents ? "Cerca studenti" : "Cerca utenti"}
+                placeholder={showStudents ? "Nome, cognome, codice fiscale..." : "Nome o email..."}
                 value={searchQuery}
                 onChange={handleSearchChange}
                 leftIcon={<Search className="h-5 w-5" />}
@@ -261,12 +371,45 @@ export const ManageUsers: React.FC = () => {
                 className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
                 onChange={handleRoleFilterChange}
                 value={roleFilter}
+                disabled={showStudents}
               >
-                <option value="all">Tutti i ruoli</option>
+                <option value="all">Tutti</option>
                 <option value="admin">Amministratori</option>
                 <option value="teacher">Insegnanti</option>
-                <option value="student">Studenti</option>
+                <option value="parent">Genitori</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ordinamento per data registrazione
+              </label>
+              <div className="flex items-center space-x-3 mt-2">
+                <button
+                  onClick={() => setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc')}
+                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {sortDirection === 'desc' ? 'Più recenti' : 'Più vecchi'}
+                  {sortDirection === 'desc' ? (
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4 ml-1" />
+                  )}
+                </button>
+                
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showStudents}
+                    onChange={(e) => setShowStudents(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Mostra solo studenti
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -277,12 +420,21 @@ export const ManageUsers: React.FC = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600 font-light">Caricamento degli utenti...</p>
         </div>
-      ) : filteredUsers.length > 0 ? (
+      ) : (showStudents ? filteredStudents.length > 0 : filteredUsers.length > 0) ? (
         <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 border-b border-gray-100">
             <CardTitle className="flex items-center text-gray-900">
-              <Users className="h-6 w-6 mr-3 text-blue-600" />
-              Utenti ({filteredUsers.length})
+              {showStudents ? (
+                <>
+                  <GraduationCap className="h-6 w-6 mr-3 text-green-600" />
+                  Studenti ({filteredStudents.length})
+                </>
+              ) : (
+                <>
+                  <Users className="h-6 w-6 mr-3 text-blue-600" />
+                  Utenti ({filteredUsers.length})
+                </>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -305,77 +457,142 @@ export const ManageUsers: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredUsers.map(user => (
-                    <motion.tr 
-                      key={user.id} 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3 }}
-                      className={`hover:bg-blue-50/30 transition-all duration-200 ${
-                        user.id === userProfile.id ? 'bg-blue-50/50' : ''
-                      }`}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
-                            <span className="text-blue-700 font-semibold text-sm">
-                              {user.displayName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <div className="font-semibold text-gray-900">
-                                {user.displayName}
+                  {showStudents ? (
+                    filteredStudents.map(student => (
+                      <motion.tr 
+                        key={student.id} 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="hover:bg-blue-50/30 transition-all duration-200"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 flex items-center justify-center shadow-sm">
+                              <span className="text-green-700 font-semibold text-sm">
+                                {student.firstName.charAt(0).toUpperCase()}{student.lastName.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <div className="font-semibold text-gray-900">
+                                  {student.firstName} {student.lastName}
+                                </div>
                               </div>
-                              {user.id === userProfile.id && (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                  Tu
-                                </span>
-                              )}
+                              <div className="text-sm text-gray-500">
+                                CF: {student.codiceFiscale}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center text-gray-600">
-                          <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                          <span className="text-sm">{user.email}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1.5 inline-flex text-sm font-medium rounded-xl ${getRoleBadgeColor(user.role)}`}>
-                          {getRoleName(user.role)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openUserInfoModal(user)}
-                            className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            leftIcon={<Eye className="h-4 w-4" />}
-                          >
-                            Info
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openDeleteDialog(user)}
-                            disabled={user.id === userProfile.id || !!roleUpdating[user.id]}
-                            className={`rounded-xl transition-all duration-200 ${
-                              user.id === userProfile.id ? 
-                              'opacity-50 cursor-not-allowed' : 
-                              'text-red-600 hover:text-red-700 hover:bg-red-50'
-                            }`}
-                            leftIcon={<Trash2 className="h-4 w-4" />}
-                          >
-                            Elimina
-                          </Button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center text-gray-600">
+                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                            <span className="text-sm">{student.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-3 py-1.5 inline-flex text-sm font-medium rounded-xl bg-green-100 text-green-800">
+                            Studente
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-end items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openStudentInfoModal(student)}
+                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              leftIcon={<Eye className="h-4 w-4" />}
+                            >
+                              Info
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openStudentDeleteDialog(student)}
+                              className="rounded-xl transition-all duration-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              leftIcon={<Trash2 className="h-4 w-4" />}
+                            >
+                              Elimina
+                            </Button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))
+                  ) : (
+                    filteredUsers.map(user => (
+                      <motion.tr 
+                        key={user.id} 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className={`hover:bg-blue-50/30 transition-all duration-200 ${
+                          user.id === userProfile.id ? 'bg-blue-50/50' : ''
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
+                              <span className="text-blue-700 font-semibold text-sm">
+                                {user.displayName.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <div className="font-semibold text-gray-900">
+                                  {user.displayName}
+                                </div>
+                                {user.id === userProfile.id && (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                    Tu
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center text-gray-600">
+                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                            <span className="text-sm">{user.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1.5 inline-flex text-sm font-medium rounded-xl ${getRoleBadgeColor(user.role)}`}>
+                            {getRoleName(user.role)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex justify-end items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openUserInfoModal(user)}
+                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              leftIcon={<Eye className="h-4 w-4" />}
+                            >
+                              Info
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeleteDialog(user)}
+                              disabled={user.id === userProfile.id || !!roleUpdating[user.id]}
+                              className={`rounded-xl transition-all duration-200 ${
+                                user.id === userProfile.id ? 
+                                'opacity-50 cursor-not-allowed' : 
+                                'text-red-600 hover:text-red-700 hover:bg-red-50'
+                              }`}
+                              leftIcon={<Trash2 className="h-4 w-4" />}
+                            >
+                              Elimina
+                            </Button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -385,18 +602,20 @@ export const ManageUsers: React.FC = () => {
         <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
           <CardContent className="p-12 text-center">
             <UserCog className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-            <h3 className="text-xl font-medium text-gray-900 mb-2">Nessun utente trovato</h3>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">
+              {showStudents ? 'Nessuno studente trovato' : 'Nessun utente trovato'}
+            </h3>
             <p className="text-gray-600 max-w-md mx-auto mb-8">
               {searchQuery 
-                ? 'Nessun utente trovato con questi criteri di ricerca.' 
-                : 'Nessun utente trovato.'}
+                ? `Nessun ${showStudents ? 'studente' : 'utente'} trovato con questi criteri di ricerca.` 
+                : `Nessun ${showStudents ? 'studente' : 'utente'} trovato.`}
             </p>
           </CardContent>
         </Card>
       )}
       
       {/* Custom Delete Confirmation Dialog */}
-      {showDeleteDialog && userToDelete && (
+      {showDeleteDialog && (userToDelete || studentToDelete) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -410,7 +629,10 @@ export const ManageUsers: React.FC = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Conferma eliminazione</h3>
               <p className="text-sm text-gray-500 mb-6">
-                Sei sicuro di voler eliminare l'utente <span className="font-medium text-gray-900">{userToDelete.displayName}</span>?
+                Sei sicuro di voler eliminare {userToDelete ? 'l\'utente' : 'lo studente'}{' '}
+                <span className="font-medium text-gray-900">
+                  {userToDelete ? userToDelete.displayName : `${studentToDelete?.firstName} ${studentToDelete?.lastName}`}
+                </span>?
                 <br />
                 Questa azione non può essere annullata.
               </p>
@@ -421,6 +643,7 @@ export const ManageUsers: React.FC = () => {
                 onClick={() => {
                   setShowDeleteDialog(false);
                   setUserToDelete(null);
+                  setStudentToDelete(null);
                 }}
                 leftIcon={<X className="h-4 w-4" />}
               >
@@ -509,7 +732,7 @@ export const ManageUsers: React.FC = () => {
       )}
 
       {/* User Info Modal */}
-      {userInfoModalOpen && selectedUser && (
+      {userInfoModalOpen && (selectedUser || selectedStudent) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -521,21 +744,33 @@ export const ManageUsers: React.FC = () => {
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 border border-blue-200 flex items-center justify-center shadow-sm">
-                    <span className="text-blue-700 font-bold text-xl">
-                      {selectedUser.displayName.charAt(0).toUpperCase()}
+                  <div className={`h-16 w-16 rounded-2xl border flex items-center justify-center shadow-sm ${
+                    selectedStudent 
+                      ? 'bg-gradient-to-br from-green-100 to-emerald-100 border-green-200' 
+                      : 'bg-gradient-to-br from-blue-100 to-indigo-100 border-blue-200'
+                  }`}>
+                    <span className={`font-bold text-xl ${
+                      selectedStudent ? 'text-green-700' : 'text-blue-700'
+                    }`}>
+                      {selectedStudent 
+                        ? `${selectedStudent.firstName.charAt(0).toUpperCase()}${selectedStudent.lastName.charAt(0).toUpperCase()}`
+                        : selectedUser?.displayName.charAt(0).toUpperCase()
+                      }
                     </span>
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">
-                      {selectedUser.displayName}
-                      {selectedUser.id === userProfile?.id && (
+                      {selectedStudent 
+                        ? `${selectedStudent.firstName} ${selectedStudent.lastName}`
+                        : selectedUser?.displayName
+                      }
+                      {selectedUser?.id === userProfile?.id && (
                         <span className="ml-3 px-2 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">Tu</span>
                       )}
                     </h2>
                     <p className="text-gray-600 flex items-center mt-1">
                       <Mail className="h-4 w-4 mr-2" />
-                      {selectedUser.email}
+                      {selectedStudent ? selectedStudent.email : selectedUser?.email}
                     </p>
                   </div>
                 </div>
@@ -555,27 +790,52 @@ export const ManageUsers: React.FC = () => {
               {/* Basic Info Section */}
               <div className="bg-gray-50 rounded-xl p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <UserCog className="h-5 w-5 mr-2 text-blue-600" />
+                  {selectedStudent ? (
+                    <GraduationCap className="h-5 w-5 mr-2 text-green-600" />
+                  ) : (
+                    <UserCog className="h-5 w-5 mr-2 text-blue-600" />
+                  )}
                   Informazioni Base
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Nome Completo</label>
-                    <p className="text-gray-900 font-medium">{selectedUser.displayName}</p>
+                    <p className="text-gray-900 font-medium">
+                      {selectedStudent 
+                        ? `${selectedStudent.firstName} ${selectedStudent.lastName}`
+                        : selectedUser?.displayName
+                      }
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Email</label>
-                    <p className="text-gray-900">{selectedUser.email}</p>
+                    <p className="text-gray-900">
+                      {selectedStudent ? selectedStudent.email : selectedUser?.email}
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Ruolo</label>
-                    <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-xl ${getRoleBadgeColor(selectedUser.role)}`}>
-                      {getRoleName(selectedUser.role)}
-                    </span>
+                    {selectedStudent ? (
+                      <span className="inline-flex px-3 py-1 text-sm font-medium rounded-xl bg-green-100 text-green-800">
+                        Studente
+                      </span>
+                    ) : (
+                      <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-xl ${getRoleBadgeColor(selectedUser?.role || 'student')}`}>
+                        {getRoleName(selectedUser?.role || 'student')}
+                      </span>
+                    )}
                   </div>
+                  {selectedStudent && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Codice Fiscale</label>
+                      <p className="text-gray-900 font-mono text-sm">{selectedStudent.codiceFiscale}</p>
+                    </div>
+                  )}
                   <div>
-                    <label className="text-sm font-medium text-gray-500">ID Utente</label>
-                    <p className="text-gray-900 font-mono text-sm">{selectedUser.id}</p>
+                    <label className="text-sm font-medium text-gray-500">ID</label>
+                    <p className="text-gray-900 font-mono text-sm">
+                      {selectedStudent ? selectedStudent.id : selectedUser?.id}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -587,26 +847,36 @@ export const ManageUsers: React.FC = () => {
                   Dettagli Account
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedUser.createdAt && (
+                  {(selectedUser?.createdAt || selectedStudent?.createdAt) && (
                     <div>
                       <label className="text-sm font-medium text-gray-500 flex items-center">
                         <Calendar className="h-4 w-4 mr-1" />
                         Data Registrazione
                       </label>
                       <p className="text-gray-900">
-                        {typeof selectedUser.createdAt === 'object' && 'seconds' in selectedUser.createdAt 
-                          ? new Date((selectedUser.createdAt as any).seconds * 1000).toLocaleDateString('it-IT', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })
-                          : new Date(selectedUser.createdAt).toLocaleDateString('it-IT', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })
-                        }
+                        {(() => {
+                          const createdAt = selectedStudent?.createdAt || selectedUser?.createdAt;
+                          if (!createdAt) return 'Non disponibile';
+                          
+                          return typeof createdAt === 'object' && 'seconds' in createdAt 
+                            ? new Date((createdAt as any).seconds * 1000).toLocaleDateString('it-IT', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              })
+                            : new Date(createdAt).toLocaleDateString('it-IT', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                              });
+                        })()}
                       </p>
+                    </div>
+                  )}
+                  {selectedStudent && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">ID Genitore</label>
+                      <p className="text-gray-900 font-mono text-sm">{selectedStudent.parentId}</p>
                     </div>
                   )}
                   <div>
@@ -628,8 +898,9 @@ export const ManageUsers: React.FC = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-500">Permessi</label>
                     <p className="text-gray-900">
-                      {selectedUser.role === 'admin' ? 'Amministratore completo' :
-                       selectedUser.role === 'teacher' ? 'Gestione classi e studenti' :
+                      {selectedStudent ? 'Accesso studente' :
+                       selectedUser?.role === 'admin' ? 'Amministratore completo' :
+                       selectedUser?.role === 'teacher' ? 'Gestione classi e studenti' :
                        'Accesso studente'}
                     </p>
                   </div>
@@ -640,12 +911,16 @@ export const ManageUsers: React.FC = () => {
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <Button
                   variant="outline"
-                  onClick={() => setUserInfoModalOpen(false)}
+                  onClick={() => {
+                    setUserInfoModalOpen(false);
+                    setSelectedUser(null);
+                    setSelectedStudent(null);
+                  }}
                   className="rounded-xl"
                 >
                   Chiudi
                 </Button>
-                {selectedUser.id !== userProfile?.id && (
+                {selectedUser && selectedUser.id !== userProfile?.id && (
                   <>
                     <Button
                       variant="outline"
@@ -670,6 +945,19 @@ export const ManageUsers: React.FC = () => {
                       Elimina Utente
                     </Button>
                   </>
+                )}
+                {selectedStudent && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setUserInfoModalOpen(false);
+                      openStudentDeleteDialog(selectedStudent);
+                    }}
+                    className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
+                    leftIcon={<Trash2 className="h-4 w-4" />}
+                  >
+                    Elimina Studente
+                  </Button>
                 )}
               </div>
             </div>
