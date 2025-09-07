@@ -103,6 +103,7 @@ export interface Student {
   enrollmentType: 'nuova_iscrizione' | 'rinnovo';
   previousYearClass?: string;
   currentClass: string;
+  italianSchoolClass: string; // Italian school class (e.g., "1A", "2B", "3C")
   selectedTurni: string[]; // For presence mode students
   // Special needs
   hasDisability: boolean;

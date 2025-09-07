@@ -40,6 +40,7 @@ interface StudentData {
   emergencyContact?: string;
   previousYearClass?: string;
   currentClass?: string;
+  italianSchoolClass?: string;
 }
 
 interface ParentFormValues {
@@ -338,6 +339,7 @@ export const RegisterStudent: React.FC = () => {
           enrollmentType: enrollmentTypes[i],
           previousYearClass: enrollmentTypes[i] === 'rinnovo' ? studentData.previousYearClass || '' : '',
           currentClass: enrollmentTypes[i] === 'nuova_iscrizione' ? 'NA' : (studentData.previousYearClass || 'NA'),
+          italianSchoolClass: studentData.italianSchoolClass || '',
           selectedTurni: selectedAttendanceMode === 'in_presenza' ? selectedTurni : [],
           // Special needs
           hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
@@ -541,6 +543,12 @@ export const RegisterStudent: React.FC = () => {
                   <div>
                     <span className="font-medium text-gray-600">Contatto di emergenza:</span>
                     <p className="text-gray-900">{student.emergencyContact}</p>
+                  </div>
+                )}
+                {student.italianSchoolClass && (
+                  <div>
+                    <span className="font-medium text-gray-600">Classe Scuola Italiana:</span>
+                    <p className="text-gray-900">{student.italianSchoolClass}</p>
                   </div>
                 )}
                 {student.hasDisability && (
@@ -1537,6 +1545,40 @@ export const RegisterStudent: React.FC = () => {
                 {currentForm.formState.errors.hasDisability && (
                   <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.hasDisability.message}</p>
                 )}
+              </div>
+
+              {/* Italian School Class */}
+              <div className="md:col-span-2 space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Classe della Scuola Italiana <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  {...currentForm.register('italianSchoolClass', {
+                    required: 'La classe della scuola italiana è obbligatoria'
+                  })}
+                >
+                  <option value="">Seleziona la classe</option>
+                  <option value="1A">1A - Prima Elementare</option>
+                  <option value="2A">2A - Seconda Elementare</option>
+                  <option value="3A">3A - Terza Elementare</option>
+                  <option value="4A">4A - Quarta Elementare</option>
+                  <option value="5A">5A - Quinta Elementare</option>
+                  <option value="1M">1M - Prima Media</option>
+                  <option value="2M">2M - Seconda Media</option>
+                  <option value="3M">3M - Terza Media</option>
+                  <option value="1S">1S - Prima Superiore</option>
+                  <option value="2S">2S - Seconda Superiore</option>
+                  <option value="3S">3S - Terza Superiore</option>
+                  <option value="4S">4S - Quarta Superiore</option>
+                  <option value="5S">5S - Quinta Superiore</option>
+                </select>
+                {currentForm.formState.errors.italianSchoolClass && (
+                  <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.italianSchoolClass.message}</p>
+                )}
+                <p className="text-gray-500 text-xs mt-1">
+                  Seleziona la classe che {studentNames[currentStudentIndex] || 'lo studente'} frequenta nella scuola italiana
+                </p>
               </div>
 
               {/* Previous Year Class - Only show for renewals */}
