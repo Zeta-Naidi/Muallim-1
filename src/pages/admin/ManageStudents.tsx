@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
-  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight
+  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -25,6 +25,8 @@ interface StudentFormValues {
   email: string;
   phoneNumber?: string;
   address?: string;
+  city?: string;
+  postalCode?: string;
   birthDate?: string;
   gender?: string;
   emergencyContact?: string;
@@ -64,6 +66,9 @@ export const ManageStudents: React.FC = () => {
     parentName: '',
     parentPhone: ''
   });
+
+  // Sorting
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -113,9 +118,19 @@ export const ManageStudents: React.FC = () => {
           parentsMap.set(doc.id, parentData);
         });
 
+        // Count siblings for each parent
+        const siblingCounts = new Map();
+        fetchedStudents.forEach(student => {
+          if (student.parentId) {
+            const currentCount = siblingCounts.get(student.parentId) || 0;
+            siblingCounts.set(student.parentId, currentCount + 1);
+          }
+        });
+
         // Map students with parent data
         const studentsWithParents: StudentWithParent[] = fetchedStudents.map(student => {
           const parentData = parentsMap.get(student.parentId);
+          const siblingCount = siblingCounts.get(student.parentId) || 0;
           
           return {
             ...student,
@@ -128,6 +143,7 @@ export const ManageStudents: React.FC = () => {
             parentAddress: parentData?.address,
             parentCity: parentData?.city,
             parentPostalCode: parentData?.postalCode,
+            siblingCount: siblingCount,
           };
         });
 
@@ -178,11 +194,23 @@ export const ManageStudents: React.FC = () => {
       );
     }
 
+    // Apply sorting by createdAt
+    filtered.sort((a, b) => {
+      const dateA = a.createdAt || new Date(0);
+      const dateB = b.createdAt || new Date(0);
+      
+      if (sortOrder === 'desc') {
+        return dateB.getTime() - dateA.getTime();
+      } else {
+        return dateA.getTime() - dateB.getTime();
+      }
+    });
+
     setFilteredStudents(filtered);
     // Reset pagination when filters change to avoid empty pages
     setEnrolledPage(1);
     setNotEnrolledPage(1);
-  }, [students, filters]);
+  }, [students, filters, sortOrder]);
 
   const handleFilterChange = (field: string, value: string) => {
     setFilters(prev => ({
@@ -427,12 +455,24 @@ export const ManageStudents: React.FC = () => {
                           <span className="text-gray-900">{student.address || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
+                          <span className="text-gray-500">Città:</span>
+                          <span className="text-gray-900">{(student as any).city || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">CAP:</span>
+                          <span className="text-gray-900">{(student as any).postalCode || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
                           <span className="text-gray-500">Genere:</span>
                           <span className="text-gray-900">{student.gender === 'male' ? 'Maschio' : student.gender === 'female' ? 'Femmina' : 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Modalità frequenza:</span>
                           <span className="text-gray-900">{(student as any).attendanceMode === 'in_presenza' ? 'In presenza' : (student as any).attendanceMode === 'online' ? 'Online' : 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Tipo iscrizione:</span>
+                          <span className="text-gray-900">{(student as any).enrollmentType === 'nuova_iscrizione' ? 'Nuova Iscrizione' : (student as any).enrollmentType === 'rinnovo' ? 'Rinnovo' : 'N/A'}</span>
                         </div>
                       </div>
                     </div>
@@ -454,6 +494,31 @@ export const ManageStudents: React.FC = () => {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Classe italiana:</span>
                           <span className="text-gray-900">{(student as any).italianSchoolClass || 'N/A'}</span>
+                        </div>
+                        {(student as any).selectedTurni && (student as any).selectedTurni.length > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Turni selezionati:</span>
+                            <span className="text-gray-900">
+                              {(student as any).selectedTurni.map((turno: string) => {
+                                switch(turno) {
+                                  case 'sabato_pomeriggio': return 'Sab. Pom.';
+                                  case 'sabato_sera': return 'Sab. Sera';
+                                  case 'domenica_mattina': return 'Dom. Matt.';
+                                  case 'domenica_pomeriggio': return 'Dom. Pom.';
+                                  default: return turno;
+                                }
+                              }).join(', ')}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Fratelli/Sorelle:</span>
+                          <span className="text-gray-900">
+                            {(student as any).siblingCount > 1 
+                              ? `${(student as any).siblingCount - 1} ${(student as any).siblingCount - 1 === 1 ? 'fratello/sorella' : 'fratelli/sorelle'}`
+                              : 'Figlio unico'
+                            }
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -868,6 +933,20 @@ export const ManageStudents: React.FC = () => {
                     />
 
                     <Input
+                      label="Città"
+                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                      className="anime-input"
+                      {...register('city')}
+                    />
+
+                    <Input
+                      label="CAP"
+                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                      className="anime-input"
+                      {...register('postalCode')}
+                    />
+
+                    <Input
                       label="Data di nascita"
                       type="date"
                       leftIcon={<Calendar className="h-5 w-5 text-gray-400" />}
@@ -958,6 +1037,15 @@ export const ManageStudents: React.FC = () => {
                     </div>
                   </CardTitle>
                   <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                      variant="outline"
+                      size="sm"
+                      className="text-gray-600 hover:text-gray-800 rounded-xl"
+                      leftIcon={sortOrder === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                    >
+                      {sortOrder === 'desc' ? 'Più Recenti' : 'Più Vecchi'}
+                    </Button>
                     <Button
                       onClick={exportToCSV}
                       className="bg-green-600 hover:bg-green-700 text-white rounded-xl"

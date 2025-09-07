@@ -107,9 +107,19 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                 <p className="mt-1 text-sm text-gray-900">{genderDisplay()}</p>
               </div>
 
-              <div className="col-span-2">
+              <div>
                 <h3 className="text-sm font-medium text-gray-500">Indirizzo</h3>
                 <p className="mt-1 text-sm text-gray-900">{studentAddress}</p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Città</h3>
+                <p className="mt-1 text-sm text-gray-900">{(student as any).city || (student as any).parentCity || 'Non specificato'}</p>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">CAP</h3>
+                <p className="mt-1 text-sm text-gray-900">{(student as any).postalCode || (student as any).parentPostalCode || 'Non specificato'}</p>
               </div>
 
               <div>
@@ -159,6 +169,49 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Classe Attuale</h3>
                   <p className="mt-1 text-sm text-gray-900">{(student as any).currentClass}</p>
+                </div>
+              )}
+
+              {(student as any).italianSchoolClass && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Classe Italiana</h3>
+                  <p className="mt-1 text-sm text-gray-900">{(student as any).italianSchoolClass}</p>
+                </div>
+              )}
+
+              {(student as any).enrollmentType && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Tipo Iscrizione</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {(student as any).enrollmentType === 'nuova_iscrizione' ? 'Nuova Iscrizione' : 'Rinnovo'}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Fratelli/Sorelle</h3>
+                <p className="mt-1 text-sm text-gray-900">
+                  {(student as any).siblingCount > 1 
+                    ? `${(student as any).siblingCount - 1} ${(student as any).siblingCount - 1 === 1 ? 'fratello/sorella' : 'fratelli/sorelle'}`
+                    : 'Figlio unico'
+                  }
+                </p>
+              </div>
+
+              {(student as any).selectedTurni && (student as any).selectedTurni.length > 0 && (
+                <div className="col-span-2">
+                  <h3 className="text-sm font-medium text-gray-500">Turni Selezionati</h3>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {(student as any).selectedTurni.map((turno: string) => {
+                      switch(turno) {
+                        case 'sabato_pomeriggio': return 'Sabato Pomeriggio';
+                        case 'sabato_sera': return 'Sabato Sera';
+                        case 'domenica_mattina': return 'Domenica Mattina';
+                        case 'domenica_pomeriggio': return 'Domenica Pomeriggio';
+                        default: return turno;
+                      }
+                    }).join(', ')}
+                  </p>
                 </div>
               )}
             </div>
