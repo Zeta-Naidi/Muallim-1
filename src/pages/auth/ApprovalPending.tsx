@@ -1,10 +1,21 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Mail, Phone } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../services/firebase';
 
 export const ApprovalPending: React.FC = () => {
-  const navigate = useNavigate();
+
+
+  const handleNavigateToFacebook = async () => {
+    try {
+      await signOut(auth);
+      window.open('https://www.facebook.com/istitutoaverroe', '_blank');
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.open('https://www.facebook.com/istitutoaverroe', '_blank');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
@@ -18,9 +29,9 @@ export const ApprovalPending: React.FC = () => {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6"
+          className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
         >
-          <Clock className="w-10 h-10 text-yellow-600" />
+          <Clock className="w-10 h-10 text-green-600" />
         </motion.div>
 
         <motion.h1
@@ -29,17 +40,8 @@ export const ApprovalPending: React.FC = () => {
           transition={{ delay: 0.4 }}
           className="text-2xl font-bold text-gray-900 mb-4"
         >
-          Account in Attesa di Approvazione
+          Registrazione completata con successo 
         </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="text-gray-600 mb-6 leading-relaxed"
-        >
-          La tua registrazione è stata completata con successo! Il tuo account è attualmente in fase di revisione da parte del nostro team amministrativo.
-        </motion.p>
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -49,9 +51,9 @@ export const ApprovalPending: React.FC = () => {
         >
           <h3 className="font-semibold text-blue-900 mb-2">Cosa succede ora?</h3>
           <ul className="text-sm text-blue-800 space-y-1 text-left">
-            <li>• Revisione dei documenti e delle informazioni fornite</li>
-            <li>• Verifica dell'idoneità per l'iscrizione</li>
-            <li>• Comunicazione dell'esito entro 2-3 giorni lavorativi</li>
+            <li>• L’amministrazione controllerà i dati inseriti e verrai ricontattato al più presto </li>
+            <br></br>
+            <li>• Per rimane aggiornato su news e aggiornamenti segui la nostra pagina Facebook</li>
           </ul>
         </motion.div>
 
@@ -78,12 +80,12 @@ export const ApprovalPending: React.FC = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
-          onClick={() => navigate('/')}
+          onClick={handleNavigateToFacebook}
           className="mt-6 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:shadow-lg transition-all duration-300"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          Torna alla Home
+          Vai alla pagina Facebook
         </motion.button>
       </motion.div>
     </div>

@@ -40,6 +40,7 @@ interface StudentData {
   emergencyContact?: string;
   previousYearClass?: string;
   currentClass?: string;
+  italianSchoolClass?: string;
 }
 
 interface ParentFormValues {
@@ -90,6 +91,21 @@ export const RegisterStudent: React.FC = () => {
   
   const studentForms = [studentForm1, studentForm2, studentForm3, studentForm4, studentForm5];
 
+  const checkEmailExists = async (email: string) => {
+    if (!email) return true;
+    
+    try {
+      // Check in users collection
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', email.toLowerCase()));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.empty || 'Questa email è già registrata. Usa un\'altra email o accedi con le tue credenziali esistenti.';
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return true; // Allow validation to pass if there's a network error
+    }
+  };
+
   const checkCodiceFiscaleExists = async (value: string) => {
     if (!value || value.length < 16) return true;
     
@@ -103,10 +119,20 @@ export const RegisterStudent: React.FC = () => {
     }
     
     try {
+      // Check in both users and students collections
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('codiceFiscale', '==', value.toUpperCase()));
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.empty || 'Questo Codice Fiscale è già registrato. Se lo studente è già iscritto, contatta la scuola per assistenza.';
+      const studentsRef = collection(db, 'students');
+      
+      const [usersQuery, studentsQuery] = await Promise.all([
+        getDocs(query(usersRef, where('codiceFiscale', '==', value.toUpperCase()))),
+        getDocs(query(studentsRef, where('codiceFiscale', '==', value.toUpperCase())))
+      ]);
+      
+      if (!usersQuery.empty || !studentsQuery.empty) {
+        return 'Questo Codice Fiscale è già registrato. Se lo studente è già iscritto, contatta la scuola per assistenza.';
+      }
+      
+      return true;
     } catch (error) {
       console.error('Error checking Codice Fiscale:', error);
       return true; // Allow validation to pass if there's a network error
@@ -338,6 +364,7 @@ export const RegisterStudent: React.FC = () => {
           enrollmentType: enrollmentTypes[i],
           previousYearClass: enrollmentTypes[i] === 'rinnovo' ? studentData.previousYearClass || '' : '',
           currentClass: enrollmentTypes[i] === 'nuova_iscrizione' ? 'NA' : (studentData.previousYearClass || 'NA'),
+          italianSchoolClass: studentData.italianSchoolClass || '',
           selectedTurni: selectedAttendanceMode === 'in_presenza' ? selectedTurni : [],
           // Special needs
           hasDisability: !!studentData.hasDisability && studentData.hasDisability !== 'no',
@@ -541,6 +568,12 @@ export const RegisterStudent: React.FC = () => {
                   <div>
                     <span className="font-medium text-gray-600">Contatto di emergenza:</span>
                     <p className="text-gray-900">{student.emergencyContact}</p>
+                  </div>
+                )}
+                {student.italianSchoolClass && (
+                  <div>
+                    <span className="font-medium text-gray-600">Classe Scuola Italiana:</span>
+                    <p className="text-gray-900">{student.italianSchoolClass}</p>
                   </div>
                 )}
                 {student.hasDisability && (
@@ -1128,10 +1161,11 @@ export const RegisterStudent: React.FC = () => {
                     required: 'Email è obbligatoria',
                     pattern: {
                       value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Email non valida'
-                    }
+                      message: 'Formato email non valido'
+                    },
+                    validate: checkEmailExists
                   })}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   placeholder="email@esempio.com"
                 />
               </div>
@@ -1443,14 +1477,17 @@ export const RegisterStudent: React.FC = () => {
                     required: 'Codice Fiscale è obbligatorio',
                     pattern: {
                       value: /^[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]$/i,
-                      message: 'Formato Codice Fiscale non valido',
+                      message: 'Formato Codice Fiscale non valido'
                     },
-                    validate: {
-                      checkExists: async (value) => {
-                        if (!value || value.length < 16) return true;
-                        return await checkCodiceFiscaleExists(value);
-                      }
+                    minLength: {
+                      value: 16,
+                      message: 'Il Codice Fiscale deve essere di 16 caratteri'
                     },
+                    maxLength: {
+                      value: 16,
+                      message: 'Il Codice Fiscale deve essere di 16 caratteri'
+                    },
+                    validate: checkCodiceFiscaleExists
                   })}
                   onBlur={() => {
                     // Trigger validation on blur
@@ -1537,6 +1574,40 @@ export const RegisterStudent: React.FC = () => {
                 {currentForm.formState.errors.hasDisability && (
                   <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.hasDisability.message}</p>
                 )}
+              </div>
+
+              {/* Italian School Class */}
+              <div className="md:col-span-2 space-y-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Classe della Scuola Italiana <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  {...currentForm.register('italianSchoolClass', {
+                    required: 'La classe della scuola italiana è obbligatoria'
+                  })}
+                >
+                  <option value="">Seleziona la classe</option>
+                  <option value="1A">1A - Prima Elementare</option>
+                  <option value="2A">2A - Seconda Elementare</option>
+                  <option value="3A">3A - Terza Elementare</option>
+                  <option value="4A">4A - Quarta Elementare</option>
+                  <option value="5A">5A - Quinta Elementare</option>
+                  <option value="1M">1M - Prima Media</option>
+                  <option value="2M">2M - Seconda Media</option>
+                  <option value="3M">3M - Terza Media</option>
+                  <option value="1S">1S - Prima Superiore</option>
+                  <option value="2S">2S - Seconda Superiore</option>
+                  <option value="3S">3S - Terza Superiore</option>
+                  <option value="4S">4S - Quarta Superiore</option>
+                  <option value="5S">5S - Quinta Superiore</option>
+                </select>
+                {currentForm.formState.errors.italianSchoolClass && (
+                  <p className="text-red-500 text-sm mt-1">{currentForm.formState.errors.italianSchoolClass.message}</p>
+                )}
+                <p className="text-gray-500 text-xs mt-1">
+                  Seleziona la classe che {studentNames[currentStudentIndex] || 'lo studente'} frequenta nella scuola italiana
+                </p>
               </div>
 
               {/* Previous Year Class - Only show for renewals */}
@@ -1654,7 +1725,7 @@ export const RegisterStudent: React.FC = () => {
             whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
           >
-            Vai ai Termini
+            Continua
           </motion.button>
         </div>
       </div>

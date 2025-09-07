@@ -31,6 +31,7 @@ interface StudentFormValues {
   parentName?: string;
   parentContact?: string;
   classId?: string;
+  italianSchoolClass?: string;
 }
 
 export const ManageStudents: React.FC = () => {
@@ -205,28 +206,24 @@ export const ManageStudents: React.FC = () => {
       // Define CSV headers
       const headers = [
         'Nome',
-        'Cognome', 
-        'Nome Completo',
-        'Email',
+        'Cognome',
         'Codice Fiscale',
         'Data di Nascita',
-        'Età',
         'Genere',
         'Telefono',
         'Indirizzo',
         'Città',
         'CAP',
         'Contatto di Emergenza',
-        'Modalità Frequenza',
-        'Tipo Iscrizione',
+        'Modalità di Frequenza',
+        'Tipo di Iscrizione',
         'Classe Precedente',
-        'Classe Attuale',
-        'Turni Selezionati',
+        'Classe Scuola Italiana',
         'Ha Disabilità',
-        'Tipo Disabilità',
+        'Tipo di Disabilità',
         'Nome Genitore',
-        'Codice Fiscale Genitore',
-        'Contatto Genitore',
+        'CF Genitore',
+        'Telefono Genitore',
         'Email Genitore',
         'Indirizzo Genitore',
         'Città Genitore',
@@ -253,6 +250,7 @@ export const ManageStudents: React.FC = () => {
           student.attendanceMode || '',
           student.enrollmentType || '',
           student.previousYearClass || '',
+          student.italianSchoolClass || '',
           student.hasDisability ? 'Sì' : 'No',
           student.disabilityType || '',
           student.parentName || '',
