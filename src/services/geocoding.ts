@@ -13,8 +13,36 @@ export interface GeocodingResult {
   state?: string;
 }
 
-// Cache to avoid repeated API calls
+// Enhanced cache with localStorage persistence
 const coordinatesCache = new Map<string, Coordinates>();
+
+// Load cache from localStorage on initialization
+const loadCacheFromStorage = () => {
+  try {
+    const stored = localStorage.getItem('geocoding_cache');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      Object.entries(parsed).forEach(([key, value]) => {
+        coordinatesCache.set(key, value as Coordinates);
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load geocoding cache from localStorage:', error);
+  }
+};
+
+// Save cache to localStorage
+const saveCacheToStorage = () => {
+  try {
+    const cacheObject = Object.fromEntries(coordinatesCache);
+    localStorage.setItem('geocoding_cache', JSON.stringify(cacheObject));
+  } catch (error) {
+    console.warn('Failed to save geocoding cache to localStorage:', error);
+  }
+};
+
+// Initialize cache from storage
+loadCacheFromStorage();
 
 /**
  * Get coordinates for a city using OpenStreetMap Nominatim API (free)
@@ -53,6 +81,7 @@ export async function getCityCoordinates(cityName: string, country = 'Italy'): P
       
       // Cache the result
       coordinatesCache.set(cacheKey, coordinates);
+      saveCacheToStorage(); // Persist to localStorage
       
       return coordinates;
     }
@@ -160,18 +189,56 @@ export async function getCityCoordinatesWithFallback(
   cityName: string, 
   country = 'Italy'
 ): Promise<Coordinates | null> {
-  // Try API first
-  const apiResult = await getCityCoordinates(cityName, country);
-  if (apiResult) {
-    return apiResult;
+  const cacheKey = `${cityName.toLowerCase()}_${country.toLowerCase()}`;
+  
+  // Check cache first (including fallback cache)
+  if (coordinatesCache.has(cacheKey)) {
+    return coordinatesCache.get(cacheKey)!;
   }
   
-  // Fallback to hardcoded coordinates
+  // Check fallback coordinates first (faster than API)
   const fallback = FALLBACK_ITALIAN_CITIES[cityName.toLowerCase()];
   if (fallback) {
-    console.log(`Using fallback coordinates for ${cityName}`);
+    coordinatesCache.set(cacheKey, fallback);
+    saveCacheToStorage();
     return fallback;
   }
   
-  return null;
+  // Try API call
+  try {
+    const query = encodeURIComponent(`${cityName}, ${country}`);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'Muallim-School-Management-System'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      const result = data[0];
+      const coordinates: Coordinates = {
+        lat: parseFloat(result.lat),
+        lng: parseFloat(result.lon)
+      };
+      
+      // Cache the result
+      coordinatesCache.set(cacheKey, coordinates);
+      saveCacheToStorage();
+      
+      return coordinates;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error geocoding ${cityName}:`, error);
+    return null;
+  }
 }
