@@ -264,11 +264,18 @@ const MapboxStudentMap: React.FC = () => {
   useEffect(() => {
     const fetchStudentLocations = async () => {
       try {
+        // Fetch students with only necessary fields to reduce data transfer
         const studentsSnapshot = await getDocs(collection(db, 'students'));
-        const students = studentsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as User[];
+        const students = studentsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            city: data.city,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            displayName: data.displayName
+          };
+        }) as User[];
 
         const grouped: { [key: string]: User[] } = {};
         const uniqueCities = new Set<string>();
@@ -285,17 +292,35 @@ const MapboxStudentMap: React.FC = () => {
           }
         });
 
-        // Fetch coordinates for all unique cities
+        // Set students data immediately to show partial results
+        setStudentsByCity(grouped);
+
+        // Fetch coordinates in parallel with batch processing
+        const cityArray = Array.from(uniqueCities);
+        const batchSize = 5; // Process 5 cities at a time
         const coordinates: { [key: string]: Coordinates } = {};
-        for (const city of Array.from(uniqueCities)) {
-          const coords = await getCityCoordinatesWithFallback(city, 'Italy');
-          if (coords) {
-            coordinates[city] = coords;
-          }
+
+        for (let i = 0; i < cityArray.length; i += batchSize) {
+          const batch = cityArray.slice(i, i + batchSize);
+          const batchPromises = batch.map(async (city) => {
+            const coords = await getCityCoordinatesWithFallback(city, 'Italy');
+            if (coords) {
+              return { city, coords };
+            }
+            return null;
+          });
+
+          const batchResults = await Promise.all(batchPromises);
+          batchResults.forEach(result => {
+            if (result) {
+              coordinates[result.city] = result.coords;
+            }
+          });
+
+          // Update coordinates progressively
+          setCityCoordinates(prev => ({ ...prev, ...coordinates }));
         }
 
-        setCityCoordinates(coordinates);
-        setStudentsByCity(grouped);
       } catch (error) {
         console.error('Error fetching student locations:', error);
       } finally {
@@ -307,7 +332,12 @@ const MapboxStudentMap: React.FC = () => {
   }, []);
 
   if (isLoading) {
-    return <div className="text-center py-8">Caricamento mappa...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+        <p className="text-gray-600">Caricamento distribuzione studenti...</p>
+      </div>
+    );
   }
 
   // Use a public Mapbox token or fallback to simple visualization
