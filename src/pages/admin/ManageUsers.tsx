@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -32,6 +32,8 @@ export const ManageUsers: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [savingRole, setSavingRole] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -158,6 +160,19 @@ export const ManageUsers: React.FC = () => {
       setFilteredStudents([]);
     }
   }, [users, students, searchQuery, roleFilter, showStudents, sortDirection]);
+
+  // Pagination logic
+  const currentItems = showStudents ? filteredStudents : filteredUsers;
+  const totalPages = Math.ceil(currentItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = currentItems.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset to first page when switching between users/students or when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [showStudents, searchQuery, roleFilter]);
 
   const openDeleteDialog = (user: User) => {
     if (user.id === userProfile?.id) {
@@ -458,7 +473,7 @@ export const ManageUsers: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {showStudents ? (
-                    filteredStudents.map(student => (
+                    (paginatedItems as Student[]).map(student => (
                       <motion.tr 
                         key={student.id} 
                         initial={{ opacity: 0 }}
@@ -521,7 +536,7 @@ export const ManageUsers: React.FC = () => {
                       </motion.tr>
                     ))
                   ) : (
-                    filteredUsers.map(user => (
+                    (paginatedItems as User[]).map(user => (
                       <motion.tr 
                         key={user.id} 
                         initial={{ opacity: 0 }}
@@ -597,6 +612,36 @@ export const ManageUsers: React.FC = () => {
               </table>
             </div>
           </CardContent>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t">
+              <div className="text-sm text-gray-700">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, currentItems.length)} di {currentItems.length} {showStudents ? 'studenti' : 'utenti'}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <span className="text-sm text-gray-600">Pagina {currentPage} di {totalPages}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       ) : (
         <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
