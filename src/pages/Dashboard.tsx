@@ -264,62 +264,58 @@ const MapboxStudentMap: React.FC = () => {
   useEffect(() => {
     const fetchStudentLocations = async () => {
       try {
-        // Fetch students with only necessary fields to reduce data transfer
+        // Fetch only city field to minimize data transfer
         const studentsSnapshot = await getDocs(collection(db, 'students'));
-        const students = studentsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            city: data.city,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            displayName: data.displayName
-          };
-        }) as User[];
-
-        const grouped: { [key: string]: User[] } = {};
-        const uniqueCities = new Set<string>();
+        const cityData: { [key: string]: number } = {};
+        const studentsByCity: { [key: string]: User[] } = {};
         
-        students.forEach(student => {
-          const studentCity = (student as any).city;
-          if (studentCity) {
-            const cityKey = studentCity.toLowerCase().trim();
-            uniqueCities.add(cityKey);
-            if (!grouped[cityKey]) {
-              grouped[cityKey] = [];
+        studentsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const city = data.city;
+          if (city) {
+            const cityKey = city.toLowerCase().trim();
+            cityData[cityKey] = (cityData[cityKey] || 0) + 1;
+            
+            if (!studentsByCity[cityKey]) {
+              studentsByCity[cityKey] = [];
             }
-            grouped[cityKey].push(student);
+            studentsByCity[cityKey].push({
+              id: doc.id,
+              city: data.city,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
+              displayName: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim()
+            } as User);
           }
         });
 
         // Set students data immediately to show partial results
-        setStudentsByCity(grouped);
+        setStudentsByCity(studentsByCity);
+        
+        const uniqueCities = Object.keys(cityData);
 
-        // Fetch coordinates in parallel with batch processing
-        const cityArray = Array.from(uniqueCities);
-        const batchSize = 5; // Process 5 cities at a time
+        // Fetch coordinates with aggressive optimization
         const coordinates: { [key: string]: Coordinates } = {};
 
-        for (let i = 0; i < cityArray.length; i += batchSize) {
-          const batch = cityArray.slice(i, i + batchSize);
-          const batchPromises = batch.map(async (city) => {
-            const coords = await getCityCoordinatesWithFallback(city, 'Italy');
-            if (coords) {
-              return { city, coords };
-            }
-            return null;
-          });
+        // Process all cities in parallel (no sequential batching)
+        const allPromises = uniqueCities.map(async (city) => {
+          const coords = await getCityCoordinatesWithFallback(city, 'Italy');
+          if (coords) {
+            return { city, coords };
+          }
+          return null;
+        });
 
-          const batchResults = await Promise.all(batchPromises);
-          batchResults.forEach(result => {
-            if (result) {
-              coordinates[result.city] = result.coords;
-            }
-          });
+        // Wait for all coordinates with a race condition for faster UI updates
+        const results = await Promise.allSettled(allPromises);
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value) {
+            coordinates[result.value.city] = result.value.coords;
+          }
+        });
 
-          // Update coordinates progressively
-          setCityCoordinates(prev => ({ ...prev, ...coordinates }));
-        }
+        // Single update with all coordinates
+        setCityCoordinates(coordinates);
 
       } catch (error) {
         console.error('Error fetching student locations:', error);
