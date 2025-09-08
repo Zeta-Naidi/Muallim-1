@@ -13,7 +13,7 @@ export const Footer: React.FC = () => {
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h2 id="footer-heading" className="sr-only">Footer</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           <section aria-label="About Muallim">
             <Link to="/" className="flex items-center space-x-3 group">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -81,7 +81,7 @@ export const Footer: React.FC = () => {
             </ul>
           </section>
 
-          <section aria-label="Opening hours" className="md:col-span-2">
+          <section aria-label="Opening hours">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 relative inline-block">
               <span className="relative z-10">Orari di Apertura</span>
               <span className="absolute bottom-0 left-0 w-full h-1.5 bg-purple-100 -z-0 rounded-full"></span>
