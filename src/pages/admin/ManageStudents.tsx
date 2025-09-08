@@ -58,17 +58,32 @@ export const ManageStudents: React.FC = () => {
   const [viewMode, setViewMode] = useState<'enrolled' | 'waiting'>('enrolled');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Filters
+  // Advanced Filters
   const [filters, setFilters] = useState({
     name: '',
+    surname: '',
     class: '',
     age: '',
     parentName: '',
-    parentPhone: ''
+    parentPhone: '',
+    enrollmentType: '',
+    attendanceMode: '',
+    gender: '',
+    italianSchoolClass: ''
   });
 
-  // Sorting
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  // Advanced Sorting - each field has its own sort state
+  const [sortStates, setSortStates] = useState<{
+    createdAt: 'desc' | 'asc' | null;
+    age: 'desc' | 'asc' | null;
+    name: 'desc' | 'asc' | null;
+    surname: 'desc' | 'asc' | null;
+  }>({
+    createdAt: 'desc', // Default active sort
+    age: null,
+    name: null,
+    surname: null
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,11 +178,19 @@ export const ManageStudents: React.FC = () => {
   useEffect(() => {
     let filtered = [...students];
     
-    // Apply filters
+    // Apply advanced filters
     if (filters.name) {
       const q = filters.name.toLowerCase();
       filtered = filtered.filter(student => 
-        (student.displayName || '').toLowerCase().includes(q)
+        (student.displayName || '').toLowerCase().includes(q) ||
+        (student.firstName || '').toLowerCase().includes(q)
+      );
+    }
+    
+    if (filters.surname) {
+      const q = filters.surname.toLowerCase();
+      filtered = filtered.filter(student => 
+        (student.lastName || '').toLowerCase().includes(q)
       );
     }
     
@@ -194,29 +217,112 @@ export const ManageStudents: React.FC = () => {
       );
     }
 
-    // Apply sorting by createdAt
-    filtered.sort((a, b) => {
-      const dateA = a.createdAt || new Date(0);
-      const dateB = b.createdAt || new Date(0);
-      
-      if (sortOrder === 'desc') {
-        return dateB.getTime() - dateA.getTime();
-      } else {
-        return dateA.getTime() - dateB.getTime();
-      }
-    });
+    if (filters.enrollmentType) {
+      filtered = filtered.filter(student => 
+        (student as any).enrollmentType === filters.enrollmentType
+      );
+    }
+
+    if (filters.attendanceMode) {
+      filtered = filtered.filter(student => 
+        (student as any).attendanceMode === filters.attendanceMode
+      );
+    }
+
+    if (filters.gender) {
+      filtered = filtered.filter(student => 
+        student.gender === filters.gender
+      );
+    }
+
+    if (filters.italianSchoolClass) {
+      const q = filters.italianSchoolClass.toLowerCase();
+      filtered = filtered.filter(student => 
+        ((student as any).italianSchoolClass || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Apply advanced sorting - find the active sort field
+    const activeSortField = Object.entries(sortStates).find(([_, order]) => order !== null)?.[0] as keyof typeof sortStates;
+    const activeSortOrder = activeSortField ? sortStates[activeSortField] : 'desc';
+    
+    if (activeSortField && activeSortOrder) {
+      filtered.sort((a, b) => {
+        let valueA: any, valueB: any;
+        
+        switch (activeSortField) {
+          case 'createdAt':
+            valueA = a.createdAt || new Date(0);
+            valueB = b.createdAt || new Date(0);
+            break;
+          case 'age':
+            valueA = calculateAge(a.birthDate);
+            valueB = calculateAge(b.birthDate);
+            // Convert to numbers for proper sorting
+            valueA = valueA === 'N/A' ? 0 : parseInt(valueA);
+            valueB = valueB === 'N/A' ? 0 : parseInt(valueB);
+            break;
+          case 'name':
+            valueA = (a.firstName || a.displayName || '').toLowerCase();
+            valueB = (b.firstName || b.displayName || '').toLowerCase();
+            break;
+          case 'surname':
+            valueA = (a.lastName || '').toLowerCase();
+            valueB = (b.lastName || '').toLowerCase();
+            break;
+          default:
+            valueA = a.createdAt || new Date(0);
+            valueB = b.createdAt || new Date(0);
+        }
+        
+        if (activeSortField === 'createdAt') {
+          return activeSortOrder === 'desc' 
+            ? valueB.getTime() - valueA.getTime()
+            : valueA.getTime() - valueB.getTime();
+        } else if (activeSortField === 'age') {
+          return activeSortOrder === 'desc' ? valueB - valueA : valueA - valueB;
+        } else {
+          return activeSortOrder === 'desc' 
+            ? valueB.localeCompare(valueA)
+            : valueA.localeCompare(valueB);
+        }
+      });
+    }
 
     setFilteredStudents(filtered);
     // Reset pagination when filters change to avoid empty pages
     setEnrolledPage(1);
     setNotEnrolledPage(1);
-  }, [students, filters, sortOrder]);
+  }, [students, filters, sortStates]);
 
   const handleFilterChange = (field: string, value: string) => {
     setFilters(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleSortToggle = (field: keyof typeof sortStates) => {
+    setSortStates(prev => {
+      // Reset all other fields to null
+      const newState = {
+        createdAt: null,
+        age: null,
+        name: null,
+        surname: null
+      } as typeof prev;
+      
+      // Toggle the clicked field
+      if (prev[field] === null) {
+        newState[field] = 'desc';
+      } else if (prev[field] === 'desc') {
+        newState[field] = 'asc';
+      } else {
+        newState[field] = 'desc';
+      }
+      
+      return newState;
+    });
   };
 
   const calculateAge = (birthDate: Date | undefined | null): string => {
@@ -1028,15 +1134,6 @@ export const ManageStudents: React.FC = () => {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
-                      onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                      variant="outline"
-                      size="sm"
-                      className="text-gray-600 hover:text-gray-800 rounded-xl"
-                      leftIcon={sortOrder === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
-                    >
-                      {sortOrder === 'desc' ? 'Più Recenti' : 'Più Vecchi'}
-                    </Button>
-                    <Button
                       onClick={exportToCSV}
                       className="bg-green-600 hover:bg-green-700 text-white rounded-xl"
                       size="sm"
@@ -1059,10 +1156,15 @@ export const ManageStudents: React.FC = () => {
                       size="sm"
                       onClick={() => setFilters({
                         name: '',
+                        surname: '',
                         class: '',
                         age: '',
                         parentName: '',
-                        parentPhone: ''
+                        parentPhone: '',
+                        enrollmentType: '',
+                        attendanceMode: '',
+                        gender: '',
+                        italianSchoolClass: ''
                       })}
                       className="hidden sm:inline-flex text-gray-600 hover:text-gray-800 rounded-xl"
                     >
@@ -1075,11 +1177,11 @@ export const ManageStudents: React.FC = () => {
               <CardContent className="p-6">
                 <div id="students-filters" className={`space-y-4 ${filtersOpen ? 'block' : 'hidden'} sm:block`}>
                   {/* Primary Filters Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Search className="h-4 w-4 mr-1 text-gray-500" />
-                        Nome Studente
+                        Nome
                       </label>
                       <Input
                         type="text"
@@ -1089,15 +1191,29 @@ export const ManageStudents: React.FC = () => {
                         className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
                       />
                     </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 flex items-center">
+                        <Search className="h-4 w-4 mr-1 text-gray-500" />
+                        Cognome
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Cerca per cognome..."
+                        value={filters.surname}
+                        onChange={(e) => handleFilterChange('surname', e.target.value)}
+                        className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+                      />
+                    </div>
                     
-                    <div className="space-y-2 hidden md:block">
+                    <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Calendar className="h-4 w-4 mr-1 text-gray-500" />
                         Età
                       </label>
                       <Input
                         type="number"
-                        placeholder="Età studente..."
+                        placeholder="Età..."
                         value={filters.age}
                         onChange={(e) => handleFilterChange('age', e.target.value)}
                         className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
@@ -1125,7 +1241,7 @@ export const ManageStudents: React.FC = () => {
                   </div>
 
                   {/* Secondary Filters Row */}
-                  <div className="hidden md:grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Users className="h-4 w-4 mr-1 text-gray-500" />
@@ -1153,10 +1269,71 @@ export const ManageStudents: React.FC = () => {
                         className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
                       />
                     </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Genere
+                      </label>
+                      <select
+                        value={filters.gender}
+                        onChange={(e) => handleFilterChange('gender', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
+                      >
+                        <option value="">Tutti i generi</option>
+                        <option value="male">Maschio</option>
+                        <option value="female">Femmina</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Tertiary Filters Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Tipo Iscrizione
+                      </label>
+                      <select
+                        value={filters.enrollmentType}
+                        onChange={(e) => handleFilterChange('enrollmentType', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
+                      >
+                        <option value="">Tutti i tipi</option>
+                        <option value="nuova_iscrizione">Nuova Iscrizione</option>
+                        <option value="rinnovo">Rinnovo</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Modalità Frequenza
+                      </label>
+                      <select
+                        value={filters.attendanceMode}
+                        onChange={(e) => handleFilterChange('attendanceMode', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
+                      >
+                        <option value="">Tutte le modalità</option>
+                        <option value="in_presenza">In Presenza</option>
+                        <option value="online">Online</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Classe Italiana
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Es. 1A, 2B..."
+                        value={filters.italianSchoolClass}
+                        onChange={(e) => handleFilterChange('italianSchoolClass', e.target.value)}
+                        className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+                      />
+                    </div>
                   </div>
 
                   {/* Filter Summary */}
-                  {(filters.name || filters.class || filters.age || filters.parentName || filters.parentPhone) && (
+                  {(filters.name || filters.surname || filters.class || filters.age || filters.parentName || filters.parentPhone || filters.enrollmentType || filters.attendanceMode || filters.gender || filters.italianSchoolClass) && (
                     <div className="hidden md:block mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center text-sm text-blue-700">
@@ -1177,6 +1354,17 @@ export const ManageStudents: React.FC = () => {
                               <button
                                 onClick={() => handleFilterChange('name', '')}
                                 className="ml-1 hover:text-blue-900"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          )}
+                          {filters.surname && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-700">
+                              Cognome: {filters.surname}
+                              <button
+                                onClick={() => handleFilterChange('surname', '')}
+                                className="ml-1 hover:text-indigo-900"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -1226,6 +1414,50 @@ export const ManageStudents: React.FC = () => {
                               </button>
                             </span>
                           )}
+                          {filters.enrollmentType && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-teal-100 text-teal-700">
+                              Tipo: {filters.enrollmentType === 'nuova_iscrizione' ? 'Nuova Iscrizione' : 'Rinnovo'}
+                              <button
+                                onClick={() => handleFilterChange('enrollmentType', '')}
+                                className="ml-1 hover:text-teal-900"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          )}
+                          {filters.attendanceMode && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-cyan-100 text-cyan-700">
+                              Modalità: {filters.attendanceMode === 'in_presenza' ? 'In Presenza' : 'Online'}
+                              <button
+                                onClick={() => handleFilterChange('attendanceMode', '')}
+                                className="ml-1 hover:text-cyan-900"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          )}
+                          {filters.gender && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-rose-100 text-rose-700">
+                              Genere: {filters.gender === 'male' ? 'Maschio' : 'Femmina'}
+                              <button
+                                onClick={() => handleFilterChange('gender', '')}
+                                className="ml-1 hover:text-rose-900"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          )}
+                          {filters.italianSchoolClass && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-700">
+                              Classe IT: {filters.italianSchoolClass}
+                              <button
+                                onClick={() => handleFilterChange('italianSchoolClass', '')}
+                                className="ml-1 hover:text-amber-900"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1241,6 +1473,104 @@ export const ManageStudents: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Sorting Bar */}
+              <Card className="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl overflow-hidden mb-4 mt-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        <ArrowUp className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                    <h3 className="text-sm font-semibold text-gray-800">Ordinamento</h3>
+                    <p className="text-xs text-gray-600">Clicca per ordinare</p>
+                  </div>
+                </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => handleSortToggle('createdAt')}
+                        variant={sortStates.createdAt ? 'primary' : 'outline'}
+                        size="sm"
+                        className={`rounded-xl transition-all ${
+                          sortStates.createdAt 
+                            ? 'bg-blue-600 text-white shadow-md' 
+                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                        }`}
+                        leftIcon={
+                          sortStates.createdAt === 'desc' ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : sortStates.createdAt === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : null
+                        }
+                      >
+                        Data Registrazione
+                      </Button>
+                      
+                      <Button
+                        onClick={() => handleSortToggle('age')}
+                        variant={sortStates.age ? 'primary' : 'outline'}
+                        size="sm"
+                        className={`rounded-xl transition-all ${
+                          sortStates.age 
+                            ? 'bg-green-600 text-white shadow-md' 
+                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                        }`}
+                        leftIcon={
+                          sortStates.age === 'desc' ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : sortStates.age === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : null
+                        }
+                      >
+                        Età
+                      </Button>
+                      
+                      <Button
+                        onClick={() => handleSortToggle('name')}
+                        variant={sortStates.name ? 'primary' : 'outline'}
+                        size="sm"
+                        className={`rounded-xl transition-all ${
+                          sortStates.name 
+                            ? 'bg-purple-600 text-white shadow-md' 
+                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                        }`}
+                        leftIcon={
+                          sortStates.name === 'desc' ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : sortStates.name === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : null
+                        }
+                      >
+                        Nome
+                      </Button>
+                      
+                      <Button
+                        onClick={() => handleSortToggle('surname')}
+                        variant={sortStates.surname ? 'primary' : 'outline'}
+                        size="sm"
+                        className={`rounded-xl transition-all ${
+                          sortStates.surname 
+                            ? 'bg-orange-600 text-white shadow-md' 
+                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                        }`}
+                        leftIcon={
+                          sortStates.surname === 'desc' ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : sortStates.surname === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : null
+                        }
+                      >
+                        Cognome
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Section Header */}
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
                 {/* Quick Stats */}
