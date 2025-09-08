@@ -535,10 +535,6 @@ export const ManageStudents: React.FC = () => {
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Informazioni Studente</h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Email:</span>
-                          <span className="text-gray-900">{student.email}</span>
-                        </div>
-                        <div className="flex justify-between">
                           <span className="text-gray-500">Data di nascita:</span>
                           <span className="text-gray-900">{formatDate(student.birthDate)}</span>
                         </div>
