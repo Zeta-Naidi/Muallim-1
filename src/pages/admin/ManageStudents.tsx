@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
-  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp
+  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, UserPlus
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -246,15 +246,11 @@ export const ManageStudents: React.FC = () => {
         'Classe Precedente',
         'Classe Scuola Italiana',
         'Ha Disabilità',
-        'Tipo di Disabilità',
         'Nome Genitore',
-        'CF Genitore',
         'Telefono Genitore',
         'Email Genitore',
-        'Indirizzo Genitore',
-        'Città Genitore',
-        'CAP Genitore',
         'Data Registrazione',
+        'Turni',
         'Iscritto',
         'Data Iscrizione',
         'Stato Account'
@@ -272,22 +268,16 @@ export const ManageStudents: React.FC = () => {
           student.address || '',
           student.city || '',
           student.postalCode || '',
-          student.emergencyContact || '',
           student.attendanceMode || '',
           student.enrollmentType || '',
           student.previousYearClass || '',
           student.italianSchoolClass || '',
           student.hasDisability ? 'Sì' : 'No',
-          '',
           student.parentName || '',
-          student.parentCodiceFiscale || '',
           student.parentContact || '',
           student.parentEmail || '',
-          student.parentAddress || '',
-          student.parentCity || '',
-          student.parentPostalCode || '',
+          student.registrationDate && isValid(new Date(student.createdAt)) ? format(new Date(student.createdAt), 'dd/MM/yyyy HH:mm') : '',
           student.selectedTurni ? student.selectedTurni.join(', ') : '',
-          student.registrationDate && isValid(new Date(student.registrationDate)) ? format(new Date(student.registrationDate), 'dd/MM/yyyy HH:mm') : '',
           student.isEnrolled ? 'Sì' : 'No',
           student.enrollmentDate && isValid(new Date(student.enrollmentDate)) ? format(new Date(student.enrollmentDate), 'dd/MM/yyyy') : '',
           student.accountStatus || ''
@@ -386,8 +376,8 @@ export const ManageStudents: React.FC = () => {
                   disabled={processingStudent === student.id}
                   className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
                     student.isEnrolled 
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      ?  'bg-red-100 text-red-700 hover:bg-red-200'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
                   } ${processingStudent === student.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   {processingStudent === student.id ? (
@@ -395,7 +385,7 @@ export const ManageStudents: React.FC = () => {
                   ) : student.isEnrolled ? (
                     <CheckCircle className="h-4 w-4" />
                   ) : (
-                    <X className="h-4 w-4" />
+                    <UserPlus className="h-4 w-4" />
                   )}
                 </button>
                 
