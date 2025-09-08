@@ -612,36 +612,6 @@ export const ManageUsers: React.FC = () => {
               </table>
             </div>
           </CardContent>
-          
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-t">
-              <div className="text-sm text-gray-700">
-                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, currentItems.length)} di {currentItems.length} {showStudents ? 'studenti' : 'utenti'}
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <span className="text-sm text-gray-600">Pagina {currentPage} di {totalPages}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-          )}
         </Card>
       ) : (
         <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
@@ -657,6 +627,31 @@ export const ManageUsers: React.FC = () => {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <span className="text-sm text-gray-600">Pagina {currentPage} di {totalPages}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       )}
       
       {/* Custom Delete Confirmation Dialog */}
