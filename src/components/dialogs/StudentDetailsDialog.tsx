@@ -37,6 +37,7 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
 
   // Handle different birthdate field names from both User and Student types
   const birthdate = (student as any).birthDate || (student as any).birthdate || (student as any).dateOfBirth;
+  console.log(birthdate);
   const ageFromBirthdate = computeAge(birthdate);
   const ageDisplay = ageFromBirthdate != null ? `${ageFromBirthdate} anni` : ((student as any).age ? `${(student as any).age} anni` : 'Non specificato');
 
