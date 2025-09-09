@@ -3,6 +3,7 @@ import { Plus, Search, Users, X, School, BookOpen, FileText, UserCheck, Trash2, 
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { CreateClassDialog } from '../../components/dialogs/CreateClassDialog';
+import { AddStudentDialog } from '../../components/dialogs/AddStudentDialog';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { Class, User } from '../../types';
@@ -31,8 +32,6 @@ export const ManageClasses: React.FC = () => {
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [availableStudents, setAvailableStudents] = useState<any[]>([]);
-  const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [isRemoveStudentDialogOpen, setIsRemoveStudentDialogOpen] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState<{id: string, name: string} | null>(null);
   const [isChangeTeacherDialogOpen, setIsChangeTeacherDialogOpen] = useState(false);
@@ -204,47 +203,26 @@ export const ManageClasses: React.FC = () => {
     setSelectedTurno('');
   };
 
-  // Fetch available students when add student dialog opens
-  useEffect(() => {
-    const fetchAvailableStudents = async () => {
-      if (!isAddStudentDialogOpen || !selectedClass) return;
-      
-      try {
-        const studentsQuery = query(collection(db, 'students'));
-        const studentsDocs = await getDocs(studentsQuery);
-        const allStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        
-        // Filter out students already in the class
-        const available = allStudents.filter(student => 
-          !selectedClass.students?.includes(student.id)
-        );
-        setAvailableStudents(available);
-      } catch (error) {
-        console.error('Error fetching available students:', error);
-      }
-    };
 
-    fetchAvailableStudents();
-  }, [isAddStudentDialogOpen, selectedClass]);
-
-  const handleAddStudent = async (studentId: string) => {
-    if (!selectedClass) return;
+  const handleAddStudents = async (studentIds: string[]) => {
+    if (!selectedClass || studentIds.length === 0) return;
 
     try {
+      // Add all selected students to the class
       await updateDoc(doc(db, 'classes', selectedClass.id), {
-        students: arrayUnion(studentId)
+        students: arrayUnion(...studentIds)
       });
 
       // Update local state
       setSelectedClass(prev => prev ? {
         ...prev,
-        students: [...(prev.students || []), studentId]
+        students: [...(prev.students || []), ...studentIds]
       } : null);
 
       setIsAddStudentDialogOpen(false);
       setRefreshKey(prev => prev + 1);
     } catch (error) {
-      console.error('Error adding student:', error);
+      console.error('Error adding students:', error);
     }
   };
 
@@ -1076,73 +1054,12 @@ export const ManageClasses: React.FC = () => {
       />
 
       {/* Add Student Dialog */}
-      {isAddStudentDialogOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Aggiungi Studente</h3>
-                <button
-                  onClick={() => setIsAddStudentDialogOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cerca studente
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    value={studentSearchQuery}
-                    onChange={(e) => setStudentSearchQuery(e.target.value)}
-                    placeholder="Nome o email dello studente..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-              
-              <div className="max-h-64 overflow-y-auto">
-                {availableStudents
-                  .filter(student => 
-                    !studentSearchQuery || 
-                    student.displayName?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-                    student.email?.toLowerCase().includes(studentSearchQuery.toLowerCase())
-                  )
-                  .map(student => (
-                    <div
-                      key={student.id}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
-                      onClick={() => handleAddStudent(student.id)}
-                    >
-                      <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-medium">
-                        {student.displayName?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{student.displayName}</div>
-                        <div className="text-sm text-gray-600">{student.email}</div>
-                      </div>
-                    </div>
-                  ))}
-                {availableStudents.filter(student => 
-                  !studentSearchQuery || 
-                  student.displayName?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-                  student.email?.toLowerCase().includes(studentSearchQuery.toLowerCase())
-                ).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    {studentSearchQuery ? 'Nessuno studente trovato' : 'Nessuno studente disponibile'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddStudentDialog
+        isOpen={isAddStudentDialogOpen}
+        onClose={() => setIsAddStudentDialogOpen(false)}
+        onAddStudents={handleAddStudents}
+        excludeStudentIds={selectedClass?.students || []}
+      />
 
       {/* Student Details Dialog */}
       {isStudentDetailsOpen && selectedStudent && (
