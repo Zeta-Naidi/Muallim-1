@@ -548,10 +548,12 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
                           </h4>
                           
                           <div className="space-y-1 mt-2">
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Mail className="h-3 w-3" />
-                              <span className="truncate">{student.email}</span>
-                            </div>
+                            {/* Account Status Badge */}
+                            {student.accountStatus === 'pending_approval' && (
+                              <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mb-2">
+                                In attesa di approvazione
+                              </div>
+                            )}
                             
                             {student.phoneNumber && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">

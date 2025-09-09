@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { CreateClassDialog } from '../../components/dialogs/CreateClassDialog';
 import { AddStudentDialog } from '../../components/dialogs/AddStudentDialog';
-import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { Class, User } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -208,10 +208,27 @@ export const ManageClasses: React.FC = () => {
     if (!selectedClass || studentIds.length === 0) return;
 
     try {
+      const batch = writeBatch(db);
+      
       // Add all selected students to the class
-      await updateDoc(doc(db, 'classes', selectedClass.id), {
+      const classRef = doc(db, 'classes', selectedClass.id);
+      batch.update(classRef, {
         students: arrayUnion(...studentIds)
       });
+
+      // Auto-approve any pending students being added to the class
+      for (const studentId of studentIds) {
+        const studentRef = doc(db, 'students', studentId);
+        console.log(`Updating student ${studentId} to active status`);
+        batch.update(studentRef, {
+          accountStatus: 'active',
+          isEnrolled: true,
+          enrollmentDate: new Date()
+        });
+      }
+
+      // Execute all updates in a batch
+      await batch.commit();
 
       // Update local state
       setSelectedClass(prev => prev ? {
@@ -223,6 +240,7 @@ export const ManageClasses: React.FC = () => {
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error adding students:', error);
+      console.error('Error details:', error instanceof Error ? error.message : String(error));
     }
   };
 
