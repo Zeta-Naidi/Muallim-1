@@ -426,7 +426,46 @@ export const RegisterStudent: React.FC = () => {
         code: error.code,
         name: error.name
       });
-      setError(error.message || 'Errore durante la registrazione');
+      
+      // Provide user-friendly error messages for common Firebase auth errors
+      let userFriendlyMessage = error.message || 'Errore durante la registrazione';
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            userFriendlyMessage = 'L\'indirizzo email è già in uso. Utilizza un\'altra email o accedi con le credenziali esistenti.';
+            break;
+          case 'auth/weak-password':
+            userFriendlyMessage = 'La password è troppo debole. Utilizza almeno 6 caratteri.';
+            break;
+          case 'auth/invalid-email':
+            userFriendlyMessage = 'L\'indirizzo email non è valido.';
+            break;
+          case 'auth/operation-not-allowed':
+            userFriendlyMessage = 'La registrazione con email/password non è abilitata. Contatta l\'amministratore.';
+            break;
+          case 'auth/network-request-failed':
+            userFriendlyMessage = 'Errore di connessione. Verifica la tua connessione internet e riprova.';
+            break;
+          case 'auth/too-many-requests':
+            userFriendlyMessage = 'Troppi tentativi di registrazione. Riprova più tardi.';
+            break;
+          case 'permission-denied':
+            userFriendlyMessage = 'Accesso negato al database. Verifica le tue autorizzazioni o contatta l\'amministratore.';
+            break;
+          case 'unavailable':
+            userFriendlyMessage = 'Il servizio è temporaneamente non disponibile. Riprova più tardi.';
+            break;
+          default:
+            // Keep the original message for unknown errors but make it more user-friendly
+            if (error.message && error.message.includes('Firebase')) {
+              userFriendlyMessage = 'Errore del sistema di autenticazione. Riprova o contatta l\'assistenza.';
+            }
+            break;
+        }
+      }
+      
+      setError(userFriendlyMessage);
       // Don't navigate on error, stay on the form to show the error
     } finally {
       console.log('Registration process finished, setting loading to false');
@@ -589,6 +628,21 @@ export const RegisterStudent: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3"
+          >
+            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-700 text-sm font-medium mb-1">Errore durante la registrazione</p>
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row justify-between items-center pt-6 gap-4">
@@ -1162,7 +1216,7 @@ export const RegisterStudent: React.FC = () => {
                     },
                     validate: checkEmailExists
                   })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
                   placeholder="email@esempio.com"
                 />
               </div>
