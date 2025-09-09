@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
-  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, UserPlus
+  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, UserPlus, Mail
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -32,8 +32,15 @@ interface StudentFormValues {
   emergencyContact?: string;
   parentName?: string;
   parentContact?: string;
+  parentEmail?: string;
   classId?: string;
   italianSchoolClass?: string;
+  codiceFiscale?: string;
+  enrollmentType?: string;
+  hasDisability?: boolean;
+  selectedTurni?: string[];
+  attendanceMode?: string;
+  accountStatus?: string;
 }
 
 export const ManageStudents: React.FC = () => {
@@ -150,7 +157,7 @@ export const ManageStudents: React.FC = () => {
           return {
             ...student,
             role: 'student' as UserRole,
-            gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
+            gender: student.gender,
             parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
             parentCodiceFiscale: parentData?.codiceFiscale,
             parentContact: parentData?.phoneNumber || parentData.contact,
@@ -556,7 +563,7 @@ export const ManageStudents: React.FC = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Genere:</span>
-                          <span className="text-gray-900">{student.gender === 'male' ? 'Maschio' : student.gender === 'female' ? 'Femmina' : 'N/A'}</span>
+                          <span className="text-gray-900">{student.gender === 'M' ? 'Maschio' : student.gender === 'F' ? 'Femmina' : 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Modalità frequenza:</span>
@@ -669,6 +676,8 @@ export const ManageStudents: React.FC = () => {
     setValue('email', student.email);
     setValue('phoneNumber', student.phoneNumber || '');
     setValue('address', student.address || '');
+    setValue('city', (student as any).city || '');
+    setValue('postalCode', (student as any).postalCode || '');
     
     if (student.birthDate && isValid(new Date(student.birthDate))) {
       setValue('birthDate', format(new Date(student.birthDate), 'yyyy-MM-dd'));
@@ -680,7 +689,15 @@ export const ManageStudents: React.FC = () => {
     setValue('emergencyContact', student.emergencyContact || '');
     setValue('parentName', student.parentName || '');
     setValue('parentContact', student.parentContact || '');
+    setValue('parentEmail', (student as any).parentEmail || '');
     setValue('classId', (student as any).currentClass || '');
+    setValue('italianSchoolClass', (student as any).italianSchoolClass || '');
+    setValue('codiceFiscale', (student as any).codiceFiscale || '');
+    setValue('enrollmentType', (student as any).enrollmentType || '');
+    setValue('hasDisability', (student as any).hasDisability || false);
+    setValue('selectedTurni', (student as any).selectedTurni || []);
+    setValue('attendanceMode', (student as any).attendanceMode || '');
+    setValue('accountStatus', (student as any).accountStatus || '');
   };
 
   const handleCancelEdit = () => {
@@ -793,14 +810,39 @@ export const ManageStudents: React.FC = () => {
         displayName: data.displayName,
         phoneNumber: data.phoneNumber || null,
         address: data.address || null,
+        city: data.city || null,
+        postalCode: data.postalCode || null,
         birthDate: data.birthDate ? new Date(data.birthDate) : null,
         gender: data.gender || null,
         emergencyContact: data.emergencyContact || null,
         parentName: data.parentName || null,
         parentContact: data.parentContact || null,
         currentClass: newClassIdDb,
+        italianSchoolClass: data.italianSchoolClass || null,
+        codiceFiscale: data.codiceFiscale || null,
+        enrollmentType: data.enrollmentType || null,
+        hasDisability: data.hasDisability || false,
+        selectedTurni: data.selectedTurni || [],
+        attendanceMode: data.attendanceMode || null,
+        accountStatus: data.accountStatus || null,
         updatedAt: new Date()
       });
+
+      // Update parent information if provided
+      if (data.parentEmail) {
+        const parentId = currentStudent?.parentId;
+        if (parentId) {
+          const parentRef = doc(db, 'users', parentId);
+          const parentUpdates: Record<string, any> = {};
+          
+          if (data.parentEmail) parentUpdates.email = data.parentEmail;
+          
+          if (Object.keys(parentUpdates).length > 0) {
+            parentUpdates.updatedAt = new Date();
+            await updateDoc(parentRef, parentUpdates);
+          }
+        }
+      }
 
       // Update class student counts if class changed
       if (oldClassId !== newClassIdDb) {
@@ -819,11 +861,21 @@ export const ManageStudents: React.FC = () => {
               displayName: data.displayName,
               phoneNumber: data.phoneNumber || undefined,
               address: data.address || undefined,
+              city: data.city || undefined,
+              postalCode: data.postalCode || undefined,
               gender: data.gender === 'M' ? 'M' : data.gender === 'F' ? 'F' : student.gender,
               emergencyContact: data.emergencyContact || undefined,
               parentName: data.parentName || undefined,
               parentContact: data.parentContact || undefined,
+              parentEmail: data.parentEmail || undefined,
               currentClass: newClassIdState || student.currentClass,
+              italianSchoolClass: data.italianSchoolClass || undefined,
+              codiceFiscale: data.codiceFiscale || undefined,
+              enrollmentType: data.enrollmentType || undefined,
+              hasDisability: data.hasDisability || false,
+              selectedTurni: data.selectedTurni || [],
+              attendanceMode: data.attendanceMode || undefined,
+              accountStatus: data.accountStatus || undefined,
               birthDate: data.birthDate ? new Date(data.birthDate) : student.birthDate
             } as StudentWithParent
           : student
@@ -993,49 +1045,22 @@ export const ManageStudents: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <form onSubmit={handleSubmit(onSubmit)}>
-              <CardContent className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <CardContent className="p-6 space-y-8">
+                {/* Informazioni Personali */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Personali</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
                       label="Nome completo"
                       error={errors.displayName?.message}
                       className="anime-input"
                       {...register('displayName', { required: 'Il nome è obbligatorio' })}
                     />
-                    
-                    <Input
-                      label="Email"
-                      type="email"
-                      disabled
-                      className="anime-input bg-gray-50"
-                      {...register('email')}
-                    />
 
                     <Input
-                      label="Telefono"
-                      leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
+                      label="Codice Fiscale"
                       className="anime-input"
-                      {...register('phoneNumber')}
-                    />
-
-                    <Input
-                      label="Indirizzo"
-                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('address')}
-                    />
-
-                    <Input
-                      label="Città"
-                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('city')}
-                    />
-
-                    <Input
-                      label="CAP"
-                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('postalCode')}
+                      {...register('codiceFiscale')}
                     />
 
                     <Input
@@ -1055,11 +1080,51 @@ export const ManageStudents: React.FC = () => {
                         {...register('gender')}
                       >
                         <option value="">Seleziona genere</option>
-                        <option value="male">Maschio</option>
-                        <option value="female">Femmina</option>
+                        <option value="M">Maschio</option>
+                        <option value="F">Femmina</option>
                       </select>
                     </div>
 
+                    <Input
+                      label="Telefono"
+                      leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
+                      className="anime-input"
+                      {...register('phoneNumber')}
+                    />
+                  </div>
+                </div>
+
+                {/* Indirizzo */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Indirizzo</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Input
+                      label="Indirizzo"
+                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                      className="anime-input md:col-span-2"
+                      {...register('address')}
+                    />
+
+                    <Input
+                      label="Città"
+                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                      className="anime-input md:col-span-2"
+                      {...register('city')}
+                    />
+
+                    <Input
+                      label="CAP"
+                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                      className="anime-input"
+                      {...register('postalCode')}
+                    />
+                  </div>
+                </div>
+
+                {/* Informazioni Genitore */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Genitore</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
                       label="Nome del genitore"
                       className="anime-input"
@@ -1068,13 +1133,34 @@ export const ManageStudents: React.FC = () => {
 
                     <Input
                       label="Contatto del genitore"
+                      leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
                       className="anime-input"
                       {...register('parentContact')}
                     />
 
+                    <Input
+                      label="Email del genitore"
+                      type="email"
+                      leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
+                      className="anime-input md:col-span-2"
+                      {...register('parentEmail')}
+                    />
+                  </div>
+                </div>
+
+                {/* Informazioni Scolastiche */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Scolastiche</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Classe Scuola Italiana"
+                      className="anime-input"
+                      {...register('italianSchoolClass')}
+                    />
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Classe
+                        Classe Assegnata
                       </label>
                       <select
                         className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
@@ -1088,7 +1174,63 @@ export const ManageStudents: React.FC = () => {
                         ))}
                       </select>
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo Iscrizione
+                      </label>
+                      <select
+                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                        {...register('enrollmentType')}
+                      >
+                        <option value="">Seleziona tipo</option>
+                        <option value="nuova_iscrizione">Nuova Iscrizione</option>
+                        <option value="rinnovo">Rinnovo</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Modalità Frequenza
+                      </label>
+                      <select
+                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                        {...register('attendanceMode')}
+                      >
+                        <option value="">Seleziona modalità</option>
+                        <option value="in_presenza">In Presenza</option>
+                        <option value="online">Online</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Stato Account
+                      </label>
+                      <select
+                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                        {...register('accountStatus')}
+                      >
+                        <option value="">Seleziona stato</option>
+                        <option value="pending_approval">In Attesa di Approvazione</option>
+                        <option value="active">Attivo</option>
+                        <option value="suspended">Sospeso</option>
+                        <option value="inactive">Inattivo</option>
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          {...register('hasDisability')}
+                        />
+                        <span className="text-sm font-medium text-gray-700">Ha disabilità</span>
+                      </label>
+                    </div>
                   </div>
+                </div>
                 </CardContent>
                 <CardFooter className="flex justify-end space-x-4 bg-gray-50 border-t border-gray-200 p-6">
                   <Button
@@ -1276,8 +1418,8 @@ export const ManageStudents: React.FC = () => {
                         className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 bg-white"
                       >
                         <option value="">Tutti i generi</option>
-                        <option value="male">Maschio</option>
-                        <option value="female">Femmina</option>
+                        <option value="M">Maschio</option>
+                        <option value="F">Femmina</option>
                       </select>
                     </div>
                   </div>
@@ -1434,7 +1576,7 @@ export const ManageStudents: React.FC = () => {
                           )}
                           {filters.gender && (
                             <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-rose-100 text-rose-700">
-                              Genere: {filters.gender === 'male' ? 'Maschio' : 'Femmina'}
+                              Genere: {filters.gender === 'M' ? 'Maschio' : 'Femmina'}
                               <button
                                 onClick={() => handleFilterChange('gender', '')}
                                 className="ml-1 hover:text-rose-900"

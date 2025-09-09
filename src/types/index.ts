@@ -57,7 +57,7 @@ export interface User {
   }>; // For parents - references to their children
   // Additional fields for all users
   age?: number;
-  gender?: 'male' | 'female';
+  gender?: 'M' | 'F';
   address?: string;
   phoneNumber?: string;
   emergencyContact?: string;
@@ -121,7 +121,7 @@ export interface Student {
 // Extended Student interface with parent data for UI display
 export interface StudentWithParent extends Omit<Student, 'gender'> {
   role: UserRole; // Added for compatibility with User type
-  gender?: 'male' | 'female'; // Override to match User type
+  gender?: 'M' | 'F'; // Override to match User type
   parentName?: string;
   parentCodiceFiscale?: string;
   parentContact?: string;
