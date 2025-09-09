@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { 
-  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, UserPlus, Mail
+  Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, UserPlus, Mail,
+  UserMinus
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -496,7 +497,7 @@ export const ManageStudents: React.FC = () => {
                   {processingStudent === student.id ? (
                     <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent" />
                   ) : student.isEnrolled ? (
-                    <CheckCircle className="h-4 w-4" />
+                    <UserMinus className="h-4 w-4" />
                   ) : (
                     <UserPlus className="h-4 w-4" />
                   )}
