@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
+import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
@@ -34,8 +34,8 @@ enableMultiTabIndexedDbPersistence(db)
     }
   });
 
-// Set up offline persistence for authentication
-setPersistence(auth, browserLocalPersistence)
+// Set up session persistence for authentication (expires when tab closes)
+setPersistence(auth, browserSessionPersistence)
   .catch((error) => {
     console.error('Error setting auth persistence:', error);
   });
