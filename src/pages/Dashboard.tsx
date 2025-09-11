@@ -146,7 +146,6 @@ const CreateEventForm: React.FC<CreateEventFormProps> = ({ onClose }) => {
       };
 
       await addDoc(collection(db, 'events'), eventData);
-      console.log('Event would be created:', eventData);
       
       alert('Evento creato con successo!');
       onClose();
@@ -710,9 +709,8 @@ export const Dashboard: React.FC = () => {
         // Redesigned Admin Dashboard (vibrant theme)
         <>
           {/* Key Metrics Overview (custom cards) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-8">
             <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
@@ -726,7 +724,6 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -740,7 +737,6 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -754,7 +750,6 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-fuchsia-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-fuchsia-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-fuchsia-100 text-fuchsia-700 flex items-center justify-center">
@@ -882,7 +877,7 @@ export const Dashboard: React.FC = () => {
         // Student/Teacher Dashboard (original)
         <>
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-8">
             {userProfile.role === 'teacher' && (
               <Link to="/attendance" className="block">
                 <div className="bg-white border border-slate-200 rounded-lg p-6 hover:border-slate-300 hover:shadow-sm transition-all duration-200">

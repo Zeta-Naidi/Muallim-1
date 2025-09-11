@@ -211,17 +211,11 @@ const testStudents = [
 ];
 
 async function createTestStudents() {
-  console.log('Creating test students...');
   
   try {
     for (const student of testStudents) {
       const docRef = await addDoc(collection(db, 'users'), student);
-      console.log(`Created student ${student.firstName} ${student.lastName} with ID: ${docRef.id} in ${student.city}`);
     }
-    
-    console.log('\n✅ All test students created successfully!');
-    console.log(`📍 Students distributed across ${new Set(testStudents.map(s => s.city)).size} Italian cities`);
-    console.log('🗺️ You should now see dots on the map representing student locations');
     
   } catch (error) {
     console.error('Error creating test students:', error);

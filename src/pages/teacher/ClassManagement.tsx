@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Users, BookOpen, ClipboardList, FileText, Calendar, UserCheck, Clock, Plus, School, GraduationCap, Eye, Mail, Phone } from 'lucide-react';
+import { Users, BookOpen, ClipboardList, FileText, Calendar, UserCheck, Clock, Plus, School, GraduationCap, Eye, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -118,14 +118,11 @@ export const ClassManagement: React.FC = () => {
         // Fetch students using the class document's students array
         let students: User[] = [];
         try {
-          console.log('Fetching students for class:', selectedClass);
-          
           // Get the class document to access the students array
           const classDoc = await getDoc(doc(db, 'classes', selectedClass));
           if (classDoc.exists()) {
             const classData = classDoc.data();
             const studentIds = classData.students || [];
-            console.log('Student IDs from class document:', studentIds);
             
             if (studentIds.length > 0) {
               // Fetch student documents in batches (Firestore 'in' query limit is 10)
@@ -176,7 +173,6 @@ export const ClassManagement: React.FC = () => {
                 } as any;
               });
               
-              console.log('Fetched students with parent data:', students.map(s => ({ id: s.id, displayName: s.displayName, parentName: (s as any).parentName })));
             } else {
               console.log('No students found in class document');
             }
@@ -299,8 +295,6 @@ export const ClassManagement: React.FC = () => {
     );
   }
 
-  const selectedClassData = myClasses.find(c => c.id === selectedClass);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
       {/* Hero Header */}
@@ -309,26 +303,27 @@ export const ClassManagement: React.FC = () => {
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
         <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
         
-        <div className="relative px-6 py-12">
+        <div className="relative px-4 sm:px-6 py-8 sm:py-12">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
-                  <School className="h-8 w-8" />
+            {/* Mobile-first layout */}
+            <div className="flex flex-col space-y-6 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="p-2 sm:p-3 rounded-2xl bg-white/10 backdrop-blur-sm">
+                  <School className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">Le Mie Classi</h1>
-                  <p className="text-blue-100 mt-1">Gestisci le tue classi, studenti e attività didattiche</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold">Le Mie Classi</h1>
+                  <p className="text-blue-100 mt-1 text-sm sm:text-base">Gestisci le tue classi, studenti e attività didattiche</p>
                 </div>
               </div>
               
-              {/* Class Selection in Header */}
-              <div className="min-w-[280px]">
+              {/* Class Selection - Mobile Optimized */}
+              <div className="w-full lg:min-w-[280px] lg:max-w-[320px]">
                 <label className="block text-sm font-medium text-white/90 mb-2">
                   Seleziona Classe
                 </label>
                 <select
-                  className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 sm:text-sm py-3 px-4 transition-colors"
+                  className="block w-full rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm text-white shadow-sm focus:border-white/40 focus:ring-white/20 text-sm sm:text-base py-3 px-4 transition-colors"
                   value={selectedClass}
                   onChange={(e) => setSelectedClass(e.target.value)}
                 >
@@ -350,10 +345,9 @@ export const ClassManagement: React.FC = () => {
 
         {selectedClass && !isLoading && (
         <>
-          {/* Class Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          {/* Class Stats - Mobile Optimized */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-8">
             <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -367,7 +361,6 @@ export const ClassManagement: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-green-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-green-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
@@ -381,7 +374,6 @@ export const ClassManagement: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -395,7 +387,6 @@ export const ClassManagement: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-purple-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-purple-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
@@ -409,7 +400,6 @@ export const ClassManagement: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
@@ -424,10 +414,9 @@ export const ClassManagement: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
             <Link to="/attendance">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <Calendar className="h-8 w-8" />
@@ -437,23 +426,9 @@ export const ClassManagement: React.FC = () => {
                 </div>
               </div>
             </Link>
-            
-            <Link to="/homework/new">
-              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
-                <div className="relative">
-                  <div className="mb-4">
-                    <Plus className="h-8 w-8" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-1">Nuovo Compito</h3>
-                  <p className="text-rose-100 text-sm">Assegna compiti</p>
-                </div>
-              </div>
-            </Link>
-            
+
             <Link to="/lessons">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <BookOpen className="h-8 w-8" />
@@ -464,9 +439,20 @@ export const ClassManagement: React.FC = () => {
               </div>
             </Link>
             
+            <Link to="/homework/new">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                <div className="relative">
+                  <div className="mb-4">
+                    <Plus className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-1">Nuovo Compito</h3>
+                  <p className="text-rose-100 text-sm">Assegna compiti</p>
+                </div>
+              </div>
+            </Link>
+            
             <Link to="/materials/new">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <FileText className="h-8 w-8" />
@@ -479,53 +465,57 @@ export const ClassManagement: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Students List */}
+            {/* Students List - Mobile Optimized */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 p-6">
+              <div className="border-b border-slate-200 p-4 sm:p-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Users className="w-5 h-5" />
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900">Studenti ({classStats.totalStudents})</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Studenti ({classStats.totalStudents})</h3>
                 </div>
               </div>
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {classData.students.length > 0 ? (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-2 sm:space-y-3 max-h-[400px] overflow-y-auto">
                     {classData.students.map((student) => (
                       <div 
                         key={student.id} 
-                        className="group rounded-xl border border-slate-100 p-4 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all cursor-pointer"
+                        className="group rounded-xl border border-slate-100 p-3 sm:p-4 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all cursor-pointer"
                         onClick={() => handleViewStudentDetails(student)}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
-                              <span className="text-emerald-700 font-semibold text-sm">
+                          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-emerald-700 font-semibold text-xs sm:text-sm">
                                 {student.displayName.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div>
-                              <h4 className="font-medium text-slate-900 group-hover:text-emerald-900">{student.displayName}</h4>
-                              <div className="flex items-center text-xs text-slate-500 mt-1">
-                                <Mail className="h-3 w-3 mr-1" />
-                                {student.email}
-                              </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-medium text-slate-900 group-hover:text-emerald-900 text-sm sm:text-base truncate">{student.displayName}</h4>
                               {student.phoneNumber && (
-                                <div className="flex items-center text-xs text-slate-500 mt-1">
-                                  <Phone className="h-3 w-3 mr-1" />
-                                  {student.phoneNumber}
+                                <div className="flex items-center text-xs text-slate-500 mt-1 sm:hidden">
+                                  <Phone className="h-3 w-3 mr-1 flex-shrink-0" />
+                                  <span className="truncate">{student.phoneNumber}</span>
                                 </div>
                               )}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {student.phoneNumber && (
+                              <div className="hidden sm:flex items-center text-xs text-slate-500">
+                                <Phone className="h-3 w-3 mr-1" />
+                                {student.phoneNumber}
+                              </div>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 p-1 sm:p-2"
+                            >
+                              <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}

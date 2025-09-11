@@ -57,7 +57,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Function to handle inactivity timeout
   const handleInactivityTimeout = React.useCallback(async () => {
-    console.log('Session expired due to inactivity');
     await logout();
   }, []);
 
@@ -106,7 +105,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Check for temporary classes (for substitutions)
             const userData = userDoc.data() as User;
             if (userData.role === 'teacher' && userData.temporaryClasses && userData.temporaryClasses.length > 0) {
-              console.log('Teacher has temporary classes:', userData.temporaryClasses);
             }
           }
         } catch (error) {

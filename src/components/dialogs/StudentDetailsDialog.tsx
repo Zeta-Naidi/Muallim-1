@@ -37,7 +37,6 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
 
   // Handle different birthdate field names from both User and Student types
   const birthdate = (student as any).birthDate || (student as any).birthdate || (student as any).dateOfBirth;
-  console.log(birthdate);
   const ageFromBirthdate = computeAge(birthdate);
   const ageDisplay = ageFromBirthdate != null ? `${ageFromBirthdate} anni` : ((student as any).age ? `${(student as any).age} anni` : 'Non specificato');
 
@@ -94,11 +93,6 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Email</h3>
-                <p className="mt-1 text-sm text-gray-900">{student.email}</p>
-              </div>
-
-              <div>
                 <h3 className="text-sm font-medium text-gray-500">Età</h3>
                 <p className="mt-1 text-sm text-gray-900">{ageDisplay}</p>
               </div>
@@ -138,11 +132,6 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                 <p className="mt-1 text-sm text-gray-900">{parentContact}</p>
               </div>
 
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Email Genitore</h3>
-                <p className="mt-1 text-sm text-gray-900">{parentEmail}</p>
-              </div>
-
               {(student as any).codiceFiscale && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Codice Fiscale</h3>
@@ -163,13 +152,6 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                   <p className="mt-1 text-sm text-gray-900">
                     {(student as any).attendanceMode === 'in_presenza' ? 'In Presenza' : 'Online'}
                   </p>
-                </div>
-              )}
-
-              {(student as any).currentClass && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Classe Attuale</h3>
-                  <p className="mt-1 text-sm text-gray-900">{(student as any).currentClass}</p>
                 </div>
               )}
 
@@ -215,6 +197,11 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
                   </p>
                 </div>
               )}
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Email Genitore</h3>
+                <p className="mt-1 text-sm text-gray-900">{parentEmail}</p>
+              </div>
             </div>
           </div>
 

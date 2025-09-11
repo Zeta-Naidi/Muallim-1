@@ -346,7 +346,6 @@ export const ManageClasses: React.FC = () => {
       // Auto-approve any pending students being added to the class
       for (const studentId of studentIds) {
         const studentRef = doc(db, 'students', studentId);
-        console.log(`Updating student ${studentId} to active status`);
         batch.update(studentRef, {
           accountStatus: 'active',
           isEnrolled: true,
