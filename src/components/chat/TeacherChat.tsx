@@ -10,116 +10,11 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 
 export const TeacherChat: React.FC = () => {
-  const { userProfile } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [lastReadTimestamp, setLastReadTimestamp] = useState<Date>(new Date());
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const lastMessageRef = useRef<string | null>(null);
+  // Chat temporaneamente disabilitata - componente completamente disabilitato
+  return null;
 
-  useEffect(() => {
-    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-    audioRef.current.volume = 1;
-  }, []);
-
-  useEffect(() => {
-    if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin')) return;
-
-    const q = query(
-      collection(db, 'teacherChat'),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newMessages = snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          return {
-            ...data,
-            id: doc.id,
-            createdAt: data.createdAt?.toDate() || new Date()
-          } as ChatMessage;
-        })
-        .reverse();
-
-      setMessages(newMessages);
-      
-      if (!isOpen && newMessages.length > 0) {
-        const latestMessage = newMessages[newMessages.length - 1];
-        
-        if (
-          latestMessage.senderId !== userProfile.id && 
-          latestMessage.id !== lastMessageRef.current &&
-          latestMessage.createdAt > lastReadTimestamp
-        ) {
-          audioRef.current?.play().catch(console.error);
-          lastMessageRef.current = latestMessage.id;
-        }
-
-        const unreadMessages = newMessages.filter(msg => 
-          msg.senderId !== userProfile.id && 
-          msg.createdAt > lastReadTimestamp
-        );
-        setUnreadCount(unreadMessages.length);
-      }
-      
-      scrollToBottom();
-    }, (err) => {
-      console.error('Error fetching messages:', err);
-      setError('Error loading messages. Please try again later.');
-    });
-
-    return () => unsubscribe();
-  }, [userProfile, isOpen, lastReadTimestamp]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userProfile || !newMessage.trim()) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await addDoc(collection(db, 'teacherChat'), {
-        text: newMessage.trim(),
-        senderId: userProfile.id,
-        senderName: userProfile.displayName,
-        createdAt: new Date(),
-      });
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setError('Failed to send message. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleChat = () => {
-    setIsOpen(!isOpen);
-    if (!isOpen) {
-      setUnreadCount(0);
-      setLastReadTimestamp(new Date());
-      setTimeout(scrollToBottom, 100);
-    }
-  };
-
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
-    setTimeout(scrollToBottom, 100);
-  };
-
+  // Codice originale commentato per riattivazione futura
+  /*
   if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin')) {
     return null;
   }
@@ -250,4 +145,5 @@ export const TeacherChat: React.FC = () => {
       )}
     </div>
   );
+  */
 };
