@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Users, X, School, BookOpen, FileText, UserCheck, Trash2, Shield, ClipboardList, Filter, ChevronLeft, ChevronRight, TrendingUp, UserPlus, UserMinus, Eye, Mail, Phone, Edit3, UserX } from 'lucide-react';
+import { Plus, Search, Users, X, School, BookOpen, FileText, UserCheck, Trash2, Shield, ClipboardList, Filter, ChevronLeft, ChevronRight, TrendingUp, UserPlus, UserMinus, Eye, Mail, Phone, Edit3, UserX, ArrowUp, ArrowDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { CreateClassDialog } from '../../components/dialogs/CreateClassDialog';
@@ -23,6 +23,30 @@ export const ManageClasses: React.FC = () => {
   const [selectedTurno, setSelectedTurno] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const classesPerPage = 6;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Advanced Filters
+  const [filters, setFilters] = useState({
+    name: '',
+    description: '',
+    turno: '',
+    teacher: '',
+    level: '',
+    status: ''
+  });
+
+  // Advanced Sorting - each field has its own sort state
+  const [sortStates, setSortStates] = useState<{
+    createdAt: 'desc' | 'asc' | null;
+    name: 'desc' | 'asc' | null;
+    studentCount: 'desc' | 'asc' | null;
+    turno: 'desc' | 'asc' | null;
+  }>({
+    createdAt: 'desc', // Default active sort
+    name: null,
+    studentCount: null,
+    turno: null
+  });
   const [classStats, setClassStats] = useState<{
     totalStudents: number;
     attendancePercentage: number;
@@ -81,16 +105,105 @@ export const ManageClasses: React.FC = () => {
     fetchData();
   }, [userProfile, refreshKey]);
 
-  // Filter classes based on search query and turno
-  const filteredClasses = classes.filter(classItem => {
-    const matchesSearch = !searchQuery || 
-      classItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      classItem.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // Advanced filtering and sorting logic
+  useEffect(() => {
+    let filtered = classes.filter(classItem => {
+      // Basic search (legacy support)
+      const matchesBasicSearch = !searchQuery || 
+        classItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        classItem.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesBasicTurno = !selectedTurno || classItem.turno === selectedTurno;
+
+      // Advanced filters
+      const matchesName = !filters.name || 
+        classItem.name.toLowerCase().includes(filters.name.toLowerCase());
+      
+      const matchesDescription = !filters.description || 
+        classItem.description.toLowerCase().includes(filters.description.toLowerCase());
+      
+      const matchesTurno = !filters.turno || classItem.turno === filters.turno;
+      
+      const matchesTeacher = !filters.teacher || 
+        (classItem.teacherId && teachers[classItem.teacherId]?.displayName.toLowerCase().includes(filters.teacher.toLowerCase()));
+      
+      const matchesLevel = !filters.level || 
+        (classItem.description && classItem.description.toLowerCase().includes(filters.level.toLowerCase()));
+      
+      const matchesStatus = !filters.status || true; // Simplified for now
+
+      return matchesBasicSearch && matchesBasicTurno && 
+             matchesName && matchesDescription && matchesTurno && 
+             matchesTeacher && matchesLevel && matchesStatus;
+    });
+
+    // Apply advanced sorting - find the active sort field
+    const activeSortField = Object.entries(sortStates).find(([_, order]) => order !== null)?.[0] as keyof typeof sortStates;
+    const activeSortOrder = activeSortField ? sortStates[activeSortField] : 'desc';
     
-    const matchesTurno = !selectedTurno || classItem.turno === selectedTurno;
-    
-    return matchesSearch && matchesTurno;
-  });
+    if (activeSortField && activeSortOrder) {
+      filtered.sort((a, b) => {
+        let comparison = 0;
+        
+        switch (activeSortField) {
+          case 'createdAt':
+            const aDate = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt : new Date((a.createdAt as any).seconds * 1000)) : new Date(0);
+            const bDate = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt : new Date((b.createdAt as any).seconds * 1000)) : new Date(0);
+            comparison = aDate.getTime() - bDate.getTime();
+            break;
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'studentCount':
+            const aCount = a.students?.length || 0;
+            const bCount = b.students?.length || 0;
+            comparison = aCount - bCount;
+            break;
+          case 'turno':
+            comparison = (a.turno || '').localeCompare(b.turno || '');
+            break;
+        }
+        
+        return activeSortOrder === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    setFilteredClasses(filtered);
+    setCurrentPage(1); // Reset pagination when filters change
+  }, [classes, searchQuery, selectedTurno, filters, sortStates, teachers]);
+
+  const handleFilterChange = (field: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSortToggle = (field: keyof typeof sortStates) => {
+    setSortStates(prev => {
+      // Reset all other fields to null
+      const newState = {
+        createdAt: null,
+        name: null,
+        studentCount: null,
+        turno: null
+      } as typeof prev;
+      
+      // Toggle the selected field
+      if (prev[field] === null) {
+        newState[field] = 'desc';
+      } else if (prev[field] === 'desc') {
+        newState[field] = 'asc';
+      } else {
+        newState[field] = null;
+      }
+      
+      return newState;
+    });
+  };
+
+  // Create filteredClasses state
+  const [filteredClasses, setFilteredClasses] = useState<Class[]>([]);
 
   // Get unique turnos for filter dropdown
   const uniqueTurnos = Array.from(new Set(classes.map(c => c.turno).filter(Boolean)));
@@ -201,6 +314,20 @@ export const ManageClasses: React.FC = () => {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedTurno('');
+    setFilters({
+      name: '',
+      description: '',
+      turno: '',
+      teacher: '',
+      level: '',
+      status: ''
+    });
+    setSortStates({
+      createdAt: 'desc',
+      name: null,
+      studentCount: null,
+      turno: null
+    });
   };
 
 
@@ -219,7 +346,6 @@ export const ManageClasses: React.FC = () => {
       // Auto-approve any pending students being added to the class
       for (const studentId of studentIds) {
         const studentRef = doc(db, 'students', studentId);
-        console.log(`Updating student ${studentId} to active status`);
         batch.update(studentRef, {
           accountStatus: 'active',
           isEnrolled: true,
@@ -879,9 +1005,10 @@ export const ManageClasses: React.FC = () => {
               </div>
             </div>
 
-            {/* Filters */}
+            {/* Filters and Sorting */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex flex-col lg:flex-row gap-4">
+              {/* Basic Search and Turno Filter */}
+              <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <div className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -910,7 +1037,16 @@ export const ManageClasses: React.FC = () => {
                     </select>
                   </div>
                   
-                  {(searchQuery || selectedTurno) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setFiltersOpen(!filtersOpen)}
+                    className="px-3"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtri Avanzati
+                  </Button>
+                  
+                  {(searchQuery || selectedTurno || Object.values(filters).some(v => v)) && (
                     <Button
                       variant="outline"
                       onClick={clearFilters}
@@ -919,6 +1055,104 @@ export const ManageClasses: React.FC = () => {
                       <X className="h-4 w-4" />
                     </Button>
                   )}
+                </div>
+              </div>
+
+              {/* Advanced Filters */}
+              {filtersOpen && (
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Nome</label>
+                      <input
+                        type="text"
+                        placeholder="Filtra per nome..."
+                        value={filters.name}
+                        onChange={(e) => handleFilterChange('name', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Descrizione</label>
+                      <input
+                        type="text"
+                        placeholder="Filtra per descrizione..."
+                        value={filters.description}
+                        onChange={(e) => handleFilterChange('description', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Insegnante</label>
+                      <input
+                        type="text"
+                        placeholder="Filtra per insegnante..."
+                        value={filters.teacher}
+                        onChange={(e) => handleFilterChange('teacher', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Livello</label>
+                      <input
+                        type="text"
+                        placeholder="Filtra per livello..."
+                        value={filters.level}
+                        onChange={(e) => handleFilterChange('level', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sorting Row */}
+              <div className="border-t border-slate-200 pt-4 mt-4">
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-sm font-medium text-slate-700 py-2">Ordina per:</span>
+                  
+                  <Button
+                    onClick={() => handleSortToggle('createdAt')}
+                    variant={sortStates.createdAt ? 'primary' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    {sortStates.createdAt === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                    Data Creazione
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleSortToggle('name')}
+                    variant={sortStates.name ? 'primary' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    {sortStates.name === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                    Nome
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleSortToggle('studentCount')}
+                    variant={sortStates.studentCount ? 'primary' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    {sortStates.studentCount === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                    N° Studenti
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleSortToggle('turno')}
+                    variant={sortStates.turno ? 'primary' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    {sortStates.turno === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                    Turno
+                  </Button>
                 </div>
               </div>
             </div>

@@ -14,6 +14,7 @@ interface CreateAttendanceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  selectedDate?: string;
 }
 
 export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
@@ -21,9 +22,10 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  selectedDate,
 }) => {
   const { userProfile } = useAuth();
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(selectedDate || format(new Date(), 'yyyy-MM-dd'));
   const [students, setStudents] = useState<User[]>([]);
   const [attendanceData, setAttendanceData] = useState<Record<string, { status: 'present' | 'absent' | 'justified'; notes: string }>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +37,16 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
       fetchStudents();
     }
   }, [isOpen, classId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (selectedDate) {
+        setDate(selectedDate);
+      } else {
+        setDate(format(new Date(), 'yyyy-MM-dd'));
+      }
+    }
+  }, [isOpen, selectedDate]);
 
   const fetchStudents = async () => {
     try {
@@ -211,43 +223,42 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
                         <tr key={student.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{student.displayName}</div>
-                            <div className="text-sm text-gray-500">{student.email}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex space-x-2">
-                              <label className="flex items-center">
-                                <input
-                                  type="radio"
-                                  name={`status-${student.id}`}
-                                  value="present"
-                                  checked={attendanceData[student.id]?.status === 'present'}
-                                  onChange={() => handleStatusChange(student.id, 'present')}
-                                  className="h-4 w-4 text-success-600 focus:ring-success-500 border-gray-300"
-                                />
-                                <span className="ml-1 text-xs text-gray-700">Presente</span>
-                              </label>
-                              <label className="flex items-center">
-                                <input
-                                  type="radio"
-                                  name={`status-${student.id}`}
-                                  value="absent"
-                                  checked={attendanceData[student.id]?.status === 'absent'}
-                                  onChange={() => handleStatusChange(student.id, 'absent')}
-                                  className="h-4 w-4 text-error-600 focus:ring-error-500 border-gray-300"
-                                />
-                                <span className="ml-1 text-xs text-gray-700">Assente</span>
-                              </label>
-                              <label className="flex items-center">
-                                <input
-                                  type="radio"
-                                  name={`status-${student.id}`}
-                                  value="justified"
-                                  checked={attendanceData[student.id]?.status === 'justified'}
-                                  onChange={() => handleStatusChange(student.id, 'justified')}
-                                  className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300"
-                                />
-                                <span className="ml-1 text-xs text-gray-700">Giustificato</span>
-                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.id, 'present')}
+                                className={`w-10 h-10 rounded-lg font-bold text-white transition-all duration-200 ${
+                                  attendanceData[student.id]?.status === 'present'
+                                    ? 'bg-green-500'
+                                    : 'bg-green-200'
+                                }`}
+                              >
+                                P
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.id, 'absent')}
+                                className={`w-10 h-10 rounded-lg font-bold text-white transition-all duration-200 ${
+                                  attendanceData[student.id]?.status === 'absent'
+                                    ? 'bg-red-500'
+                                    : 'bg-red-200'
+                                }`}
+                              >
+                                A
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusChange(student.id, 'justified')}
+                                className={`w-10 h-10 rounded-lg font-bold text-white transition-all duration-200 ${
+                                  attendanceData[student.id]?.status === 'justified'
+                                    ? 'bg-yellow-500'
+                                    : 'bg-yellow-200'
+                                }`}
+                              >
+                                G
+                              </button>
                             </div>
                           </td>
                           <td className="px-6 py-4">

@@ -428,11 +428,11 @@ function AppRoutes() {
         </ErrorBoundary>
 
         {/* TeacherChat */}
-        {userProfile &&
+        {/*{userProfile &&
           (userProfile.role === 'teacher' || userProfile.role === 'admin') &&
           userProfile.accountStatus !== 'pending_approval' && (
             <EnhancedTeacherChat />
-          )}
+          )}*/}
       </div>
     </Router>
   );

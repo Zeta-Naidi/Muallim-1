@@ -141,14 +141,12 @@ export const AttendanceTracking: React.FC = () => {
         // Fetch students using the class document's students array (same as ClassManagement)
         let studentsMap: Record<string, User> = {};
         try {
-          console.log('Fetching students for class:', selectedClass);
           
           // Get the class document to access the students array
           const classDoc = await getDoc(doc(db, 'classes', selectedClass));
           if (classDoc.exists()) {
             const classData = classDoc.data();
             const studentIds = classData.students || [];
-            console.log('Student IDs from class document:', studentIds);
             
             if (studentIds.length > 0) {
               // Fetch student documents in batches (Firestore 'in' query limit is 10)
@@ -169,7 +167,6 @@ export const AttendanceTracking: React.FC = () => {
                 studentsMap[student.id] = student;
               });
               
-              console.log('Fetched students:', studentBatches.map(s => ({ id: s.id, displayName: s.displayName })));
             } else {
               console.log('No students found in class document');
             }
@@ -360,7 +357,6 @@ export const AttendanceTracking: React.FC = () => {
   // Get attendance stats for the selected class
   const getAttendanceStats = () => {
     const totalStudents = Object.keys(students).length;
-    console.log('Students count:', totalStudents, 'Students object:', students);
     
     const stats = {
       totalStudents,
@@ -486,7 +482,6 @@ export const AttendanceTracking: React.FC = () => {
             {/* Attendance Statistics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
               <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
                 <div className="p-6">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -502,7 +497,6 @@ export const AttendanceTracking: React.FC = () => {
               </div>
 
               <div className="relative overflow-hidden rounded-2xl border border-green-200 bg-white shadow-sm">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-green-50" />
                 <div className="p-6">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center">
@@ -516,7 +510,6 @@ export const AttendanceTracking: React.FC = () => {
               </div>
 
               <div className="relative overflow-hidden rounded-2xl border border-red-200 bg-white shadow-sm">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-red-50" />
                 <div className="p-6">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
@@ -530,7 +523,6 @@ export const AttendanceTracking: React.FC = () => {
               </div>
 
               <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
                 <div className="p-6">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -661,8 +653,6 @@ export const AttendanceTracking: React.FC = () => {
                   className="text-slate-600 hover:text-slate-900"
                   onClick={() => {
                     setShowOnlyRecordedDays(false);
-                    setOnlyTemporary(false);
-                    setClassSearch('');
                     setCurrentMonth(new Date());
                   }}
                 >
@@ -682,18 +672,118 @@ export const AttendanceTracking: React.FC = () => {
                   Calendario Presenze
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
-                {/* Calendar Header */}
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                  {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
-                    <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                      {day}
-                    </div>
-                  ))}
+              <CardContent className="p-3 sm:p-6">
+                {/* Mobile Weekend View */}
+                <div className="block sm:hidden">
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="text-center text-sm font-medium text-gray-500 p-2 bg-slate-50 rounded">Sabato</div>
+                    <div className="text-center text-sm font-medium text-gray-500 p-2 bg-slate-50 rounded">Domenica</div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    {calendarDays
+                      .filter(date => {
+                        const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6; // Sunday or Saturday
+                        return isCurrentMonth && isWeekend;
+                      })
+                      .map((date, index) => {
+                        const dateKey = format(date, 'yyyy-MM-dd');
+                        const hasAttendance = groupedAttendance[dateKey] !== undefined;
+                        const isToday = isSameDay(date, new Date());
+                        const isSelected = dateKey === selectedDate;
+                        
+                        // Calculate attendance stats for this day
+                        let presentCount = 0;
+                        let absentCount = 0;
+                        let justifiedCount = 0;
+                        
+                        if (hasAttendance) {
+                          groupedAttendance[dateKey].forEach(record => {
+                            if (record.status === 'present') presentCount++;
+                            else if (record.status === 'absent') absentCount++;
+                            else if (record.status === 'justified') justifiedCount++;
+                          });
+                        }
+                        
+                        return (
+                          <div
+                            key={index}
+                            className={`
+                              relative p-3 min-h-[120px] border rounded-xl cursor-pointer transition-colors
+                              bg-white border-slate-200
+                              ${isToday ? 'ring-2 ring-blue-400 border-blue-300' : ''}
+                              ${isSelected ? 'ring-2 ring-slate-500 bg-slate-100' : ''}
+                              ${hasAttendance ? 'bg-blue-50 border-blue-200' : 'hover:bg-slate-50'}
+                              ${showOnlyRecordedDays && !hasAttendance ? 'opacity-40 cursor-not-allowed' : ''}
+                            `}
+                            onClick={() => {
+                              if (hasAttendance) {
+                                handleDateClick(date);
+                              } else if (!showOnlyRecordedDays) {
+                                handleCreateAttendance(date);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="text-lg font-semibold text-slate-900">
+                                {format(date, 'd')}
+                              </div>
+                              <div className="text-xs text-slate-500 font-medium">
+                                {format(date, 'EEE', { locale: it })}
+                              </div>
+                            </div>
+                            
+                            {!hasAttendance && !showOnlyRecordedDays && (
+                              <div className="flex items-center justify-center h-12 border-2 border-dashed border-blue-300 rounded-lg">
+                                <div className="text-center">
+                                  <Plus className="h-5 w-5 text-blue-500 mx-auto mb-1" />
+                                  <span className="text-xs text-blue-600 font-medium">Crea Presenze</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {hasAttendance && (
+                              <div className="space-y-1">
+                                {presentCount > 0 && (
+                                  <div className="flex items-center text-xs bg-emerald-100 rounded px-2 py-1">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></div>
+                                    <span className="text-emerald-700 font-medium">{presentCount} presenti</span>
+                                  </div>
+                                )}
+                                {absentCount > 0 && (
+                                  <div className="flex items-center text-xs bg-rose-100 rounded px-2 py-1">
+                                    <div className="w-2 h-2 rounded-full bg-rose-500 mr-2"></div>
+                                    <span className="text-rose-700 font-medium">{absentCount} assenti</span>
+                                  </div>
+                                )}
+                                {justifiedCount > 0 && (
+                                  <div className="flex items-center text-xs bg-amber-100 rounded px-2 py-1">
+                                    <div className="w-2 h-2 rounded-full bg-amber-500 mr-2"></div>
+                                    <span className="text-amber-700 font-medium">{justifiedCount} giustificati</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
                 </div>
 
-                {/* Calendar Grid */}
-                <div className="grid grid-cols-7 gap-1">
+                {/* Desktop Full Calendar View */}
+                <div className="hidden sm:block">
+                  {/* Calendar Header */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
+                      <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-1">
                   {calendarDays.map((date, index) => {
                     const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
                     const isSchoolDay = isWeekend(date);
@@ -788,6 +878,7 @@ export const AttendanceTracking: React.FC = () => {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
 
                 {/* Legend */}

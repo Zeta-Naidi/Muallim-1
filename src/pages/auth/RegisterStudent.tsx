@@ -236,28 +236,13 @@ export const RegisterStudent: React.FC = () => {
     }
   };
 
-
-  const handleStudentsFormSubmit = async () => {
-    if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) return;
-    
-    // This function is no longer used as the logic has been moved to handleStudentFormSubmit
-    // Keeping for backward compatibility but should not be called
-    setStep('review');
-  };
-
   const handleFinalRegistration = async () => {
-    console.log('handleFinalRegistration called');
-    console.log('parentData:', parentData);
-    console.log('selectedAttendanceMode:', selectedAttendanceMode);
-    console.log('enrollmentTypes:', enrollmentTypes);
     
     if (!parentData || !selectedAttendanceMode || enrollmentTypes.some(type => type === null)) {
-      console.log('Early return - missing required data');
       return;
     }
 
     try {
-      console.log('Starting registration process...');
       setError(null);
       setIsLoading(true);
 
@@ -265,10 +250,8 @@ export const RegisterStudent: React.FC = () => {
       const allCodiciFiscali: string[] = [];
       for (let i = 0; i < numberOfChildren; i++) {
         const studentData = studentForms[i].getValues();
-        console.log(`Student ${i + 1} data:`, studentData);
         
         if (!studentData.codiceFiscale) {
-          console.log(`Student ${i + 1} missing Codice Fiscale`);
           setError(`Studente ${i + 1}: Codice Fiscale mancante`);
           setIsLoading(false);
           return;
@@ -329,8 +312,6 @@ export const RegisterStudent: React.FC = () => {
       if (!parentSnapshot.empty) {
         const parentDoc = parentSnapshot.docs[0];
         parentUserId = parentDoc.id; // Use Firestore document ID
-        console.log('Parent ID found:', parentUserId);
-        console.log('Parent data:', parentDoc.data());
       } else {
         console.error('Parent not found in database!');
         throw new Error('Errore: genitore non trovato nel database');
@@ -391,10 +372,8 @@ export const RegisterStudent: React.FC = () => {
         };
 
         // Save student to students collection
-        console.log('Saving student to students collection:', studentRecord);
         try {
           const studentDocRef = await addDoc(collection(db, 'students'), studentRecord);
-          console.log('Student saved successfully with ID:', studentDocRef.id);
         } catch (error) {
           console.error('Error saving student:', error);
           throw error;
@@ -416,7 +395,6 @@ export const RegisterStudent: React.FC = () => {
       }
 
       // Navigate to approval pending page instead of showing success popup
-      console.log('Registration completed successfully, navigating to approval pending...');
       navigate('/approval-pending');
     } catch (error: any) {
       console.error('Errore di registrazione:', error);
@@ -468,7 +446,6 @@ export const RegisterStudent: React.FC = () => {
       setError(userFriendlyMessage);
       // Don't navigate on error, stay on the form to show the error
     } finally {
-      console.log('Registration process finished, setting loading to false');
       setIsLoading(false);
     }
   };

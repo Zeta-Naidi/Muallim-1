@@ -379,7 +379,7 @@ export const Payments: React.FC = () => {
       
       // Update all children in the group
       const updatePromises = parentGroup.children.map(child =>
-        updateDoc(doc(db, 'users', child.id), {
+        updateDoc(doc(db, 'students', child.id), {
           paymentExempted: newExemptionStatus,
           updatedAt: new Date(),
         })

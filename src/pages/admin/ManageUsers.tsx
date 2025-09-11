@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -20,7 +20,7 @@ export const ManageUsers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [showStudents, setShowStudents] = useState(false);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortDirection] = useState<'asc' | 'desc'>('desc');
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -34,6 +34,28 @@ export const ManageUsers: React.FC = () => {
   const [savingRole, setSavingRole] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Advanced Filters
+  const [filters, setFilters] = useState({
+    name: '',
+    email: '',
+    role: '',
+    status: ''
+  });
+
+  // Advanced Sorting - each field has its own sort state
+  const [sortStates, setSortStates] = useState<{
+    createdAt: 'desc' | 'asc' | null;
+    name: 'desc' | 'asc' | null;
+    email: 'desc' | 'asc' | null;
+    role: 'desc' | 'asc' | null;
+  }>({
+    createdAt: 'desc',
+    name: null,
+    email: null,
+    role: null
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,6 +93,7 @@ export const ManageUsers: React.FC = () => {
       // Filter students
       let filteredStudentsList = [...students];
       
+      // Basic search
       if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase();
         filteredStudentsList = filteredStudentsList.filter(student => 
@@ -82,33 +105,48 @@ export const ManageUsers: React.FC = () => {
         );
       }
       
-      // Sort students by registration date
-      filteredStudentsList.sort((a, b) => {
-        let dateA = 0;
-        let dateB = 0;
-        
-        if (a.createdAt) {
-          if (typeof a.createdAt === 'string') {
-            dateA = new Date(a.createdAt).getTime();
-          } else if ((a.createdAt as any).toDate) {
-            dateA = (a.createdAt as any).toDate().getTime();
-          } else {
-            dateA = new Date(a.createdAt).getTime();
+      // Advanced filters
+      if (filters.name) {
+        filteredStudentsList = filteredStudentsList.filter(student => 
+          student.displayName.toLowerCase().includes(filters.name.toLowerCase()) ||
+          student.firstName.toLowerCase().includes(filters.name.toLowerCase()) ||
+          student.lastName.toLowerCase().includes(filters.name.toLowerCase())
+        );
+      }
+      
+      if (filters.email) {
+        filteredStudentsList = filteredStudentsList.filter(student => 
+          student.email.toLowerCase().includes(filters.email.toLowerCase())
+        );
+      }
+      
+      // Apply advanced sorting - find the active sort field
+      const activeSortField = Object.entries(sortStates).find(([_, order]) => order !== null)?.[0] as keyof typeof sortStates;
+      const activeSortOrder = activeSortField ? sortStates[activeSortField] : 'desc';
+      
+      if (activeSortField && activeSortOrder) {
+        filteredStudentsList.sort((a, b) => {
+          let comparison = 0;
+          
+          switch (activeSortField) {
+            case 'createdAt':
+              const aDate = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt : new Date((a.createdAt as any).seconds * 1000)) : new Date(0);
+              const bDate = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt : new Date((b.createdAt as any).seconds * 1000)) : new Date(0);
+              comparison = aDate.getTime() - bDate.getTime();
+              break;
+            case 'name':
+              comparison = a.displayName.localeCompare(b.displayName);
+              break;
+            case 'email':
+              comparison = a.email.localeCompare(b.email);
+              break;
+            default:
+              comparison = 0;
           }
-        }
-        
-        if (b.createdAt) {
-          if (typeof b.createdAt === 'string') {
-            dateB = new Date(b.createdAt).getTime();
-          } else if ((b.createdAt as any).toDate) {
-            dateB = (b.createdAt as any).toDate().getTime();
-          } else {
-            dateB = new Date(b.createdAt).getTime();
-          }
-        }
-        
-        return sortDirection === 'desc' ? dateB - dateA : dateA - dateB;
-      });
+          
+          return activeSortOrder === 'desc' ? -comparison : comparison;
+        });
+      }
       
       setFilteredStudents(filteredStudentsList);
       setFilteredUsers([]);
@@ -116,6 +154,7 @@ export const ManageUsers: React.FC = () => {
       // Filter users
       let filteredUsersList = [...users];
       
+      // Basic filters
       if (roleFilter !== 'all') {
         filteredUsersList = filteredUsersList.filter(user => user.role === roleFilter);
       }
@@ -128,38 +167,60 @@ export const ManageUsers: React.FC = () => {
         );
       }
       
-      // Sort users by registration date
-      filteredUsersList.sort((a, b) => {
-        let dateA = 0;
-        let dateB = 0;
-        
-        if (a.createdAt) {
-          if (typeof a.createdAt === 'string') {
-            dateA = new Date(a.createdAt).getTime();
-          } else if ((a.createdAt as any).toDate) {
-            dateA = (a.createdAt as any).toDate().getTime();
-          } else {
-            dateA = new Date(a.createdAt).getTime();
+      // Advanced filters
+      if (filters.name) {
+        filteredUsersList = filteredUsersList.filter(user => 
+          user.displayName.toLowerCase().includes(filters.name.toLowerCase())
+        );
+      }
+      
+      if (filters.email) {
+        filteredUsersList = filteredUsersList.filter(user => 
+          user.email.toLowerCase().includes(filters.email.toLowerCase())
+        );
+      }
+      
+      if (filters.role) {
+        filteredUsersList = filteredUsersList.filter(user => 
+          user.role === filters.role
+        );
+      }
+      
+      // Apply advanced sorting - find the active sort field
+      const activeSortField = Object.entries(sortStates).find(([_, order]) => order !== null)?.[0] as keyof typeof sortStates;
+      const activeSortOrder = activeSortField ? sortStates[activeSortField] : 'desc';
+      
+      if (activeSortField && activeSortOrder) {
+        filteredUsersList.sort((a, b) => {
+          let comparison = 0;
+          
+          switch (activeSortField) {
+            case 'createdAt':
+              const aDate = a.createdAt ? (a.createdAt instanceof Date ? a.createdAt : new Date((a.createdAt as any).seconds * 1000)) : new Date(0);
+              const bDate = b.createdAt ? (b.createdAt instanceof Date ? b.createdAt : new Date((b.createdAt as any).seconds * 1000)) : new Date(0);
+              comparison = aDate.getTime() - bDate.getTime();
+              break;
+            case 'name':
+              comparison = a.displayName.localeCompare(b.displayName);
+              break;
+            case 'email':
+              comparison = a.email.localeCompare(b.email);
+              break;
+            case 'role':
+              comparison = a.role.localeCompare(b.role);
+              break;
+            default:
+              comparison = 0;
           }
-        }
-        
-        if (b.createdAt) {
-          if (typeof b.createdAt === 'string') {
-            dateB = new Date(b.createdAt).getTime();
-          } else if ((b.createdAt as any).toDate) {
-            dateB = (b.createdAt as any).toDate().getTime();
-          } else {
-            dateB = new Date(b.createdAt).getTime();
-          }
-        }
-        
-        return sortDirection === 'desc' ? dateB - dateA : dateA - dateB;
-      });
+          
+          return activeSortOrder === 'desc' ? -comparison : comparison;
+        });
+      }
       
       setFilteredUsers(filteredUsersList);
       setFilteredStudents([]);
     }
-  }, [users, students, searchQuery, roleFilter, showStudents, sortDirection]);
+  }, [users, students, searchQuery, roleFilter, showStudents, sortDirection, filters, sortStates]);
 
   // Pagination logic
   const currentItems = showStudents ? filteredStudents : filteredUsers;
@@ -227,6 +288,53 @@ export const ManageUsers: React.FC = () => {
 
   const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setRoleFilter(e.target.value as UserRole | 'all');
+  };
+
+  const handleFilterChange = (field: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSortToggle = (field: keyof typeof sortStates) => {
+    setSortStates(prev => {
+      const currentState = prev[field];
+      const newStates = {
+        createdAt: null as 'desc' | 'asc' | null,
+        name: null as 'desc' | 'asc' | null,
+        email: null as 'desc' | 'asc' | null,
+        role: null as 'desc' | 'asc' | null
+      };
+      
+      if (currentState === null) {
+        newStates[field] = 'desc';
+      } else if (currentState === 'desc') {
+        newStates[field] = 'asc';
+      } else {
+        newStates[field] = null;
+        newStates.createdAt = 'desc'; // Default back to createdAt desc
+      }
+      
+      return newStates;
+    });
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    setFilters({
+      name: '',
+      email: '',
+      role: '',
+      status: ''
+    });
+    setSortStates({
+      createdAt: 'desc',
+      name: null,
+      email: null,
+      role: null
+    });
   };
 
   const handleChangeUserRole = async (user: User, newRole: UserRole) => {
@@ -357,15 +465,17 @@ export const ManageUsers: React.FC = () => {
           )}
         </AnimatePresence>
 
+      {/* Filters and Sorting */}
       <Card variant="elevated" className="mb-6 bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
           <CardTitle className="flex items-center text-gray-900">
             <Filter className="h-5 w-5 mr-2 text-blue-600" />
-            Filtri
+            Filtri e Ordinamento
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Basic Search and Role Filter */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
             <div>
               <Input
                 label={showStudents ? "Cerca studenti" : "Cerca utenti"}
@@ -395,36 +505,131 @@ export const ManageUsers: React.FC = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ordinamento per data registrazione
+            <div className="flex items-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="px-3"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filtri Avanzati
+              </Button>
+              
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showStudents}
+                  onChange={(e) => setShowStudents(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">
+                  Mostra solo studenti
+                </span>
               </label>
-              <div className="flex items-center space-x-3 mt-2">
-                <button
-                  onClick={() => setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc')}
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              
+              {(searchQuery || roleFilter !== 'all' || Object.values(filters).some(v => v)) && (
+                <Button
+                  variant="outline"
+                  onClick={clearFilters}
+                  className="px-3"
                 >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  {sortDirection === 'desc' ? 'Più recenti' : 'Più vecchi'}
-                  {sortDirection === 'desc' ? (
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  ) : (
-                    <ChevronUp className="h-4 w-4 ml-1" />
-                  )}
-                </button>
-                
-                <label className="flex items-center cursor-pointer">
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Advanced Filters */}
+          {filtersOpen && (
+            <div className="border-t border-slate-200 pt-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome</label>
                   <input
-                    type="checkbox"
-                    checked={showStudents}
-                    onChange={(e) => setShowStudents(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    type="text"
+                    placeholder="Filtra per nome..."
+                    value={filters.name}
+                    onChange={(e) => handleFilterChange('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Mostra solo studenti
-                  </span>
-                </label>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <input
+                    type="text"
+                    placeholder="Filtra per email..."
+                    value={filters.email}
+                    onChange={(e) => handleFilterChange('email', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                
+                {!showStudents && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Ruolo Specifico</label>
+                    <select
+                      value={filters.role}
+                      onChange={(e) => handleFilterChange('role', e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">Tutti i ruoli</option>
+                      <option value="admin">Amministratore</option>
+                      <option value="teacher">Insegnante</option>
+                      <option value="parent">Genitore</option>
+                    </select>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Sorting Row */}
+          <div className="border-t border-slate-200 pt-4">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm font-medium text-slate-700 py-2">Ordina per:</span>
+              
+              <Button
+                onClick={() => handleSortToggle('createdAt')}
+                variant={sortStates.createdAt ? 'primary' : 'outline'}
+                size="sm"
+                className="text-xs"
+              >
+                {sortStates.createdAt === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                Data Registrazione
+              </Button>
+              
+              <Button
+                onClick={() => handleSortToggle('name')}
+                variant={sortStates.name ? 'primary' : 'outline'}
+                size="sm"
+                className="text-xs"
+              >
+                {sortStates.name === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                Nome
+              </Button>
+              
+              <Button
+                onClick={() => handleSortToggle('email')}
+                variant={sortStates.email ? 'primary' : 'outline'}
+                size="sm"
+                className="text-xs"
+              >
+                {sortStates.email === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                Email
+              </Button>
+              
+              {!showStudents && (
+                <Button
+                  onClick={() => handleSortToggle('role')}
+                  variant={sortStates.role ? 'primary' : 'outline'}
+                  size="sm"
+                  className="text-xs"
+                >
+                  {sortStates.role === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
+                  Ruolo
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

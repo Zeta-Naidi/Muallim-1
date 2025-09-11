@@ -141,7 +141,6 @@ export const MaterialsList: React.FC = () => {
       try {
         const fileRef = ref(storage, material.fileUrl);
         await deleteObject(fileRef);
-        console.log('File deleted from storage successfully');
       } catch (storageError) {
         console.warn('Could not delete file from storage (file may not exist):', storageError);
         // Continue with database deletion even if storage deletion fails

@@ -5,11 +5,11 @@ import {
   createUserWithEmailAndPassword, 
   signOut,
   setPersistence,
-  browserLocalPersistence,
+  browserSessionPersistence,
   User as FirebaseUser,
   AuthError
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { User, UserRole } from '../types';
 
@@ -50,9 +50,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [session, setSession] = useState<{ access_token: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Inactivity timeout (1 hour = 3600000 ms)
+  const INACTIVITY_TIMEOUT = 60 * 60 * 1000;
+  const inactivityTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Function to handle inactivity timeout
+  const handleInactivityTimeout = React.useCallback(async () => {
+    await logout();
+  }, []);
+
+  // Function to reset inactivity timer
+  const resetInactivityTimer = React.useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    
+    if (currentUser) {
+      inactivityTimerRef.current = setTimeout(handleInactivityTimeout, INACTIVITY_TIMEOUT);
+    }
+  }, [currentUser, handleInactivityTimeout, INACTIVITY_TIMEOUT]);
+
+  // Function to start inactivity timer
+  const startInactivityTimer = React.useCallback(() => {
+    resetInactivityTimer();
+  }, [resetInactivityTimer]);
+
+  // Function to stop inactivity timer
+  const stopInactivityTimer = React.useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
-    setPersistence(auth, browserLocalPersistence).catch(console.error);
+    setPersistence(auth, browserSessionPersistence).catch(console.error);
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -66,10 +99,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const token = await user.getIdToken();
             setSession({ access_token: token });
             
+            // Start inactivity timer when user is authenticated
+            startInactivityTimer();
+            
             // Check for temporary classes (for substitutions)
             const userData = userDoc.data() as User;
             if (userData.role === 'teacher' && userData.temporaryClasses && userData.temporaryClasses.length > 0) {
-              console.log('Teacher has temporary classes:', userData.temporaryClasses);
             }
           }
         } catch (error) {
@@ -78,13 +113,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setUserProfile(null);
         setSession(null);
+        // Stop inactivity timer when user is not authenticated
+        stopInactivityTimer();
       }
       
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [startInactivityTimer, stopInactivityTimer]);
+
+  // Set up activity listeners to reset inactivity timer
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+
+    // Add event listeners
+    activityEvents.forEach(event => {
+      document.addEventListener(event, handleActivity, true);
+    });
+
+    // Cleanup function
+    return () => {
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+    };
+  }, [currentUser, resetInactivityTimer]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      stopInactivityTimer();
+    };
+  }, [stopInactivityTimer]);
 
   const loginWithEmail = async (email: string, password: string) => {
     try {

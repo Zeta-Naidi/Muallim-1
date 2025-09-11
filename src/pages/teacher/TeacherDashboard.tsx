@@ -248,9 +248,8 @@ export const TeacherDashboard: React.FC = () => {
       ) : (
         <>
           {/* Teacher Performance Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
             <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -264,7 +263,6 @@ export const TeacherDashboard: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-amber-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -278,7 +276,6 @@ export const TeacherDashboard: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
@@ -292,7 +289,6 @@ export const TeacherDashboard: React.FC = () => {
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm">
-              <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-violet-50" />
               <div className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
@@ -307,10 +303,9 @@ export const TeacherDashboard: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
             <Link to="/teacher/classes">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <Users className="h-8 w-8" />
@@ -323,7 +318,6 @@ export const TeacherDashboard: React.FC = () => {
             
             <Link to="/attendance">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <Calendar className="h-8 w-8" />
@@ -336,7 +330,6 @@ export const TeacherDashboard: React.FC = () => {
             
             <Link to="/homework">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <ClipboardList className="h-8 w-8" />
@@ -349,7 +342,6 @@ export const TeacherDashboard: React.FC = () => {
             
             <Link to="/materials">
               <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 p-6 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
                 <div className="relative">
                   <div className="mb-4">
                     <FileText className="h-8 w-8" />

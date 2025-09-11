@@ -37,11 +37,6 @@ export const PaymentButton: React.FC = () => {
         cancelUrl: `${window.location.origin}/payment/cancel`,
       };
 
-      console.log('Initiating payment with data:', {
-        ...checkoutData,
-        priceId: '[REDACTED]' // Don't log sensitive data
-      });
-
       const result = await createCheckoutSession(checkoutData);
       const data = result.data as { url: string };
 
@@ -49,7 +44,6 @@ export const PaymentButton: React.FC = () => {
         throw new Error('URL di pagamento non valido');
       }
 
-      console.log('Payment session created successfully');
       window.location.href = data.url;
     } catch (error: any) {
       console.error('Payment error:', {
