@@ -31,6 +31,9 @@ import { ManageUsers } from './pages/admin/ManageUsers';
 import { ManageStudents } from './pages/admin/ManageStudents';
 import { ManageTeachers } from './pages/admin/ManageTeachers';
 import { Payments } from './pages/admin/Payments';
+import { ManageScheduledLessons } from './pages/admin/ManageScheduledLessons';
+import { TeacherAttendanceStats } from './pages/admin/TeacherAttendanceStats';
+import { TeacherCheckInPage } from './pages/teacher/TeacherCheckIn';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
 import { PaymentCancel } from './pages/payments/PaymentCancel';
 import { SubstitutionRequests } from './pages/teacher/SubstitutionRequests';
@@ -38,6 +41,7 @@ import { UserProfile } from './pages/profile/UserProfile';
 import { NotFound } from './pages/NotFound';
 import { ErrorFallback } from './components/error/ErrorFallback';
 import { ToastProvider } from './components/ui/Toast';
+import { CheckInBanner } from './components/teacher/CheckInBanner';
 
 // Route Guard Component
 const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: string[] }) => {
@@ -93,6 +97,7 @@ function AppRoutes() {
   return (
     <Router>
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-indigo-50 flex flex-col">
+        <CheckInBanner />
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <Routes>
             {/* Landing Page */}
@@ -201,6 +206,20 @@ function AppRoutes() {
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
                   <div className="flex-grow">
                     <SubstitutionRequests />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/teacher/checkin" element={
+            <PrivateRoute roles={['teacher']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <TeacherCheckInPage />
                   </div>
                 </ErrorBoundary>
                 <Footer />
@@ -421,6 +440,47 @@ function AppRoutes() {
             </PrivateRoute>
           } />
 
+          <Route path="/admin/scheduled-lessons" element={
+            <PrivateRoute roles={['admin']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <ManageScheduledLessons />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/admin/teacher-attendance" element={
+            <PrivateRoute roles={['admin']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <TeacherAttendanceStats />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/admin/teacher-attendance-stats" element={
+            <PrivateRoute roles={['admin']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <TeacherAttendanceStats />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
           
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

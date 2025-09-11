@@ -218,6 +218,17 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (isTeacher() && resource.data.createdBy == request.auth.uid);
     }
 
+    // Teacher Check-ins
+    match /teacherCheckIns/{checkInId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        (isTeacher() && resource.data.teacherId == request.auth.uid)
+      );
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow update: if isAdmin() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
     // Notifications
     match /notifications/{notificationId} {
       // Recipients (admin/teacher/student) can read their own notifications

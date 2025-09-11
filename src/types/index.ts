@@ -287,3 +287,57 @@ export interface ChatMessage {
     [key: string]: any;
   };
 }
+
+// Teacher Attendance System Types
+export interface ScheduledLesson {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  classId: string;
+  className: string;
+  date: Date;
+  startTime: string; // Format: "HH:mm"
+  endTime: string; // Format: "HH:mm"
+  subject?: string;
+  isRecurring?: boolean; // For weekly recurring lessons
+  recurringPattern?: 'weekly' | 'biweekly' | 'monthly';
+  createdBy: string;
+  createdAt: Date;
+  updatedAt?: Date;
+  // Status tracking
+  status: 'scheduled' | 'cancelled' | 'completed';
+  cancellationReason?: string;
+  cancelledBy?: string;
+  cancelledAt?: Date;
+}
+
+export interface TeacherCheckIn {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  scheduledLessonId: string;
+  classId: string;
+  className: string;
+  checkInTime: Date;
+  checkOutTime?: Date;
+  status: 'checked_in' | 'checked_out' | 'missed' | 'late';
+  isLate?: boolean;
+  lateMinutes?: number;
+  notes?: string;
+  location?: string; // GPS coordinates or manual location
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+export interface TeacherAttendanceStats {
+  teacherId: string;
+  teacherName: string;
+  period: string; // Format: "YYYY-MM" for monthly stats
+  totalScheduledLessons: number;
+  attendedLessons: number;
+  missedLessons: number;
+  lateArrivals: number;
+  attendanceRate: number; // Percentage
+  averageLateMinutes?: number;
+  lastUpdated: Date;
+}
