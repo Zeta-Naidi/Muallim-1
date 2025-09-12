@@ -13,7 +13,8 @@ interface CreateLessonDialogProps {
   className: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newLesson: any) => void;
+  initialDate?: Date;
 }
 
 export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
@@ -22,11 +23,24 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialDate,
 }) => {
   const { userProfile } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  // Helper function to convert local date to YYYY-MM-DD format without timezone issues
+  const toLocalISOString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [date, setDate] = useState(
+    initialDate 
+      ? toLocalISOString(initialDate)
+      : toLocalISOString(new Date())
+  );
   const [topics, setTopics] = useState<{name: string, details: string}[]>([{name: '', details: ''}]);
   const [materials, setMaterials] = useState<LessonMaterial[]>([]);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
@@ -38,6 +52,15 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
       fetchMaterials();
     }
   }, [isOpen, classId]);
+
+  // Update date when initialDate changes
+  useEffect(() => {
+    if (initialDate) {
+      setDate(toLocalISOString(initialDate));
+    } else {
+      setDate(toLocalISOString(new Date()));
+    }
+  }, [initialDate]);
 
   const fetchMaterials = async () => {
     try {
@@ -100,11 +123,15 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
     setError(null);
 
     try {
-      await addDoc(collection(db, 'lessons'), {
+      // Create date at noon local time to avoid timezone issues
+      const [year, month, day] = date.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day, 12, 0, 0);
+      
+      const newLesson = {
         title: title.trim(),
         description: description.trim(),
         classId,
-        date: new Date(date),
+        date: localDate,
         topics: filteredTopics.map(t => t.name),
         topicDetails: filteredTopics.reduce((acc, topic) => {
           if (topic.details.trim()) {
@@ -117,15 +144,16 @@ export const CreateLessonDialog: React.FC<CreateLessonDialogProps> = ({
         createdBy: userProfile.id,
         teacherName: userProfile.displayName,
         createdAt: new Date(),
-      });
+      };
 
-      onSuccess();
+      const docRef = await addDoc(collection(db, 'lessons'), newLesson);
+      onSuccess({ id: docRef.id, ...newLesson });
       onClose();
       
       // Reset form
       setTitle('');
       setDescription('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(toLocalISOString(new Date()));
       setTopics([{name: '', details: ''}]);
       setSelectedMaterials([]);
     } catch (error) {

@@ -15,7 +15,6 @@ import {
   Clock,
   Target,
   Search,
-  Filter,
   Eye,
   CheckCircle,
   AlertTriangle
