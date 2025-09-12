@@ -247,20 +247,19 @@ export const AttendanceTracking: React.FC = () => {
     setCurrentMonth(prev => new Date(y, prev.getMonth(), 1));
   };
 
-  const handleDateClick = (date: Date) => {
-    const dateKey = format(date, 'yyyy-MM-dd');
-    setSelectedDate(selectedDate === dateKey ? null : dateKey);
-  };
-
   const handleCreateAttendance = (date: Date) => {
     // Set the date in the state for the dialog
     setSelectedDateForDialog(format(date, 'yyyy-MM-dd'));
     setIsCreateDialogOpen(true);
+    // Close the attendance details section for better UX
+    setSelectedDate(null);
   };
 
   const handleEditAttendance = (attendance: Attendance) => {
     setEditingAttendance(attendance);
     setIsEditDialogOpen(true);
+    // Close the attendance details section for better UX
+    setSelectedDate(null);
   };
 
   const handleDeleteAttendance = async (attendanceId: string) => {
@@ -770,7 +769,8 @@ export const AttendanceTracking: React.FC = () => {
                             `}
                             onClick={() => {
                               if (hasAttendance) {
-                                handleDateClick(date);
+                                // Open the create/edit dialog directly for existing attendance
+                                handleCreateAttendance(date);
                               } else if (!showOnlyRecordedDays) {
                                 handleCreateAttendance(date);
                               }
@@ -870,7 +870,8 @@ export const AttendanceTracking: React.FC = () => {
                         onClick={() => {
                           if (!isCurrentMonth) return;
                           if (hasAttendance) {
-                            handleDateClick(date);
+                            // Open the create/edit dialog directly for existing attendance
+                            handleCreateAttendance(date);
                           } else if (!showOnlyRecordedDays && isSchoolDay) {
                             handleCreateAttendance(date);
                           }
