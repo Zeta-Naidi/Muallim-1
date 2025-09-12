@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X, Save, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
-import { collection, addDoc, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, getDoc, doc, updateDoc } from 'firebase/firestore';
 import { format, isWeekend } from 'date-fns';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -31,24 +31,76 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [existingAttendance, setExistingAttendance] = useState<Record<string, any>>({});
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     if (isOpen && classId) {
-      fetchStudents();
-    }
-  }, [isOpen, classId]);
+      // Reset messages when dialog opens
+      setError(null);
+      setSuccess(null);
+      
+      // Set the correct date first
+      const finalDate = selectedDate || format(new Date(), 'yyyy-MM-dd');
+      setDate(finalDate);
+      
+      // Create a temporary function to use the correct date
+      const checkWithCorrectDate = async () => {
+        if (!classId || !finalDate) return false;
 
-  useEffect(() => {
-    if (isOpen) {
-      if (selectedDate) {
-        setDate(selectedDate);
-      } else {
-        setDate(format(new Date(), 'yyyy-MM-dd'));
-      }
-    }
-  }, [isOpen, selectedDate]);
+        try {
+          const selectedDateObj = new Date(finalDate);
+          const startOfDay = new Date(selectedDateObj);
+          startOfDay.setHours(0, 0, 0, 0);
+          const endOfDay = new Date(selectedDateObj);
+          endOfDay.setHours(23, 59, 59, 999);
 
-  const fetchStudents = async () => {
+          const attendanceQuery = query(
+            collection(db, 'attendance'),
+            where('classId', '==', classId),
+            where('date', '>=', startOfDay),
+            where('date', '<=', endOfDay)
+          );
+
+          const attendanceDocs = await getDocs(attendanceQuery);
+          
+          if (!attendanceDocs.empty) {
+            setIsEditMode(true);
+            const existingData: Record<string, any> = {};
+            const attendanceMap: Record<string, { status: 'present' | 'absent' | 'justified'; notes: string }> = {};
+
+            attendanceDocs.forEach(doc => {
+              const data = doc.data();
+              existingData[data.studentId] = { id: doc.id, ...data };
+              attendanceMap[data.studentId] = {
+                status: data.status,
+                notes: data.notes || ''
+              };
+            });
+
+            setExistingAttendance(existingData);
+            setAttendanceData(attendanceMap);
+            return true; // Found existing data
+          } else {
+            setIsEditMode(false);
+            setExistingAttendance({});
+            return false; // No existing data
+          }
+        } catch (error) {
+          console.error('❌ Error checking existing attendance:', error);
+          return false;
+        }
+      };
+      
+      // Execute the check and then fetch students
+      checkWithCorrectDate().then((hasExistingData) => {
+        fetchStudents(hasExistingData);
+      });
+    }
+  }, [isOpen, classId, selectedDate]);
+
+
+  const fetchStudents = async (hasExistingData: boolean = false) => {  
     try {
       // Get the class document to access the students array
       const classDoc = await getDoc(doc(db, 'classes', classId));
@@ -86,14 +138,17 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
       
       setStudents(fetchedStudents);
 
-      // Initialize attendance data with default 'present' status
-      const initialData: Record<string, { status: 'present' | 'absent' | 'justified'; notes: string }> = {};
-      fetchedStudents.forEach(student => {
-        initialData[student.id] = { status: 'present', notes: '' };
-      });
-      setAttendanceData(initialData);
+      // Initialize attendance data with default 'present' status only if no existing data
+      if (!hasExistingData) {
+        const initialData: Record<string, { status: 'present' | 'absent' | 'justified'; notes: string }> = {};
+        fetchedStudents.forEach(student => {
+          initialData[student.id] = { status: 'present', notes: '' };
+        });
+        setAttendanceData(initialData);
+      } else {
+      }
     } catch (error) {
-      console.error('Error fetching students:', error);
+      console.error('❌ Error fetching students:', error);
       setError('Errore nel caricamento degli studenti');
     }
   };
@@ -123,34 +178,67 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
     const selectedDate = new Date(date);
     if (!isWeekend(selectedDate)) {
       setError('È possibile creare presenze solo per Sabato o Domenica');
+      setIsLoading(false);
       return;
     }
 
     try {
-      const attendancePromises = students.map(student => {
-        const data = attendanceData[student.id];
-        return addDoc(collection(db, 'attendance'), {
-          studentId: student.id,
-          classId,
-          date: new Date(date),
-          status: data.status,
-          notes: data.notes.trim(),
-          createdBy: userProfile.id,
-          createdAt: new Date(),
+      if (isEditMode) {
+        // Update existing attendance records
+        const updatePromises = students.map(student => {
+          const data = attendanceData[student.id];
+          const existing = existingAttendance[student.id];
+          
+          if (existing && existing.id) {
+            return updateDoc(doc(db, 'attendance', existing.id), {
+              status: data.status,
+              notes: data.notes.trim(),
+              updatedBy: userProfile.id,
+              updatedAt: new Date(),
+            });
+          } else {
+            // Create new record for students that didn't have attendance before
+            return addDoc(collection(db, 'attendance'), {
+              studentId: student.id,
+              classId,
+              date: new Date(date),
+              status: data.status,
+              notes: data.notes.trim(),
+              createdBy: userProfile.id,
+              createdAt: new Date(),
+            });
+          }
         });
-      });
 
-      await Promise.all(attendancePromises);
-      setSuccess('Registro presenze creato con successo');
+        await Promise.all(updatePromises);
+        setSuccess('Registro presenze aggiornato con successo');
+      } else {
+        // Create new attendance records
+        const attendancePromises = students.map(student => {
+          const data = attendanceData[student.id];
+          return addDoc(collection(db, 'attendance'), {
+            studentId: student.id,
+            classId,
+            date: new Date(date),
+            status: data.status,
+            notes: data.notes.trim(),
+            createdBy: userProfile.id,
+            createdAt: new Date(),
+          });
+        });
+
+        await Promise.all(attendancePromises);
+        setSuccess('Registro presenze creato con successo');
+      }
       
       setTimeout(() => {
         onSuccess();
         onClose();
+        setIsLoading(false);
       }, 1500);
     } catch (error) {
-      console.error('Error creating attendance:', error);
-      setError('Errore durante la creazione del registro presenze');
-    } finally {
+      console.error('Error saving attendance:', error);
+      setError(`Errore durante ${isEditMode ? 'l\'aggiornamento' : 'la creazione'} del registro presenze`);
       setIsLoading(false);
     }
   };
@@ -163,7 +251,7 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
         <Dialog.Panel className="mx-auto max-w-4xl w-full bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden">
           <div className="flex justify-between items-center border-b border-gray-200 p-4">
             <Dialog.Title className="text-lg font-semibold text-gray-900">
-              Crea Registro Presenze
+              {isEditMode ? 'Modifica Registro Presenze' : 'Crea Registro Presenze'}
             </Dialog.Title>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-5 w-5" />
@@ -293,7 +381,7 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
               disabled={isLoading || students.length === 0}
               leftIcon={<Save className="h-4 w-4" />}
             >
-              Crea Registro
+              {isEditMode ? 'Aggiorna Registro' : 'Crea Registro'}
             </Button>
           </div>
         </Dialog.Panel>
