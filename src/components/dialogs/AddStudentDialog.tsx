@@ -1,10 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, UserPlus, Filter, Check, Users, Phone, MapPin, Calendar, School, ChevronLeft, ChevronRight, Mail } from 'lucide-react';
+import { Search, X, UserPlus, Filter, Check, Users, Phone, MapPin, Calendar, School, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { isValid } from 'date-fns';
 import { StudentWithParent } from '../../types';
+
+// Simple dialog implementation
+const Dialog = ({ 
+  open, 
+  onOpenChange,
+  children 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  children: React.ReactNode 
+}) => {
+  if (!open) return null;
+  
+  return (
+    <div 
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={() => onOpenChange(false)}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// Dialog components with proper TypeScript types
+interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+const DialogContent = ({ children, className = '', ...props }: DialogContentProps) => (
+  <div className={className} {...props}>
+    {children}
+  </div>
+);
+
+interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+const DialogHeader = ({ children, className = '', ...props }: DialogHeaderProps) => {
+  const title = React.Children.toArray(children).find(
+    (child: any) => child?.type === DialogTitle
+  );
+  
+  const description = React.Children.toArray(children).find(
+    (child: any) => child?.type === DialogDescription
+  );
+  
+  return (
+    <div className={`mb-4 ${className}`} {...props}>
+      {title && <h3 className="text-lg font-semibold">{title}</h3>}
+      {description}
+    </div>
+  );
+};
+
+const DialogTitle = ({ children }: { children: React.ReactNode }) => (
+  <>{children}</>
+);
+
+const DialogDescription = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-sm text-gray-600 mt-1">{children}</p>
+);
+
+interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+const DialogFooter = ({ children, className = '', ...props }: DialogFooterProps) => (
+  <div className={`mt-6 flex justify-end gap-2 ${className}`} {...props}>
+    {children}
+  </div>
+);
 
 interface Class {
   id: string;
@@ -14,21 +91,47 @@ interface Class {
 interface AddStudentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddStudents: (studentIds: string[]) => void;
+  onAddStudents: (studentIds: string[], currentClassId?: string) => Promise<void>;
   excludeStudentIds?: string[];
+  currentClassId?: string;
 }
 
 export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
   isOpen,
   onClose,
   onAddStudents,
-  excludeStudentIds = []
+  excludeStudentIds = [],
+  currentClassId
 }) => {
   const [availableStudents, setAvailableStudents] = useState<StudentWithParent[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [transferDialog, setTransferDialog] = useState<{
+    isOpen: boolean;
+    studentId: string | null;
+    studentName: string;
+    currentClassId: string | null;
+    currentClassName: string;
+  }>({
+    isOpen: false,
+    studentId: null,
+    studentName: '',
+    currentClassId: null,
+    currentClassName: ''
+  });
+  
+  const [notification, setNotification] = useState<{
+    isOpen: boolean;
+    message: string;
+    type: 'info' | 'warning' | 'error';
+  }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  });
+  
   const STUDENTS_PER_PAGE = 4;
   
   // Search and filter states
@@ -284,11 +387,82 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
     });
   };
 
-  const handleAddSelected = () => {
-    if (selectedStudentIds.size > 0) {
-      onAddStudents(Array.from(selectedStudentIds));
-      onClose();
+  const handleAddSelected = async () => {
+    if (selectedStudentIds.size === 0) return;
+
+    const studentsToAdd = Array.from(selectedStudentIds);
+    
+    // Check if any selected student is already in this class
+    const studentsAlreadyInThisClass = availableStudents
+      .filter(student => 
+        selectedStudentIds.has(student.id) && 
+        student.currentClass === currentClassId
+      );
+
+    if (studentsAlreadyInThisClass.length > 0) {
+      setNotification({
+        isOpen: true,
+        message: `Alcuni studenti selezionati sono già in questa classe`,
+        type: 'warning'
+      });
+      return;
     }
+
+    // Check if any selected student is in a different class
+    const studentsInOtherClass = availableStudents
+      .filter(student => 
+        studentsToAdd.includes(student.id) && 
+        student.currentClass && 
+        student.currentClass !== currentClassId
+      );
+
+    if (studentsInOtherClass.length > 0) {
+      const student = studentsInOtherClass[0];
+      const currentClass = classes.find(c => c.id === student.currentClass);
+      
+      if (currentClass) {
+        setTransferDialog({
+          isOpen: true,
+          studentId: student.id,
+          studentName: student.displayName || 'Lo studente',
+          currentClassId: currentClass.id,
+          currentClassName: currentClass.name
+        });
+        return;
+      }
+    }
+
+    // If no transfer needed, proceed with normal add
+    await onAddStudents(studentsToAdd);
+    onClose();
+  };
+
+  const handleTransferConfirm = async () => {
+    if (!transferDialog.studentId || !currentClassId) return;
+    
+    try {
+      // Call the parent component's handler with the student ID and current class ID
+      await onAddStudents([transferDialog.studentId], transferDialog.currentClassId || undefined);
+      setTransferDialog(prev => ({ ...prev, isOpen: false }));
+      onClose();
+    } catch (error) {
+      console.error('Error transferring student:', error);
+      setNotification({
+        isOpen: true,
+        message: 'Si è verificato un errore durante il trasferimento dello studente',
+        type: 'error'
+      });
+    }
+  };
+
+  const handleTransferCancel = () => {
+    setTransferDialog({
+      isOpen: false,
+      studentId: null,
+      studentName: '',
+      currentClassId: null,
+      currentClassName: ''
+    });
   };
 
   const calculateAge = (birthDate: Date | undefined | null): string => {
@@ -316,7 +490,58 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-hidden">
+      {/* Transfer Confirmation Dialog */}
+      <Dialog 
+        open={transferDialog.isOpen} 
+        onOpenChange={(open) => {
+          if (!open) handleTransferCancel();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Conferma Trasferimento</DialogTitle>
+            <DialogDescription>
+              {transferDialog.studentName} è attualmente nella classe {transferDialog.currentClassName}. Vuoi trasferirlo alla classe {classes.find(c => c.id === currentClassId)?.name || 'la nuova classe'}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button 
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              onClick={handleTransferCancel}
+            >
+              Annulla
+            </button>
+            <button 
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              onClick={handleTransferConfirm}
+            >
+              Conferma Trasferimento
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+        {/* Notification */}
+        {notification.isOpen && (
+          <div className={`p-4 ${
+            notification.type === 'error' ? 'bg-red-50 text-red-800' : 
+            notification.type === 'warning' ? 'bg-yellow-50 text-yellow-800' : 
+            'bg-blue-50 text-blue-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2" />
+                <p>{notification.message}</p>
+              </div>
+              <button 
+                onClick={() => setNotification(prev => ({ ...prev, isOpen: false }))}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -584,9 +809,19 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
                             )}
                             
                             {currentClass && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <School className="h-3 w-3" />
-                                <span className="truncate">{currentClass.name}</span>
+                              <div className="flex items-center gap-2 text-sm">
+                                <School className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">
+                                  <span className="font-medium">Classe attuale:</span>{' '}
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
+                                    currentClass.id === currentClassId 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {currentClass.name}
+                                    {currentClass.id === currentClassId && ' (questa classe)'}
+                                  </span>
+                                </span>
                               </div>
                             )}
                           </div>

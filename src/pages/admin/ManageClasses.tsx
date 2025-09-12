@@ -331,25 +331,49 @@ export const ManageClasses: React.FC = () => {
   };
 
 
-  const handleAddStudents = async (studentIds: string[]) => {
+  const handleAddStudents = async (studentIds: string[], previousClassId?: string) => {
     if (!selectedClass || studentIds.length === 0) return;
 
     try {
       const batch = writeBatch(db);
-      
-      // Add all selected students to the class
       const classRef = doc(db, 'classes', selectedClass.id);
+      
+      // Filter out students who are already in this class
+      const studentsToAdd = studentIds.filter(id => !selectedClass.students?.includes(id));
+      
+      if (studentsToAdd.length === 0) {
+        console.log('All selected students are already in this class');
+        return;
+      }
+      
+      // First, handle the case where we're transferring from another class
+      if (previousClassId && previousClassId !== selectedClass.id) {
+        // Remove student from previous class
+        const previousClassRef = doc(db, 'classes', previousClassId);
+        batch.update(previousClassRef, {
+          students: arrayRemove(...studentsToAdd)
+        });
+      }
+      
+      // Add students to the new class if they're not already in it
       batch.update(classRef, {
-        students: arrayUnion(...studentIds)
+        students: arrayUnion(...studentsToAdd)
       });
 
-      // Auto-approve any pending students being added to the class
-      for (const studentId of studentIds) {
+      // Update each student's record
+      for (const studentId of studentsToAdd) {
         const studentRef = doc(db, 'students', studentId);
         batch.update(studentRef, {
           accountStatus: 'active',
           isEnrolled: true,
-          enrollmentDate: new Date()
+          enrollmentDate: new Date(),
+          currentClass: selectedClass.id,
+          classHistory: arrayUnion({
+            classId: selectedClass.id,
+            className: selectedClass.name,
+            joinedAt: new Date(),
+            transferredFrom: previousClassId
+          })
         });
       }
 
@@ -357,16 +381,37 @@ export const ManageClasses: React.FC = () => {
       await batch.commit();
 
       // Update local state
-      setSelectedClass(prev => prev ? {
-        ...prev,
-        students: [...(prev.students || []), ...studentIds]
-      } : null);
+      setSelectedClass(prev => {
+        if (!prev) return null;
+        const currentStudents = new Set(prev.students || []);
+        studentsToAdd.forEach(id => currentStudents.add(id));
+        return {
+          ...prev,
+          students: Array.from(currentStudents)
+        };
+      });
+
+      // If this was a transfer, we need to update the previous class's student list
+      if (previousClassId && previousClassId !== selectedClass.id) {
+        setClasses(prevClasses => 
+          prevClasses.map(cls => {
+            if (cls.id === previousClassId) {
+              return {
+                ...cls,
+                students: (cls.students || []).filter(id => !studentsToAdd.includes(id))
+              };
+            }
+            return cls;
+          })
+        );
+      }
 
       setIsAddStudentDialogOpen(false);
       setRefreshKey(prev => prev + 1);
     } catch (error) {
-      console.error('Error adding students:', error);
+      console.error('Error adding/transferring students:', error);
       console.error('Error details:', error instanceof Error ? error.message : String(error));
+      throw error; // Re-throw to allow the dialog to handle the error
     }
   };
 
@@ -1311,6 +1356,7 @@ export const ManageClasses: React.FC = () => {
         onClose={() => setIsAddStudentDialogOpen(false)}
         onAddStudents={handleAddStudents}
         excludeStudentIds={selectedClass?.students || []}
+        currentClassId={selectedClass?.id}
       />
 
       {/* Student Details Dialog */}
