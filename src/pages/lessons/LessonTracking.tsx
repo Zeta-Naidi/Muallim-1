@@ -68,6 +68,9 @@ export const LessonTracking: React.FC = () => {
   const [sortField, setSortField] = useState<'title' | 'date'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [calendarView, setCalendarView] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
 
   // Fetch available classes based on user role
   useEffect(() => {
@@ -276,16 +279,21 @@ export const LessonTracking: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteLesson = async (lessonId: string, lesson?: Lesson) => {
+  const openDeleteDialog = (lesson: Lesson) => {
     // Only allow deletion if user is admin or the teacher who created the lesson
-    if (!canEditLessons || (userProfile?.role === 'teacher' && lesson && lesson.createdBy !== userProfile.id)) return;
+    if (!canEditLessons || (userProfile?.role === 'teacher' && lesson.createdBy !== userProfile.id)) return;
 
-    if (!window.confirm('Sei sicuro di voler eliminare questa lezione?')) return;
+    setLessonToDelete(lesson);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteLesson = async () => {
+    if (!lessonToDelete) return;
 
     try {
-      await deleteDoc(doc(db, 'lessons', lessonId));
-      setLessons(prev => prev.filter(l => l.id !== lessonId));
-      setFilteredLessons(prev => prev.filter(l => l.id !== lessonId));
+      await deleteDoc(doc(db, 'lessons', lessonToDelete.id));
+      setLessons(prev => prev.filter(l => l.id !== lessonToDelete.id));
+      setFilteredLessons(prev => prev.filter(l => l.id !== lessonToDelete.id));
       setMessage({ type: 'success', text: 'Lezione eliminata con successo' });
       
       // Clear success message after 3 seconds
@@ -293,6 +301,9 @@ export const LessonTracking: React.FC = () => {
     } catch (error) {
       console.error('Error deleting lesson:', error);
       setMessage({ type: 'error', text: 'Errore nell\'eliminazione della lezione' });
+    } finally {
+      setShowDeleteDialog(false);
+      setLessonToDelete(null);
     }
   };
 
@@ -307,10 +318,16 @@ export const LessonTracking: React.FC = () => {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleCreateLessonSuccess = (newLesson: Lesson) => {
-    setLessons(prev => [newLesson, ...prev]);
-    if (newLesson.date && isSameMonth(newLesson.date, currentMonth)) {
-      setFilteredLessons(prev => [newLesson, ...prev]);
+  const handleCreateLessonSuccess = (newLesson: any) => {
+    // Convert Firestore Timestamp to JavaScript Date if needed
+    const lessonWithDate = {
+      ...newLesson,
+      date: newLesson.date?.toDate ? newLesson.date.toDate() : newLesson.date
+    };
+    
+    setLessons(prev => [lessonWithDate, ...prev]);
+    if (lessonWithDate.date && isSameMonth(lessonWithDate.date, currentMonth)) {
+      setFilteredLessons(prev => [lessonWithDate, ...prev]);
     }
     setMessage({ type: 'success', text: 'Lezione creata con successo' });
     
@@ -333,9 +350,9 @@ export const LessonTracking: React.FC = () => {
     }
   };
 
-  const formatDate = (date: Date | null): string => {
+  const formatDate = (date: Date | null | undefined): string => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
-      return 'Invalid date';
+      return 'Data non specificata';
     }
     return format(date, 'd MMMM yyyy', { locale: it });
   };
@@ -618,73 +635,151 @@ export const LessonTracking: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
-                    {/* Calendar Header */}
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                      {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
-                        <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                          {day}
-                        </div>
-                      ))}
+                    {/* Mobile Weekend View */}
+                    <div className="block sm:hidden mb-6">
+                      <h3 className="text-sm font-medium text-slate-700 mb-3">Fine Settimana</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {calendarDays
+                          .filter(date => isWeekend(date) && isSameMonth(date, currentMonth))
+                          .map((date, index) => {
+                            const lessonsForDay = getLessonsForDay(date);
+                            const hasLessons = lessonsForDay.length > 0;
+                            const isCurrentDay = isToday(date);
+                            const dayName = format(date, 'EEEE', { locale: it });
+                            const dayNumber = format(date, 'd');
+                            
+                            return (
+                              <div 
+                                key={index}
+                                className={`
+                                  border rounded-lg p-3 cursor-pointer transition-all
+                                  ${isCurrentDay ? 'ring-2 ring-blue-500' : 'border-gray-200'}
+                                  ${hasLessons ? 'bg-blue-50 hover:bg-blue-100' : 'bg-white hover:bg-gray-50'}
+                                `}
+                                onClick={() => {
+                                  setSelectedDate(date);
+                                  if (hasLessons) {
+                                    // Mostra le lezioni per il giorno selezionato
+                                  } else {
+                                    setIsCreateDialogOpen(true);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-500 capitalize">
+                                      {dayName}
+                                    </div>
+                                    <div className="text-xl font-bold text-gray-900">
+                                      {dayNumber}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center">
+                                    {hasLessons ? (
+                                      <div className="flex items-center">
+                                        <span className="text-xs font-medium text-blue-600 mr-2">
+                                          {lessonsForDay.length} lezione{lessonsForDay.length !== 1 ? 'ni' : 'e'}
+                                        </span>
+                                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-100"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedDate(date);
+                                          setIsCreateDialogOpen(true);
+                                        }}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
 
-                    {/* Calendar Grid */}
-                    <div className="grid grid-cols-7 gap-1">
-                      {calendarDays.map((date, index) => {
-                        const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
-                        const isWeekendDay = isWeekend(date);
-                        const lessonsForDay = getLessonsForDay(date);
-                        const hasLessons = lessonsForDay.length > 0;
-                        const isCurrentDay = isToday(date);
-                        
-                        return (
-                          <div
-                            key={index}
-                            className={`
-                              relative p-2 min-h-[100px] border rounded-lg cursor-pointer transition-all
-                              ${!isCurrentMonth ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-white border-gray-200'}
-                              ${isCurrentDay ? 'ring-2 ring-primary-500' : ''}
-                              ${isWeekendDay && isCurrentMonth ? 'bg-blue-50 hover:bg-blue-100' : ''}
-                              ${hasLessons ? 'hover:shadow-md' : ''}
-                            `}
-                            onClick={() => isCurrentMonth && isWeekendDay && !hasLessons && setIsCreateDialogOpen(true)}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div className="text-sm font-medium">
-                                {format(date, 'd')}
-                              </div>
-                              
-                              {isCurrentMonth && isWeekendDay && !hasLessons && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsCreateDialogOpen(true);
-                                  }}
-                                >
-                                  <Plus className="h-4 w-4 text-blue-500" />
-                                </Button>
-                              )}
-                            </div>
-                            
-                            {hasLessons && isCurrentMonth && (
-                              <div className="mt-2 space-y-1">
-                                {lessonsForDay.slice(0, 2).map((lesson, idx) => (
-                                  <div key={idx} className="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate">
-                                    {lesson.title}
-                                  </div>
-                                ))}
-                                {lessonsForDay.length > 2 && (
-                                  <div className="text-xs text-blue-600 font-medium">
-                                    +{lessonsForDay.length - 2} altre
-                                  </div>
+                    {/* Desktop Calendar View */}
+                    <div className="hidden sm:block">
+                      {/* Calendar Header */}
+                      <div className="grid grid-cols-7 gap-1 mb-2">
+                        {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
+                          <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+                            {day}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Calendar Grid */}
+                      <div className="grid grid-cols-7 gap-1">
+                        {calendarDays.map((date, index) => {
+                          const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+                          const isWeekendDay = isWeekend(date);
+                          const lessonsForDay = getLessonsForDay(date);
+                          const hasLessons = lessonsForDay.length > 0;
+                          const isCurrentDay = isToday(date);
+                          
+                          return (
+                            <div 
+                              key={index}
+                              className={`
+                                relative p-2 min-h-[100px] border rounded-lg cursor-pointer transition-all
+                                ${!isCurrentMonth ? 'bg-gray-50 text-gray-400 border-gray-100' : 'bg-white border-gray-200'}
+                                ${isCurrentDay ? 'ring-2 ring-blue-500' : ''}
+                                ${isWeekendDay && isCurrentMonth ? 'bg-blue-50 hover:bg-blue-100' : ''}
+                                ${hasLessons ? 'hover:shadow-md' : ''}
+                              `}
+                              onClick={() => {
+                                if (isCurrentMonth && isWeekendDay && !hasLessons) {
+                                  setSelectedDate(date);
+                                  setIsCreateDialogOpen(true);
+                                }
+                              }}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="text-sm font-medium">
+                                  {format(date, 'd')}
+                                </div>
+                                
+                                {isCurrentMonth && isWeekendDay && !hasLessons && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedDate(date);
+                                      setIsCreateDialogOpen(true);
+                                    }}
+                                  >
+                                    <Plus className="h-4 w-4 text-blue-500" />
+                                  </Button>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              
+                              {hasLessons && isCurrentMonth && (
+                                <div className="mt-2 space-y-1">
+                                  {lessonsForDay.slice(0, 2).map((lesson, idx) => (
+                                    <div key={idx} className="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate">
+                                      {lesson.title}
+                                    </div>
+                                  ))}
+                                  {lessonsForDay.length > 2 && (
+                                    <div className="text-xs text-blue-600 font-medium">
+                                      +{lessonsForDay.length - 2} altre
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -793,7 +888,7 @@ export const LessonTracking: React.FC = () => {
                                           size="sm"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDeleteLesson(lesson.id, lesson);
+                                            openDeleteDialog(lesson);
                                           }}
                                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                                         >
@@ -960,16 +1055,67 @@ export const LessonTracking: React.FC = () => {
           </Card>
         )}
 
+        {/* Delete Confirmation Dialog */}
+        {showDeleteDialog && lessonToDelete && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl"
+            >
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Conferma eliminazione</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Sei sicuro di voler eliminare la lezione{' '}
+                  <span className="font-medium text-gray-900">
+                    "{lessonToDelete.title}"
+                  </span>?
+                  <br />
+                  Questa azione non può essere annullata.
+                </p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteDialog(false);
+                    setLessonToDelete(null);
+                  }}
+                  leftIcon={<X className="h-4 w-4" />}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDeleteLesson}
+                  leftIcon={<Trash2 className="h-4 w-4" />}
+                >
+                  Elimina
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {/* Create Lesson Dialog */}
         <CreateLessonDialog
           classId={selectedClass}
           className={selectedClassName}
           isOpen={isCreateDialogOpen}
-          onClose={() => setIsCreateDialogOpen(false)}
+          onClose={() => {
+            setIsCreateDialogOpen(false);
+            setSelectedDate(null);
+          }}
           onSuccess={(newLesson) => {
             handleCreateLessonSuccess(newLesson);
             setIsCreateDialogOpen(false);
+            setSelectedDate(null);
           }}
+          initialDate={selectedDate || new Date()}
         />
 
         {/* Edit Lesson Dialog */}

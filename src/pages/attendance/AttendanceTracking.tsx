@@ -537,132 +537,183 @@ export const AttendanceTracking: React.FC = () => {
             </div>
 
 
-            {/* Class Selection and Month Navigation */}
-      <Card className="mb-6 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
-        <CardHeader className="border-b border-slate-200">
-          <CardTitle className="flex items-center text-slate-900">
-            <School className="h-5 w-5 mr-2 text-blue-600" />
-            Selezione Classe e Periodo
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left: Class info (read-only) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Classe</label>
-              {selectedClass ? (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center rounded-md bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 border border-slate-200">
-                    {(() => {
-                      const c = teacherClasses.find(c => c.id === selectedClass);
-                      const baseName = preselectedClassName || c?.name;
-                      if (!baseName) return '—';
-                      const turno = (c as any)?.turno;
-                      return `${baseName}${turno ? ` - ${turno}` : ''}`;
-                    })()}
-                  </span>
-                  {teacherClasses.find(c => c.id === selectedClass && (c as any).isTemporary) && (
-                    <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">Supplenza</span>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                  Nessuna classe selezionata. Seleziona una classe dalla pagina Classi.
-                  <div className="mt-2">
+            {/* Class Selection and Filters */}
+            <Card className="mb-6 bg-white border border-slate-100 shadow-sm rounded-xl overflow-hidden">
+              <CardHeader className="bg-slate-50 border-b border-slate-100 px-6 py-4">
+                <CardTitle className="flex items-center text-slate-800 text-lg font-semibold">
+                  <School className="h-5 w-5 mr-2 text-blue-600" />
+                  Filtri e Periodo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="p-6">
+                  {/* Class Info */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Classe Selezionata</label>
+                    {selectedClass ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="inline-flex items-center bg-white border border-slate-200 rounded-lg px-4 py-2.5 shadow-sm">
+                          <span className="text-sm font-medium text-slate-800">
+                            {(() => {
+                              const c = teacherClasses.find(c => c.id === selectedClass);
+                              const baseName = preselectedClassName || c?.name;
+                              if (!baseName) return '—';
+                              const turno = (c as any)?.turno;
+                              return `${baseName}${turno ? ` - ${turno}` : ''}`;
+                            })()}
+                          </span>
+                          {teacherClasses.find(c => c.id === selectedClass && (c as any).isTemporary) && (
+                            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100 rounded-full">
+                              Supplenza
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:bg-blue-50"
+                          onClick={() => navigate(returnTo || '/admin/classes')}
+                        >
+                          Cambia classe
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+                        <div className="flex items-start">
+                          <AlertCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-amber-800">Nessuna classe selezionata</p>
+                            <p className="text-sm text-amber-700">Seleziona una classe dalla pagina Classi per visualizzare le presenze.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 bg-white"
+                              onClick={() => navigate(returnTo || '/admin/classes')}
+                            >
+                              <School className="h-4 w-4 mr-2" />
+                              Vai a Classi
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs text-slate-500">Le presenze possono essere registrate solo per Sabato o Domenica.</p>
+                  </div>
+
+                  <div className="border-t border-slate-100 my-4"></div>
+
+                  {/* Date Navigation */}
+                  <div className="mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <h3 className="text-sm font-medium text-slate-700">Seleziona il periodo</h3>
+                      
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigateMonth('prev')}
+                          disabled={isLoading}
+                          className="px-3 py-1.5"
+                        >
+                          <ChevronLeft className="h-4 w-4 mr-1" />
+                          <span className="sr-only sm:not-sr-only">Prec.</span>
+                        </Button>
+                        
+                        <div className="flex items-center gap-2">
+                          <div className="relative">
+                            <select
+                              className="appearance-none bg-white border border-slate-200 rounded-lg pl-3 pr-8 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              value={currentMonth.getMonth()}
+                              onChange={handleMonthSelect}
+                              aria-label="Seleziona mese"
+                            >
+                              {months.map((m, i) => (
+                                <option key={m} value={i}>{m}</option>
+                              ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                          
+                          <div className="relative">
+                            <select
+                              className="appearance-none bg-white border border-slate-200 rounded-lg pl-3 pr-8 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              value={currentMonth.getFullYear()}
+                              onChange={handleYearSelect}
+                              aria-label="Seleziona anno"
+                            >
+                              {Array.from({ length: 5 }).map((_, idx) => {
+                                const base = new Date().getFullYear();
+                                const year = base - 2 + idx;
+                                return <option key={year} value={year}>{year}</option>;
+                              })}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentMonth(new Date())}
+                          disabled={isLoading}
+                          className="px-3 py-1.5"
+                        >
+                          Oggi
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigateMonth('next')}
+                          disabled={isLoading}
+                          className="px-3 py-1.5"
+                        >
+                          <span className="sr-only sm:not-sr-only">Succ.</span>
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filters */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100">
+                    <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={showOnlyRecordedDays}
+                          onChange={(e) => setShowOnlyRecordedDays(e.target.checked)}
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      </div>
+                      <span>Mostra solo giorni con registri</span>
+                    </label>
+
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => navigate(returnTo || '/admin/classes')}
+                      className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-3 py-1.5 text-sm"
+                      onClick={() => {
+                        setShowOnlyRecordedDays(false);
+                        setCurrentMonth(new Date());
+                      }}
                     >
-                      Vai a Classi
+                      <X className="h-4 w-4 mr-1.5" />
+                      <span>Reset filtri</span>
                     </Button>
                   </div>
                 </div>
-              )}
-              <p className="mt-2 text-xs text-slate-500">Le presenze possono essere registrate solo per Sabato o Domenica.</p>
-            </div>
-
-            {/* Right: Period toolbar + secondary actions */}
-            <div className="flex flex-col gap-3 md:items-end justify-between">
-              <div className="inline-flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => navigateMonth('prev')}
-                  disabled={isLoading}
-                  leftIcon={<ChevronLeft className="h-4 w-4" />}
-                >
-                  Precedente
-                </Button>
-
-                <select
-                  className="rounded-xl border border-slate-200 bg-white h-10 px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
-                  value={currentMonth.getMonth()}
-                  onChange={handleMonthSelect}
-                  aria-label="Mese"
-                >
-                  {months.map((m, i) => (
-                    <option key={m} value={i}>{m}</option>
-                  ))}
-                </select>
-
-                <select
-                  className="rounded-xl border border-slate-200 bg-white h-10 px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
-                  value={currentMonth.getFullYear()}
-                  onChange={handleYearSelect}
-                  aria-label="Anno"
-                >
-                  {Array.from({ length: 5 }).map((_, idx) => {
-                    const base = new Date().getFullYear();
-                    const year = base - 2 + idx;
-                    return <option key={year} value={year}>{year}</option>;
-                  })}
-                </select>
-
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentMonth(new Date())}
-                  disabled={isLoading}
-                >
-                  Questo mese
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => navigateMonth('next')}
-                  disabled={isLoading}
-                  rightIcon={<ChevronRight className="h-4 w-4" />}
-                >
-                  Successivo
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-4 w-full md:justify-end">
-                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-300 text-slate-700 focus:ring-slate-500"
-                    checked={showOnlyRecordedDays}
-                    onChange={(e) => setShowOnlyRecordedDays(e.target.checked)}
-                  />
-                  Mostra solo giorni con registri
-                </label>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-600 hover:text-slate-900"
-                  onClick={() => {
-                    setShowOnlyRecordedDays(false);
-                    setCurrentMonth(new Date());
-                  }}
-                >
-                  Reset filtri
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
 
             {/* Calendar View */}
             <Card className="mb-8 bg-white border border-slate-200 shadow-sm rounded-lg overflow-hidden">
