@@ -38,6 +38,9 @@ import { UserProfile } from './pages/profile/UserProfile';
 import { NotFound } from './pages/NotFound';
 import { ErrorFallback } from './components/error/ErrorFallback';
 import { ToastProvider } from './components/ui/Toast';
+import ParentLessons from './pages/parent/ParentLessons';
+import ParentHomework from './pages/parent/ParentHomework';
+import ParentGrades from './pages/parent/ParentGrades';
 
 // Route Guard Component
 const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: string[] }) => {
@@ -158,6 +161,49 @@ function AppRoutes() {
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
                   <div className="flex-grow">
                     <UserProfile />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          {/* Parent Routes */}
+          <Route path="/parent/lessons" element={
+            <PrivateRoute roles={['parent']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <ParentLessons />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/parent/homework" element={
+            <PrivateRoute roles={['parent']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <ParentHomework />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/parent/grades" element={
+            <PrivateRoute roles={['parent']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <ParentGrades />
                   </div>
                 </ErrorBoundary>
                 <Footer />
