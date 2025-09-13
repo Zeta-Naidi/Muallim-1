@@ -295,25 +295,28 @@ const ParentHomework: React.FC = () => {
     <PageContainer
       title="Compiti"
       description={selectedChild ? `Compiti di ${selectedChild.firstName} ${selectedChild.lastName}` : "Gestione Compiti"}
+      actions={
+        children.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label htmlFor="child-select" className="text-sm font-medium text-slate-700 whitespace-nowrap">
+              Seleziona figlio:
+            </label>
+            <select
+              id="child-select"
+              value={selectedChildId}
+              onChange={handleChildChange}
+              className="bg-white border border-slate-300 text-slate-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {children.map((child) => (
+                <option key={child.id} value={child.id}>
+                  {child.firstName} {child.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      }
     >
-      {/* Child Selector */}
-      <div className="mb-6">
-        <label htmlFor="child-select" className="block text-sm font-medium text-slate-700 mb-2">
-          Seleziona figlio
-        </label>
-        <select
-          id="child-select"
-          value={selectedChildId}
-          onChange={handleChildChange}
-          className="bg-white border border-slate-300 text-slate-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          {children.map((child) => (
-            <option key={child.id} value={child.id}>
-              {child.firstName} {child.lastName}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

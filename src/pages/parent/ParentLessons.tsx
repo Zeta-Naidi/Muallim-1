@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { BookOpen, Calendar, User, ArrowLeft, Eye } from 'lucide-react';
+import { BookOpen, Calendar, User, Eye } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { useAuth } from '../../context/AuthContext';
 
@@ -89,9 +89,8 @@ const ParentLessons: React.FC = () => {
       try {
         const childrenQuery = query(
           collection(db, 'students'),
-          where('parentId', '==', userProfile.id.trim())
+          where('parentId', '==', userProfile.id)
         );
-        
         const childrenSnapshot = await getDocs(childrenQuery);
         const childrenData: ChildData[] = childrenSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -185,26 +184,28 @@ const ParentLessons: React.FC = () => {
     <PageContainer
       title="Lezioni"
       description={selectedChild ? `Lezioni di ${selectedChild.firstName} ${selectedChild.lastName}` : "Gestione Lezioni"}
+      actions={
+        children.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label htmlFor="child-select" className="text-sm font-medium text-slate-700 whitespace-nowrap">
+              Seleziona figlio:
+            </label>
+            <select
+              id="child-select"
+              value={selectedChildId}
+              onChange={handleChildChange}
+              className="bg-white border border-slate-300 text-slate-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {children.map((child) => (
+                <option key={child.id} value={child.id}>
+                  {child.firstName} {child.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      }
     >
-      {/* Child Selector */}
-      <div className="mb-6">
-        <label htmlFor="child-select" className="block text-sm font-medium text-slate-700 mb-2">
-          Seleziona figlio
-        </label>
-        <select
-          id="child-select"
-          value={selectedChildId}
-          onChange={handleChildChange}
-          className="bg-white border border-slate-300 text-slate-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          {children.map((child) => (
-            <option key={child.id} value={child.id}>
-              {child.firstName} {child.lastName}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <motion.div
@@ -329,9 +330,9 @@ const ParentLessons: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleLessonDetails(lesson)}
-                        className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                        className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
                       >
-                        <Eye className="h-4 w-4 mr-1" />
+                        <Eye className="h-4 w-4" />
                         Dettagli
                       </button>
                     </td>

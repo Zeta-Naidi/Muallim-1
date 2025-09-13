@@ -142,6 +142,15 @@ export const Header: React.FC = () => {
       ];
     }
 
+    if (userProfile?.role === 'parent') {
+      return [
+        ...baseItems,
+        { path: '/parent/lessons', label: 'Lezioni' },
+        { path: '/parent/homework', label: 'Compiti' },
+        { path: '/parent/grades', label: 'Voti' },
+      ];
+    }
+
     if (userProfile?.role === 'admin') {
       return [
         ...baseItems,

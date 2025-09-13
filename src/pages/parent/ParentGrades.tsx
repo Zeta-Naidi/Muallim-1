@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
-  TrendingUp, 
-  Award, 
-  Calendar,
-  ChevronDown,
+  Calendar, 
+  User, 
   Eye,
-  X,
-  User,
+  ChevronDown,
+  TrendingUp,
+  Award,
   GraduationCap,
+  X,
   Star
 } from 'lucide-react';
+import { PageContainer } from '../../components/layout/PageContainer';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -234,38 +235,33 @@ const ParentGrades: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Voti</h1>
-              <p className="text-gray-600">Visualizza i voti e le valutazioni</p>
+    <PageContainer
+      title="Voti"
+      description="Visualizza i voti e le valutazioni"
+      actions={
+        children.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-slate-700 whitespace-nowrap">
+              Seleziona figlio:
+            </label>
+            <div className="relative">
+              <select
+                value={selectedChildId}
+                onChange={(e) => setSelectedChildId(e.target.value)}
+                className="appearance-none bg-white border border-slate-300 text-slate-900 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {children.map((child) => (
+                  <option key={child.id} value={child.id}>
+                    {child.firstName} {child.lastName}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
-            
-            {/* Child Selector */}
-            {children.length > 0 && (
-              <div className="relative">
-                <select
-                  value={selectedChildId}
-                  onChange={(e) => setSelectedChildId(e.target.value)}
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[200px]"
-                >
-                  {children.map((child) => (
-                    <option key={child.id} value={child.id}>
-                      {child.firstName} {child.lastName}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            )}
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        )
+      }
+    >
         {selectedChild && (
           <>
             {/* Statistics Cards */}
@@ -438,7 +434,6 @@ const ParentGrades: React.FC = () => {
             </motion.div>
           </>
         )}
-      </div>
 
       {/* Grade Details Modal */}
       {showGradeModal && selectedGrade && (
@@ -467,7 +462,7 @@ const ParentGrades: React.FC = () => {
                     Materia
                   </label>
                   <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                    {selectedGrade.subject}
+                    {selectedGrade?.subject}
                   </p>
                 </div>
 
@@ -476,9 +471,9 @@ const ParentGrades: React.FC = () => {
                     Tipo di Valutazione
                   </label>
                   <div className="flex items-center bg-gray-50 p-3 rounded-lg">
-                    {getTypeIcon(selectedGrade.type)}
+                    {selectedGrade?.type && getTypeIcon(selectedGrade.type)}
                     <span className="ml-2 text-sm text-gray-900">
-                      {getTypeLabel(selectedGrade.type)}
+                      {selectedGrade?.type && getTypeLabel(selectedGrade.type)}
                     </span>
                   </div>
                 </div>
@@ -488,11 +483,11 @@ const ParentGrades: React.FC = () => {
                     Voto
                   </label>
                   <div className="bg-gray-50 p-3 rounded-lg">
-                    <span className={`text-2xl font-bold ${getGradeColor(selectedGrade.grade, selectedGrade.maxGrade)}`}>
-                      {selectedGrade.grade}/{selectedGrade.maxGrade}
+                    <span className={`text-2xl font-bold ${selectedGrade && getGradeColor(selectedGrade.grade, selectedGrade.maxGrade)}`}>
+                      {selectedGrade && `${selectedGrade.grade}/${selectedGrade.maxGrade}`}
                     </span>
                     <span className="ml-2 text-sm text-gray-600">
-                      ({Math.round((selectedGrade.grade / selectedGrade.maxGrade) * 100)}%)
+                      {selectedGrade && `(${Math.round((selectedGrade.grade / selectedGrade.maxGrade) * 100)}%)`}
                     </span>
                   </div>
                 </div>
@@ -502,7 +497,7 @@ const ParentGrades: React.FC = () => {
                     Data
                   </label>
                   <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                    {format(selectedGrade.date, 'dd MMMM yyyy', { locale: it })}
+                    {selectedGrade && format(selectedGrade.date instanceof Date ? selectedGrade.date : (selectedGrade.date as any).toDate(), 'dd MMMM yyyy', { locale: it })}
                   </p>
                 </div>
 
@@ -511,7 +506,7 @@ const ParentGrades: React.FC = () => {
                     Insegnante
                   </label>
                   <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                    {selectedGrade.teacherName}
+                    {selectedGrade?.teacherName}
                   </p>
                 </div>
 
@@ -520,7 +515,7 @@ const ParentGrades: React.FC = () => {
                     Semestre
                   </label>
                   <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                    {selectedGrade.semester === 'first' ? 'Primo Semestre' : 'Secondo Semestre'}
+                    {selectedGrade?.semester === 'first' ? 'Primo Semestre' : 'Secondo Semestre'}
                   </p>
                 </div>
               </div>
@@ -530,14 +525,14 @@ const ParentGrades: React.FC = () => {
                   Descrizione
                 </label>
                 <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                  {selectedGrade.description || 'Nessuna descrizione disponibile'}
+                  {selectedGrade?.description || 'Nessuna descrizione disponibile'}
                 </p>
               </div>
             </div>
           </motion.div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 
