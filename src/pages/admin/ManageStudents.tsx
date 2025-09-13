@@ -161,7 +161,7 @@ export const ManageStudents: React.FC = () => {
             gender: student.gender,
             parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
             parentCodiceFiscale: parentData?.codiceFiscale,
-            parentContact: parentData?.phoneNumber || parentData.contact,
+            parentContact: parentData?.phoneNumber || '',
             parentEmail: parentData?.email,
             parentAddress: parentData?.address,
             parentCity: parentData?.city,
