@@ -709,7 +709,7 @@ export const Dashboard: React.FC = () => {
         // Redesigned Admin Dashboard (vibrant theme)
         <>
           {/* Key Metrics Overview (custom cards) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
             <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
               <div className="p-6">
                 <div className="flex items-center gap-3">
