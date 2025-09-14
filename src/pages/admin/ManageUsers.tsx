@@ -1039,7 +1039,7 @@ export const ManageUsers: React.FC = () => {
                     <GraduationCap className="h-5 w-5 mr-2 text-green-600" />
                   ) : (
                     <UserCog className="h-5 w-5 mr-2 text-blue-600" />
-                  )}
+                  )} 
                   Informazioni Base
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1076,12 +1076,6 @@ export const ManageUsers: React.FC = () => {
                       <p className="text-gray-900 font-mono text-sm">{selectedStudent.codiceFiscale}</p>
                     </div>
                   )}
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">ID</label>
-                    <p className="text-gray-900 font-mono text-sm">
-                      {selectedStudent ? selectedStudent.id : selectedUser?.id}
-                    </p>
-                  </div>
                 </div>
               </div>
 

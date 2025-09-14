@@ -236,7 +236,7 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
           role: 'student' as const,
           parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
           parentCodiceFiscale: parentData?.codiceFiscale,
-          parentContact: parentData?.phoneNumber || parentData.contact,
+          parentContact: parentData?.phoneNumber || '',
           parentEmail: parentData?.email,
           parentAddress: parentData?.address,
           parentCity: parentData?.city,
