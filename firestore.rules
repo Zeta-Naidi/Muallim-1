@@ -173,6 +173,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Receipts
+    match /receipts/{receiptId} {
+      allow read, write: if isAdmin();
+    }
+
     // Substitutions
     match /substitutions/{substitutionId} {
       allow read: if isAuthenticated() && (
