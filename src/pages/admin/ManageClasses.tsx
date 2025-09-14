@@ -55,9 +55,11 @@ export const ManageClasses: React.FC = () => {
   const [loadingStats, setLoadingStats] = useState(false);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [isRemoveStudentDialogOpen, setIsRemoveStudentDialogOpen] = useState(false);
-  const [studentToRemove, setStudentToRemove] = useState<{id: string, name: string} | null>(null);
+  const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [isDeletionWarningOpen, setIsDeletionWarningOpen] = useState(false);
+  const [classToDelete, setClassToDelete] = useState<{ id: string; name: string; studentCount: number } | null>(null);
   const [isChangeTeacherDialogOpen, setIsChangeTeacherDialogOpen] = useState(false);
   const [isAssignAssistantDialogOpen, setIsAssignAssistantDialogOpen] = useState(false);
   const [availableTeachers, setAvailableTeachers] = useState<User[]>([]);
@@ -642,6 +644,19 @@ export const ManageClasses: React.FC = () => {
 
 
   const handleDeleteClass = async (classId: string) => {
+    // Find the class to check if it has students
+    const classToDeleteData = classes.find(c => c.id === classId);
+    
+    if (classToDeleteData && classToDeleteData.students && classToDeleteData.students.length > 0) {
+      setClassToDelete({
+        id: classId,
+        name: classToDeleteData.name,
+        studentCount: classToDeleteData.students.length
+      });
+      setIsDeletionWarningOpen(true);
+      return;
+    }
+
     if (!window.confirm('Sei sicuro di voler eliminare questa classe? Questa azione non può essere annullata.')) {
       return;
     }
@@ -655,6 +670,11 @@ export const ManageClasses: React.FC = () => {
     } catch (error) {
       console.error('Error deleting class:', error);
     }
+  };
+
+  const handleCloseDeletionWarning = () => {
+    setIsDeletionWarningOpen(false);
+    setClassToDelete(null);
   };
 
   if (!userProfile || userProfile.role !== 'admin') {
@@ -1637,6 +1657,51 @@ export const ManageClasses: React.FC = () => {
                     {teacherSearchQuery ? 'Nessun assistente trovato' : 'Nessun assistente disponibile'}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Class Deletion Warning Modal */}
+      {isDeletionWarningOpen && classToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Impossibile Eliminare Classe</h3>
+                  <p className="text-sm text-gray-600">Questa azione non può essere completata</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-700">
+                  La classe <span className="font-semibold">"{classToDelete.name}"</span> contiene{' '}
+                  <span className="font-semibold">{classToDelete.studentCount} studenti</span>.
+                </p>
+                <p className="text-gray-600 mt-2">
+                  Rimuovi prima tutti gli studenti dalla classe per poterla eliminare.
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseDeletionWarning}
+                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Chiudi
+                </Button>
+                <Button
+                  onClick={handleCloseDeletionWarning}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Ho Capito
+                </Button>
               </div>
             </div>
           </div>

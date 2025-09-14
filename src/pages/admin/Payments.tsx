@@ -58,6 +58,14 @@ export const Payments: React.FC = () => {
   const [sortField, setSortField] = useState<'parentName' | 'totalAmount' | 'paidAmount'>('parentName');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
+  // Pagination state for recent payments
+  const [recentPaymentsPage, setRecentPaymentsPage] = useState(1);
+  const [recentPaymentsPerPage] = useState(5);
+  
+  // Pagination state for pending payments (parent groups)
+  const [pendingPaymentsPage, setPendingPaymentsPage] = useState(1);
+  const [pendingPaymentsPerPage] = useState(5);
+  
   // Pricing structure based on number of children
   const getPricing = (childrenCount: number): number => {
     switch (childrenCount) {
@@ -698,7 +706,9 @@ export const Payments: React.FC = () => {
           <div className="lg:col-span-2">
             {filteredParentGroups.length > 0 ? (
               <div className="space-y-4">
-                {filteredParentGroups.map(group => {
+                {filteredParentGroups
+                  .slice((pendingPaymentsPage - 1) * pendingPaymentsPerPage, pendingPaymentsPage * pendingPaymentsPerPage)
+                  .map(group => {
                   const paymentStatus = getPaymentStatus(group);
                   const remainingAmount = group.isExempted ? 0 : Math.max(0, group.totalAmount - group.paidAmount);
                   const paymentHistory = getPaymentHistoryForParent(group.parentContact);
@@ -1071,6 +1081,38 @@ export const Payments: React.FC = () => {
               </motion.div>
                 );
               })}
+              
+              {/* Pagination controls for pending payments */}
+              {filteredParentGroups.length > pendingPaymentsPerPage && (
+                <div className="flex items-center justify-between mt-6 p-4 bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl">
+                  <div className="text-sm text-gray-600">
+                    Mostrando {((pendingPaymentsPage - 1) * pendingPaymentsPerPage) + 1}-{Math.min(pendingPaymentsPage * pendingPaymentsPerPage, filteredParentGroups.length)} di {filteredParentGroups.length} famiglie
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPendingPaymentsPage(prev => Math.max(1, prev - 1))}
+                      disabled={pendingPaymentsPage === 1}
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-gray-600 px-3">
+                      Pagina {pendingPaymentsPage} di {Math.ceil(filteredParentGroups.length / pendingPaymentsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPendingPaymentsPage(prev => Math.min(Math.ceil(filteredParentGroups.length / pendingPaymentsPerPage), prev + 1))}
+                      disabled={pendingPaymentsPage >= Math.ceil(filteredParentGroups.length / pendingPaymentsPerPage)}
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
               </div>
             ) : (
               <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
@@ -1119,7 +1161,9 @@ export const Payments: React.FC = () => {
                   <p className="text-sm text-gray-600">Nessun pagamento registrato.</p>
                 ) : (
                   <div className="space-y-3">
-                    {paymentRecords.slice(0, 8).map(p => (
+                    {paymentRecords
+                      .slice((recentPaymentsPage - 1) * recentPaymentsPerPage, recentPaymentsPage * recentPaymentsPerPage)
+                      .map(p => (
                       <div key={p.id} className="flex items-center justify-between p-3 bg-white/80 rounded-xl border border-gray-100">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{p.parentName}</div>
@@ -1132,6 +1176,38 @@ export const Payments: React.FC = () => {
                         <div className="text-sm font-semibold text-green-700">€{p.amount.toFixed(0)}</div>
                       </div>
                     ))}
+                    
+                    {/* Pagination controls for recent payments */}
+                    {paymentRecords.length > recentPaymentsPerPage && (
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                        <div className="text-xs text-gray-500">
+                          {((recentPaymentsPage - 1) * recentPaymentsPerPage) + 1}-{Math.min(recentPaymentsPage * recentPaymentsPerPage, paymentRecords.length)} di {paymentRecords.length}
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRecentPaymentsPage(prev => Math.max(1, prev - 1))}
+                            disabled={recentPaymentsPage === 1}
+                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <span className="text-xs text-gray-600 px-2">
+                            {recentPaymentsPage}/{Math.ceil(paymentRecords.length / recentPaymentsPerPage)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRecentPaymentsPage(prev => Math.min(Math.ceil(paymentRecords.length / recentPaymentsPerPage), prev + 1))}
+                            disabled={recentPaymentsPage >= Math.ceil(paymentRecords.length / recentPaymentsPerPage)}
+                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
