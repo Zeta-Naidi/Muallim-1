@@ -1299,7 +1299,7 @@ export const ManageClasses: React.FC = () => {
                         <div className="flex items-start justify-between mb-6">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-700 transition-colors duration-200 truncate">
-                              {classItem.name}
+                              {classItem.name} {classItem.turno}
                             </h3>
                             <p className="text-sm text-slate-600 mt-2 line-clamp-2 leading-relaxed">{classItem.description}</p>
                           </div>

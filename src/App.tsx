@@ -31,6 +31,7 @@ import { ManageUsers } from './pages/admin/ManageUsers';
 import { ManageStudents } from './pages/admin/ManageStudents';
 import { ManageTeachers } from './pages/admin/ManageTeachers';
 import { Payments } from './pages/admin/Payments';
+import { Receipts } from './pages/admin/Receipts';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
 import { PaymentCancel } from './pages/payments/PaymentCancel';
 import { SubstitutionRequests } from './pages/teacher/SubstitutionRequests';
@@ -460,6 +461,20 @@ function AppRoutes() {
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
                   <div className="flex-grow">
                     <Payments />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/admin/receipts" element={
+            <PrivateRoute roles={['admin']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <Receipts />
                   </div>
                 </ErrorBoundary>
                 <Footer />
