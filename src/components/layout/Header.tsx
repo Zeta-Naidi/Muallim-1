@@ -152,7 +152,7 @@ export const Header: React.FC = () => {
     }
 
     if (userProfile?.role === 'admin' || userProfile?.role === 'operatore') {
-      return [
+      const adminItems = [
         ...baseItems,
         { path: '/admin/classes', label: 'Classi' },
         { path: '/admin/teachers', label: 'Insegnanti' },
@@ -160,6 +160,13 @@ export const Header: React.FC = () => {
         { path: '/admin/payments', label: 'Pagamenti' },
         { path: '/admin/users', label: 'Utenti' },
       ];
+      
+      // Add ActionLogs only for admin users (not operators)
+      if (userProfile?.role === 'admin') {
+        adminItems.push({ path: '/admin/action-logs', label: 'Log Azioni' });
+      }
+      
+      return adminItems;
     }
 
     return baseItems;

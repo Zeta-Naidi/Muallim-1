@@ -15,6 +15,7 @@ import {
 import { format } from 'date-fns';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { actionLogger } from '../../services/actionLogger';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -98,6 +99,20 @@ export const UserProfile: React.FC = () => {
       }
       
       await updateDoc(userRef, updates);
+      
+      // Log profile update
+      await actionLogger.logAction(
+        userProfile.id,
+        userProfile.email,
+        userProfile.role,
+        'user_updated',
+        {
+          targetType: 'user',
+          targetId: userProfile.id,
+          targetName: userProfile.displayName,
+          details: { updatedFields: Object.keys(updates).filter(key => key !== 'updatedAt') }
+        }
+      );
       
       setMessage({ type: 'success', text: 'Profilo aggiornato con successo' });
       

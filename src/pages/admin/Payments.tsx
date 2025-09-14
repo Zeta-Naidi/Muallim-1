@@ -11,6 +11,7 @@ import { db } from '../../services/firebase';
 import { User, Class } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { canDeleteResource } from '../../utils/permissions';
+import { actionLogger } from '../../services/actionLogger';
 
 interface ParentGroup {
   parentContact: string;
@@ -273,6 +274,20 @@ export const Payments: React.FC = () => {
 
       const docRef = await addDoc(collection(db, 'paymentRecords'), paymentData);
       
+      // Log payment creation
+      await actionLogger.logAction(
+        userProfile.id,
+        userProfile.email,
+        userProfile.role,
+        'payment_created',
+        {
+          targetType: 'payment',
+          targetId: docRef.id,
+          targetName: `Pagamento ${selectedParent.parentName}`,
+          details: { amount, parentContact: selectedParent.parentContact }
+        }
+      );
+      
       // Generate receipt
       const receiptNumber = `RIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
       const receiptData = {
@@ -348,6 +363,23 @@ export const Payments: React.FC = () => {
         amount: newAmount,
         updatedAt: new Date(),
       });
+      
+      // Log payment update
+      const payment = paymentRecords.find(p => p.id === paymentId);
+      if (payment && userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          'payment_updated',
+          {
+            targetType: 'payment',
+            targetId: paymentId,
+            targetName: `Pagamento ${payment.parentName}`,
+            details: { oldAmount: payment.amount, newAmount }
+          }
+        );
+      }
 
       // Update local state
       setPaymentRecords(prev => prev.map(p => 
@@ -360,11 +392,7 @@ export const Payments: React.FC = () => {
           : group
       ));
 
-      setMessage({ type: 'success', text: 'Pagamento aggiornato con successo' });
-      setEditingPayment(null);
-      setEditAmount('');
-      
-      // Clear success message after 3 seconds
+      setMessage({ type: 'success', text: 'Importo pagamento aggiornato' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error updating payment:', error);
@@ -381,6 +409,22 @@ export const Payments: React.FC = () => {
     }
 
     try {
+      // Log payment deletion before removing
+      if (payment && userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          'payment_deleted',
+          {
+            targetType: 'payment',
+            targetId: paymentId,
+            targetName: `Pagamento ${payment.parentName}`,
+            details: { amount: payment.amount, reason: 'admin_deletion' }
+          }
+        );
+      }
+      
       await deleteDoc(doc(db, 'paymentRecords', paymentId));
 
       // Update local state

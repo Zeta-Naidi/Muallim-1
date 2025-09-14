@@ -10,6 +10,7 @@ import { User, UserRole, Student } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EditUserModal } from '../../components/dialogs/EditUserModal';
 import { canDeleteResource } from '../../utils/permissions';
+import { actionLogger } from '../../services/actionLogger';
 
 export const ManageUsers: React.FC = () => {
   const { userProfile } = useAuth();
@@ -281,11 +282,27 @@ export const ManageUsers: React.FC = () => {
     setEditModalOpen(true);
   };
 
-  const handleUserUpdated = (updatedUser: User) => {
+  const handleUserUpdated = async (updatedUser: User) => {
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     setFilteredUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     setMessage({ type: 'success', text: 'Utente aggiornato con successo' });
     setTimeout(() => setMessage(null), 3000);
+    
+    // Log user update action
+    if (userProfile) {
+      await actionLogger.logAction(
+        userProfile.id,
+        userProfile.email,
+        userProfile.role,
+        'user_updated',
+        {
+          targetType: 'user',
+          targetId: updatedUser.id,
+          targetName: updatedUser.displayName,
+          details: { updatedFields: ['profile'] }
+        }
+      );
+    }
   };
 
   const handleDeleteUser = async () => {
@@ -297,11 +314,43 @@ export const ManageUsers: React.FC = () => {
         setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
         setFilteredUsers(prev => prev.filter(user => user.id !== userToDelete.id));
         setMessage({ type: 'success', text: 'Utente eliminato con successo' });
+        
+        // Log user deletion
+        if (userProfile) {
+          await actionLogger.logAction(
+            userProfile.id,
+            userProfile.email,
+            userProfile.role,
+            'user_deleted',
+            {
+              targetType: 'user',
+              targetId: userToDelete.id,
+              targetName: userToDelete.displayName,
+              details: { reason: 'admin_deletion' }
+            }
+          );
+        }
       } else if (studentToDelete) {
         await deleteDoc(doc(db, 'students', studentToDelete.id));
         setStudents(prev => prev.filter(student => student.id !== studentToDelete.id));
         setFilteredStudents(prev => prev.filter(student => student.id !== studentToDelete.id));
         setMessage({ type: 'success', text: 'Studente eliminato con successo' });
+        
+        // Log student deletion
+        if (userProfile) {
+          await actionLogger.logAction(
+            userProfile.id,
+            userProfile.email,
+            userProfile.role,
+            'user_deleted',
+            {
+              targetType: 'student',
+              targetId: studentToDelete.id,
+              targetName: `${studentToDelete.firstName} ${studentToDelete.lastName}`,
+              details: { reason: 'admin_deletion' }
+            }
+          );
+        }
       }
       
       // Clear success message after 3 seconds
@@ -380,6 +429,7 @@ export const ManageUsers: React.FC = () => {
     }
     if (user.role === newRole) return;
 
+    const oldRole = user.role;
     try {
       setRoleUpdating(prev => ({ ...prev, [user.id]: true }));
       await updateDoc(doc(db, 'users', user.id), { role: newRole });
@@ -388,6 +438,22 @@ export const ManageUsers: React.FC = () => {
       setFilteredUsers(prev => prev.map(u => (u.id === user.id ? { ...u, role: newRole } : u)));
       setMessage({ type: 'success', text: `Ruolo aggiornato a ${getRoleName(newRole)} per ${user.displayName}` });
       setTimeout(() => setMessage(null), 2500);
+      
+      // Log role change
+      if (userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          'user_role_changed',
+          {
+            targetType: 'user',
+            targetId: user.id,
+            targetName: user.displayName,
+            details: { oldRole, newRole }
+          }
+        );
+      }
     } catch (err) {
       console.error('Errore aggiornamento ruolo:', err);
       setMessage({ type: 'error', text: 'Impossibile aggiornare il ruolo. Riprova.' });
@@ -464,6 +530,21 @@ export const ManageUsers: React.FC = () => {
 
       setMessage({ type: 'success', text: 'Utente approvato con successo' });
       setTimeout(() => setMessage(null), 3000);
+      
+      // Log user approval
+      await actionLogger.logAction(
+        userProfile.id,
+        userProfile.email,
+        userProfile.role,
+        'user_approved',
+        {
+          targetType: 'user',
+          targetId: userToApprove.id,
+          targetName: userToApprove.displayName,
+          details: { previousStatus: 'pending_approval' }
+        }
+      );
+      
       setApprovalConfirmOpen(false);
       setUserToApprove(null);
     } catch (error) {
@@ -475,11 +556,25 @@ export const ManageUsers: React.FC = () => {
   };
 
   const handleRejectUser = async () => {
-    if (!userToReject) return;
+    if (!userToReject || !userProfile) return;
     
     setProcessingApproval(userToReject.id);
     
     try {
+      // Log user rejection before deletion
+      await actionLogger.logAction(
+        userProfile.id,
+        userProfile.email,
+        userProfile.role,
+        'user_rejected',
+        {
+          targetType: 'user',
+          targetId: userToReject.id,
+          targetName: userToReject.displayName,
+          details: { reason: 'admin_rejection', email: userToReject.email }
+        }
+      );
+      
       await deleteDoc(doc(db, 'users', userToReject.id));
       
       // Update local state

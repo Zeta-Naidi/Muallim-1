@@ -14,6 +14,7 @@ import { db } from '../../services/firebase';
 import { User, Student, Class, StudentWithParent, UserRole } from '../../types';
 import { isValid, format } from 'date-fns';
 import { canDeleteResource } from '../../utils/permissions';
+import { actionLogger } from '../../services/actionLogger';
 
 interface StudentFormValues {
   displayName: string;
@@ -772,6 +773,26 @@ export const ManageStudents: React.FC = () => {
         await updateDoc(parentRef, {
           accountStatus: 'active'
         });
+      }
+
+      // Log student approval/rejection
+      if (userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          newStatus ? 'user_approved' : 'user_rejected',
+          {
+            targetType: 'student',
+            targetId: studentId,
+            targetName: enrollTarget.name,
+            details: { 
+              previousStatus: !newStatus,
+              newStatus: newStatus,
+              parentApproved: newStatus && parentId ? true : false
+            }
+          }
+        );
       }
 
       setStudents(prev => prev.map(student =>

@@ -252,5 +252,15 @@ service cloud.firestore {
       // Recipients can delete their own notifications; admins can delete any
       allow delete: if (isAuthenticated() && resource.data.recipientId == request.auth.uid) || isAdmin();
     }
+
+    // Action Logs
+    match /actionLogs/{logId} {
+      // Only admins can read action logs
+      allow read: if isAdmin();
+      // All authenticated users can create action logs (for logging their own actions)
+      allow create: if isAuthenticated();
+      // Only admins can update or delete action logs
+      allow update, delete: if isAdmin();
+    }
   }
 }
