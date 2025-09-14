@@ -1293,54 +1293,97 @@ export const ManageStudents: React.FC = () => {
           <>
             <Card className="bg-white/90 backdrop-blur-md border border-white/30 shadow-xl rounded-2xl overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border-b border-white/20 pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center text-gray-800">
-                    <div className="p-2 bg-blue-100 rounded-xl mr-3">
-                      <Filter className="h-5 w-5 text-blue-600" />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center text-gray-800">
+                      <div className="p-2 bg-blue-100 rounded-xl mr-3">
+                        <Filter className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Filtri Avanzati</h3>
+                        <p className="text-sm text-gray-600 font-normal">Cerca e filtra gli studenti</p>
+                      </div>
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={exportToCSV}
+                        className="bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                        size="sm"
+                        leftIcon={<Download className="h-4 w-4" />}
+                      >
+                        <span className="hidden sm:inline">Esporta CSV</span>
+                        <span className="sm:hidden">CSV</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setFiltersOpen(o => !o)}
+                        className="sm:hidden text-gray-600 hover:text-gray-800 rounded-xl px-3"
+                        aria-expanded={filtersOpen}
+                        aria-controls="students-filters"
+                      >
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFilters({
+                          name: '',
+                          surname: '',
+                          class: '',
+                          age: '',
+                          parentName: '',
+                          parentPhone: '',
+                          enrollmentType: '',
+                          attendanceMode: '',
+                          gender: '',
+                          italianSchoolClass: ''
+                        })}
+                        className="hidden sm:inline-flex text-gray-600 hover:text-gray-800 rounded-xl"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reset Filtri
+                      </Button>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold">Filtri Avanzati</h3>
-                      <p className="text-sm text-gray-600 font-normal">Cerca e filtra gli studenti</p>
-                    </div>
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
+                  </div>
+                  
+                  {/* Responsive Attendance Mode Toggle */}
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 sm:w-auto sm:mx-0 sm:justify-start">
                     <Button
-                      onClick={exportToCSV}
-                      className="bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                      variant="ghost"
                       size="sm"
-                      leftIcon={<Download className="h-4 w-4" />}
+                      onClick={() => handleFilterChange('attendanceMode', '')}
+                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${
+                        filters.attendanceMode === '' 
+                          ? 'bg-blue-600 text-white shadow-sm' 
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-white'
+                      }`}
                     >
-                      Esporta CSV
+                      Tutti
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setFiltersOpen(o => !o)}
-                      className="sm:hidden text-gray-600 hover:text-gray-800 rounded-xl"
-                      aria-expanded={filtersOpen}
-                      aria-controls="students-filters"
+                      onClick={() => handleFilterChange('attendanceMode', 'in_presenza')}
+                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${
+                        filters.attendanceMode === 'in_presenza' 
+                          ? 'bg-green-600 text-white shadow-sm' 
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-white'
+                      }`}
                     >
-                      <Filter className="h-4 w-4" />
+                      Presenza
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setFilters({
-                        name: '',
-                        surname: '',
-                        class: '',
-                        age: '',
-                        parentName: '',
-                        parentPhone: '',
-                        enrollmentType: '',
-                        attendanceMode: '',
-                        gender: '',
-                        italianSchoolClass: ''
-                      })}
-                      className="hidden sm:inline-flex text-gray-600 hover:text-gray-800 rounded-xl"
+                      onClick={() => handleFilterChange('attendanceMode', 'online')}
+                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${
+                        filters.attendanceMode === 'online' 
+                          ? 'bg-purple-600 text-white shadow-sm' 
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-white'
+                      }`}
                     >
-                      <X className="h-4 w-4 mr-1" />
-                      Reset Filtri
+                      Online
                     </Button>
                   </div>
                 </div>
