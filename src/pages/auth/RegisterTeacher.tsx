@@ -294,8 +294,8 @@ export const RegisterTeacher: React.FC = () => {
                     {...register('phoneNumber', {
                       required: 'Il numero di telefono è obbligatorio',
                       pattern: {
-                        value: /^[\+]?[1-9][\d]{0,15}$/,
-                        message: 'Inserisci un numero di telefono valido'
+                        value: /^(\+39\s?)?((3[0-9]{2}|0[0-9]{1,3})\s?[0-9]{6,7}|[0-9]{10})$/,
+                        message: 'Inserisci un numero di telefono italiano valido (es. +39 123 456 7890 o 3123456789)'
                       }
                     })}
                   />

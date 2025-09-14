@@ -1215,7 +1215,14 @@ export const RegisterStudent: React.FC = () => {
                   <Phone className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  {...parentForm.register('parentContact', { required: 'Telefono è obbligatorio' })}
+                  type="tel"
+                  {...parentForm.register('parentContact', { 
+                    required: 'Telefono è obbligatorio',
+                    pattern: {
+                      value: /^(\+39\s?)?((3[0-9]{2}|0[0-9]{1,3})\s?[0-9]{6,7}|[0-9]{10})$/,
+                      message: 'Inserisci un numero di telefono italiano valido (es. +39 123 456 7890 o 3123456789)'
+                    }
+                  })}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
                   placeholder="+39 123 456 7890"
                 />
