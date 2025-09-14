@@ -158,15 +158,15 @@ export const ManageStudents: React.FC = () => {
           return {
             ...student,
             role: 'student' as UserRole,
-            gender: student.gender,
+            gender: student.gender || '',
             parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
-            parentCodiceFiscale: parentData?.codiceFiscale,
+            parentCodiceFiscale: parentData?.codiceFiscale || '',
             parentContact: parentData?.phoneNumber || '',
-            parentEmail: parentData?.email,
-            parentAddress: parentData?.address,
-            parentCity: parentData?.city,
-            parentPostalCode: parentData?.postalCode,
-            siblingCount: siblingCount,
+            parentEmail: parentData?.email || '',
+            parentAddress: parentData?.address || '',
+            parentCity: parentData?.city || '',
+            parentPostalCode: parentData?.postalCode || '',
+            siblingCount: siblingCount || '',
           };
         });
 
