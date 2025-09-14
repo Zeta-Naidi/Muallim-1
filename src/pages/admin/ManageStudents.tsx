@@ -11,9 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../comp
 import { useAuth } from '../../context/AuthContext';
 import { collection, getDocs, query, where, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { User, Student, Class, StudentWithParent, UserRole } from '../../types';
+import { Student, Class, StudentWithParent, UserRole } from '../../types';
 import { isValid, format } from 'date-fns';
-import { canDeleteResource } from '../../utils/permissions';
 import { actionLogger } from '../../services/actionLogger';
 
 interface StudentFormValues {
@@ -37,6 +36,7 @@ interface StudentFormValues {
   selectedTurni?: string[];
   attendanceMode?: string;
   accountStatus?: string;
+  adminNotes?: string;
 }
 
 export const ManageStudents: React.FC = () => {
@@ -618,6 +618,37 @@ export const ManageStudents: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Admin Notes Preview */}
+                  {(student as any).adminNotes && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                        <Shield className="h-4 w-4 mr-1 text-amber-600" />
+                        Note Amministrative
+                        <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">Solo Admin</span>
+                      </h4>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {(student as any).adminNotes.length > 150 
+                            ? `${(student as any).adminNotes.substring(0, 150)}...` 
+                            : (student as any).adminNotes
+                          }
+                        </p>
+                        {(student as any).adminNotes.length > 150 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditStudent(student);
+                            }}
+                            className="mt-2 text-xs text-amber-700 hover:text-amber-800 underline"
+                          >
+                            Visualizza note complete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
                     <Button
                       variant="outline"
@@ -694,6 +725,7 @@ export const ManageStudents: React.FC = () => {
     setValue('selectedTurni', (student as any).selectedTurni || []);
     setValue('attendanceMode', (student as any).attendanceMode || '');
     setValue('accountStatus', (student as any).accountStatus || '');
+    setValue('adminNotes', (student as any).adminNotes || '');
   };
 
   const handleCancelEdit = () => {
@@ -857,6 +889,7 @@ export const ManageStudents: React.FC = () => {
         selectedTurni: data.selectedTurni || [],
         attendanceMode: data.attendanceMode || null,
         accountStatus: data.accountStatus || null,
+        adminNotes: data.adminNotes || null,
         updatedAt: new Date()
       };
 
@@ -920,6 +953,7 @@ export const ManageStudents: React.FC = () => {
               selectedTurni: data.selectedTurni || [],
               attendanceMode: data.attendanceMode || undefined,
               accountStatus: data.accountStatus || undefined,
+              adminNotes: data.adminNotes || undefined,
               birthDate: data.birthDate ? new Date(data.birthDate) : student.birthDate
             } as StudentWithParent
           : student
@@ -1278,31 +1312,50 @@ export const ManageStudents: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                </CardContent>
-                <CardFooter className="flex justify-end space-x-4 bg-gray-50 border-t border-gray-200 p-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleCancelEdit}
-                    disabled={isSubmitting}
-                    leftIcon={<X className="h-4 w-4" />}
-                    className="border-gray-300 text-gray-700 hover:bg-gray-100"
-                  >
-                    Annulla
-                  </Button>
-                  <Button
-                    type="submit"
-                    isLoading={isSubmitting}
-                    disabled={isSubmitting}
-                    leftIcon={<Save className="h-4 w-4" />}
-                    className="anime-button"
-                  >
-                    Salva
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-          </motion.div>
+
+                {/* Note Admin */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Note Amministrative</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Note per lo studente
+                    </label>
+                    <textarea
+                      className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors resize-vertical"
+                      rows={4}
+                      placeholder="Inserisci note aggiuntive sullo studente (visibili solo agli amministratori)..."
+                      {...register('adminNotes')}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Queste note sono private e visibili solo agli amministratori per tenere traccia di informazioni aggiuntive sullo studente.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end space-x-4 bg-gray-50 border-t border-gray-200 p-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  disabled={isSubmitting}
+                  leftIcon={<X className="h-4 w-4" />}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  Annulla
+                </Button>
+                <Button
+                  type="submit"
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting}
+                  leftIcon={<Save className="h-4 w-4" />}
+                  className="anime-button"
+                >
+                  Salva
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </motion.div>
         ) : (
           <>
             <Card className="bg-white/90 backdrop-blur-md border border-white/30 shadow-xl rounded-2xl overflow-hidden">
