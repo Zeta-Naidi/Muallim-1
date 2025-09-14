@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { User, UserRole } from '../types';
+import { actionLogger } from '../services/actionLogger';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -162,9 +163,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Profilo utente non trovato');
       }
       
-      setUserProfile({ ...userDoc.data(), id: userDoc.id } as User);
+      const userData = { ...userDoc.data(), id: userDoc.id } as User;
+      setUserProfile(userData);
       const token = await userCredential.user.getIdToken();
       setSession({ access_token: token });
+      
+      // Log successful login
+      await actionLogger.logAction(
+        userData.id,
+        userData.email,
+        userData.role,
+        'login',
+        {
+          details: { loginMethod: 'email_password' }
+        }
+      );
     } catch (error) {
       console.error('Login error:', error);
       const authError = error as AuthError;
@@ -245,6 +258,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await setDoc(doc(db, 'users', user.uid), userProfile);
       
+      // Log user registration
+      await actionLogger.logAction(
+        user.uid,
+        email,
+        role,
+        'user_created',
+        {
+          targetType: 'user',
+          targetId: user.uid,
+          targetName: displayName,
+          details: { 
+            registrationMethod: 'email_password',
+            accountStatus: 'pending_approval'
+          }
+        }
+      );
+      
       // Keep user logged in temporarily to show approval pending page
       // They will be signed out when they navigate away or close the browser
     } catch (error) {
@@ -269,6 +299,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      // Log logout before signing out
+      if (userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          'logout'
+        );
+      }
+      
       await signOut(auth);
       setUserProfile(null);
       setSession(null);

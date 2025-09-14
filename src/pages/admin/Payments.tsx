@@ -10,6 +10,8 @@ import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
 import { User, Class } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { canDeleteResource } from '../../utils/permissions';
+import { actionLogger } from '../../services/actionLogger';
 
 interface ParentGroup {
   parentContact: string;
@@ -79,7 +81,7 @@ export const Payments: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!userProfile || userProfile.role !== 'admin') return;
+      if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) return;
       
       try {
         // Fetch all classes
@@ -272,6 +274,20 @@ export const Payments: React.FC = () => {
 
       const docRef = await addDoc(collection(db, 'paymentRecords'), paymentData);
       
+      // Log payment creation
+      await actionLogger.logAction(
+        userProfile.id,
+        userProfile.email,
+        userProfile.role,
+        'payment_created',
+        {
+          targetType: 'payment',
+          targetId: docRef.id,
+          targetName: `Pagamento ${selectedParent.parentName}`,
+          details: { amount, parentContact: selectedParent.parentContact }
+        }
+      );
+      
       // Generate receipt
       const receiptNumber = `RIC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
       const receiptData = {
@@ -347,6 +363,23 @@ export const Payments: React.FC = () => {
         amount: newAmount,
         updatedAt: new Date(),
       });
+      
+      // Log payment update
+      const payment = paymentRecords.find(p => p.id === paymentId);
+      if (payment && userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          'payment_updated',
+          {
+            targetType: 'payment',
+            targetId: paymentId,
+            targetName: `Pagamento ${payment.parentName}`,
+            details: { oldAmount: payment.amount, newAmount }
+          }
+        );
+      }
 
       // Update local state
       setPaymentRecords(prev => prev.map(p => 
@@ -359,11 +392,7 @@ export const Payments: React.FC = () => {
           : group
       ));
 
-      setMessage({ type: 'success', text: 'Pagamento aggiornato con successo' });
-      setEditingPayment(null);
-      setEditAmount('');
-      
-      // Clear success message after 3 seconds
+      setMessage({ type: 'success', text: 'Importo pagamento aggiornato' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error updating payment:', error);
@@ -380,6 +409,22 @@ export const Payments: React.FC = () => {
     }
 
     try {
+      // Log payment deletion before removing
+      if (payment && userProfile) {
+        await actionLogger.logAction(
+          userProfile.id,
+          userProfile.email,
+          userProfile.role,
+          'payment_deleted',
+          {
+            targetType: 'payment',
+            targetId: paymentId,
+            targetName: `Pagamento ${payment.parentName}`,
+            details: { amount: payment.amount, reason: 'admin_deletion' }
+          }
+        );
+      }
+      
       await deleteDoc(doc(db, 'paymentRecords', paymentId));
 
       // Update local state
@@ -498,7 +543,7 @@ export const Payments: React.FC = () => {
     return paymentRecords.filter(payment => payment.parentContact === parentContact);
   };
 
-  if (!userProfile || userProfile.role !== 'admin') {
+  if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
@@ -1071,16 +1116,18 @@ export const Payments: React.FC = () => {
                                         >
                                           <Edit className="h-3 w-3" />
                                         </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleDeletePayment(payment.id)}
-                                          className="p-1 h-auto text-red-600 hover:text-red-800 hover:bg-red-50"
-                                          aria-label="Elimina pagamento"
-                                          title="Elimina pagamento"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
+                                        {canDeleteResource(userProfile?.role || 'student', 'payments') && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDeletePayment(payment.id)}
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1"
+                                            aria-label="Elimina pagamento"
+                                            title="Elimina pagamento"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
                                       </div>
                                     )}
                                   </div>

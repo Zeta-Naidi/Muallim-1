@@ -3,6 +3,7 @@ import { Plus, Search, Users, X, School, BookOpen, FileText, UserCheck, Trash2, 
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { CreateClassDialog } from '../../components/dialogs/CreateClassDialog';
+import { canDeleteResource } from '../../utils/permissions';
 import { AddStudentDialog } from '../../components/dialogs/AddStudentDialog';
 import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -67,7 +68,7 @@ export const ManageClasses: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!userProfile || userProfile.role !== 'admin') return;
+      if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) return;
       
       setIsLoading(true);
       try {
@@ -677,7 +678,7 @@ export const ManageClasses: React.FC = () => {
     setClassToDelete(null);
   };
 
-  if (!userProfile || userProfile.role !== 'admin') {
+  if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
@@ -749,15 +750,17 @@ export const ManageClasses: React.FC = () => {
                       <p className="text-slate-600 mt-1">{selectedClass.description}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClass(selectedClass.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Elimina
-                      </Button>
+                      {canDeleteResource(userProfile?.role || 'student', 'classes') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClass(selectedClass.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Elimina
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>

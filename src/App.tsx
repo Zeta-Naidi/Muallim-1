@@ -4,10 +4,10 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
-import { EnhancedTeacherChat } from './components/chat/EnhancedTeacherChat';
 import { Login } from './pages/auth/Login';
 import { RegisterStudent } from './pages/auth/RegisterStudent';
 import { RegisterTeacher } from './pages/auth/RegisterTeacher';
+import { RegisterOperator } from './pages/auth/RegisterOperator';
 import { ApprovalPending } from './pages/auth/ApprovalPending';
 import { Dashboard } from './pages/Dashboard';
 import { StudentDashboard } from './pages/student/StudentDashboard';
@@ -30,8 +30,10 @@ import { ManageClasses } from './pages/admin/ManageClasses';
 import { ManageUsers } from './pages/admin/ManageUsers';
 import { ManageStudents } from './pages/admin/ManageStudents';
 import { ManageTeachers } from './pages/admin/ManageTeachers';
+import { ManageOperators } from './pages/admin/ManageOperators';
 import { Payments } from './pages/admin/Payments';
 import { Receipts } from './pages/admin/Receipts';
+import { ActionLogs } from './pages/admin/ActionLogs';
 import { PaymentSuccess } from './pages/payments/PaymentSuccess';
 import { PaymentCancel } from './pages/payments/PaymentCancel';
 import { SubstitutionRequests } from './pages/teacher/SubstitutionRequests';
@@ -61,7 +63,8 @@ const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: 
   
   // Check if account is pending approval - redirect to approval page
   if ((userProfile.role === 'teacher' && userProfile.accountStatus === 'pending_approval') ||
-      (userProfile.role === 'parent' && userProfile.accountStatus === 'pending_approval')) {
+      (userProfile.role === 'parent' && userProfile.accountStatus === 'pending_approval') ||
+      (userProfile.role === 'operatore' && userProfile.accountStatus === 'pending_approval')) {
     return <Navigate to="/approval-pending" />;
   }
   
@@ -120,6 +123,11 @@ function AppRoutes() {
             <Route path="/register/teacher" element={
               <PublicRoute>
                 <RegisterTeacher />
+              </PublicRoute>
+            } />
+            <Route path="/register/operator" element={
+              <PublicRoute>
+                <RegisterOperator />
               </PublicRoute>
             } />
             <Route path="/approval-pending" element={<ApprovalPending />} />
@@ -269,7 +277,7 @@ function AppRoutes() {
           
           {/* Attendance Routes */}
           <Route path="/attendance" element={
-            <PrivateRoute roles={['teacher', 'admin']}>
+            <PrivateRoute roles={['teacher', 'admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -326,7 +334,7 @@ function AppRoutes() {
           } />
           
           <Route path="/homework/new" element={
-            <PrivateRoute roles={['teacher', 'admin']}>
+            <PrivateRoute roles={['teacher', 'admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -375,7 +383,7 @@ function AppRoutes() {
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
                   <div className="flex-grow">
-                    {userProfile?.role === 'admin' ? <AdminMaterialsView /> : <MaterialsList />}
+                    {(userProfile?.role === 'admin' || userProfile?.role === 'operatore') ? <AdminMaterialsView /> : <MaterialsList />}
                   </div>
                 </ErrorBoundary>
                 <Footer />
@@ -384,7 +392,7 @@ function AppRoutes() {
           } />
           
           <Route path="/materials/new" element={
-            <PrivateRoute roles={['teacher', 'admin']}>
+            <PrivateRoute roles={['teacher', 'admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -399,7 +407,7 @@ function AppRoutes() {
           
           {/* Admin Routes */}
           <Route path="/admin/classes" element={
-            <PrivateRoute roles={['admin']}>
+            <PrivateRoute roles={['admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -413,7 +421,7 @@ function AppRoutes() {
           } />
           
           <Route path="/admin/users" element={
-            <PrivateRoute roles={['admin']}>
+            <PrivateRoute roles={['admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -427,7 +435,7 @@ function AppRoutes() {
           } />
           
           <Route path="/admin/teachers" element={
-            <PrivateRoute roles={['admin']}>
+            <PrivateRoute roles={['admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -440,8 +448,22 @@ function AppRoutes() {
             </PrivateRoute>
           } />
           
-          <Route path="/admin/students" element={
+          <Route path="/admin/operators" element={
             <PrivateRoute roles={['admin']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <ManageOperators />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+          
+          <Route path="/admin/students" element={
+            <PrivateRoute roles={['admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -455,7 +477,7 @@ function AppRoutes() {
           } />
 
           <Route path="/admin/payments" element={
-            <PrivateRoute roles={['admin']}>
+            <PrivateRoute roles={['admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -469,12 +491,26 @@ function AppRoutes() {
           } />
 
           <Route path="/admin/receipts" element={
-            <PrivateRoute roles={['admin']}>
+            <PrivateRoute roles={['admin', 'operatore']}>
               <div className="flex flex-col min-h-screen">
                 <Header />
                 <ErrorBoundary FallbackComponent={ErrorFallback}>
                   <div className="flex-grow">
                     <Receipts />
+                  </div>
+                </ErrorBoundary>
+                <Footer />
+              </div>
+            </PrivateRoute>
+          } />
+
+          <Route path="/admin/action-logs" element={
+            <PrivateRoute roles={['admin']}>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <div className="flex-grow">
+                    <ActionLogs />
                   </div>
                 </ErrorBoundary>
                 <Footer />

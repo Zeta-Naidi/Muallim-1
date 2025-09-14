@@ -11,7 +11,8 @@ import {
   Phone,
   AlertCircle,
   Calendar,
-  User
+  User,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
@@ -20,7 +21,7 @@ import { Button } from '../../components/ui/Button';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { Dropdown } from '../../components/ui/Dropdown';
 
-interface TeacherFormValues {
+interface OperatorFormValues {
   email: string;
   password: string;
   firstName: string;
@@ -33,7 +34,7 @@ interface TeacherFormValues {
   gender: string;
 }
 
-export const RegisterTeacher: React.FC = () => {
+export const RegisterOperator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -41,9 +42,9 @@ export const RegisterTeacher: React.FC = () => {
   const { registerWithEmail } = useAuth();
   const shouldReduceMotion = useReducedMotion();
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<TeacherFormValues>();
+  const { register, handleSubmit, control, formState: { errors } } = useForm<OperatorFormValues>();
 
-  const onSubmit = async (data: TeacherFormValues) => {
+  const onSubmit = async (data: OperatorFormValues) => {
     try {
       setError(null);
       setIsLoading(true);
@@ -63,7 +64,7 @@ export const RegisterTeacher: React.FC = () => {
         data.email,
         data.password,
         displayName,
-        'teacher',
+        'operatore',
         additionalData
       );
 
@@ -77,10 +78,10 @@ export const RegisterTeacher: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-100 flex relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-600/20 rounded-full blur-2xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-400/20 to-cyan-600/20 rounded-full blur-2xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-400/20 to-green-600/20 rounded-full blur-2xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-400/20 to-teal-600/20 rounded-full blur-2xl" />
       </div>
 
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 relative">
@@ -93,7 +94,7 @@ export const RegisterTeacher: React.FC = () => {
           <div className="lg:hidden text-center mb-8">
             <Link to="/" className="inline-flex items-center justify-center group">
               <motion.div 
-                className="w-14 h-14 bg-gradient-to-br from-purple-600 via-pink-600 to-blue-600 rounded-2xl flex items-center justify-center mr-3 shadow-xl"
+                className="w-14 h-14 bg-gradient-to-br from-emerald-600 via-green-600 to-teal-600 rounded-2xl flex items-center justify-center mr-3 shadow-xl"
                 whileHover={{ scale: 1.05, rotate: 5 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
@@ -112,17 +113,17 @@ export const RegisterTeacher: React.FC = () => {
               transition={{ duration: 0.6, delay: 0.3 }}
             >
               <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                Registrazione Insegnante
+                Registrazione Operatore
                 <motion.span 
                   className="inline-block ml-2"
                   animate={shouldReduceMotion ? undefined : { rotate: [0, 14, -8, 14, -4, 10, 0] }}
                   transition={shouldReduceMotion ? undefined : { duration: 1.2, delay: 0.5, repeat: 0 }}
                 >
-                  👨‍🏫
+                  ⚙️
                 </motion.span>
               </h2>
               <p className="text-gray-600">
-                Richiedi l'accesso come insegnante alla piattaforma
+                Richiedi l'accesso come operatore alla piattaforma
               </p>
             </motion.div>
           </div>
@@ -134,8 +135,8 @@ export const RegisterTeacher: React.FC = () => {
             className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden"
           >
             <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/15 to-pink-600/15 rounded-full blur-2xl opacity-60" />
-              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-400/15 to-cyan-600/15 rounded-full blur-2xl opacity-60" />
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-400/15 to-green-600/15 rounded-full blur-2xl opacity-60" />
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-400/15 to-teal-600/15 rounded-full blur-2xl opacity-60" />
             </div>
 
             <div className="relative">
@@ -153,12 +154,12 @@ export const RegisterTeacher: React.FC = () => {
                 )}
               </AnimatePresence>
 
-              <div className="mb-6 p-4 bg-amber-50/80 backdrop-blur-sm border border-amber-200/50 text-amber-700 rounded-2xl">
+              <div className="mb-6 p-4 bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/50 text-emerald-700 rounded-2xl">
                 <div className="flex items-start">
-                  <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
+                  <Settings className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium mb-1">Richiesta di Approvazione</p>
-                    <p className="text-xs">Il tuo account dovrà essere approvato dall'amministrazione prima di poter accedere alla piattaforma.</p>
+                    <p className="text-xs">Il tuo account operatore dovrà essere approvato dall'amministrazione prima di poter accedere alla piattaforma. Gli operatori hanno accesso alle funzioni amministrative con permessi limitati.</p>
                   </div>
                 </div>
               </div>
@@ -171,7 +172,7 @@ export const RegisterTeacher: React.FC = () => {
                     error={errors.firstName?.message}
                     fullWidth
                     required
-                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                     {...register('firstName', { 
                       required: 'Il nome è obbligatorio',
                       minLength: { value: 2, message: 'Il nome deve avere almeno 2 caratteri' }
@@ -184,7 +185,7 @@ export const RegisterTeacher: React.FC = () => {
                     error={errors.lastName?.message}
                     fullWidth
                     required
-                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                     {...register('lastName', { 
                       required: 'Il cognome è obbligatorio',
                       minLength: { value: 2, message: 'Il cognome deve avere almeno 2 caratteri' }
@@ -199,7 +200,7 @@ export const RegisterTeacher: React.FC = () => {
                       error={errors.email?.message}
                       fullWidth
                       required
-                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                       {...register('email', { 
                         required: 'Email è obbligatoria',
                         pattern: { 
@@ -229,7 +230,7 @@ export const RegisterTeacher: React.FC = () => {
                       error={errors.password?.message}
                       fullWidth
                       required
-                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                      className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                       {...register('password', { 
                         required: 'Password è obbligatoria',
                         minLength: { value: 6, message: 'La password deve avere almeno 6 caratteri' }
@@ -252,7 +253,7 @@ export const RegisterTeacher: React.FC = () => {
                         const today = new Date();
                         const age = today.getFullYear() - birthDate.getFullYear();
                         if (age < 18) {
-                          return 'Gli insegnanti devono essere maggiorenni';
+                          return 'Gli operatori devono essere maggiorenni';
                         }
                         return true;
                       }
@@ -290,7 +291,7 @@ export const RegisterTeacher: React.FC = () => {
                     fullWidth
                     placeholder="+39 123 456 7890"
                     required
-                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                     {...register('phoneNumber', {
                       required: 'Il numero di telefono è obbligatorio',
                       pattern: {
@@ -307,7 +308,7 @@ export const RegisterTeacher: React.FC = () => {
                     fullWidth
                     placeholder="Via e numero civico"
                     required
-                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                     {...register('address', { required: "L'indirizzo è obbligatorio" })}
                   />
 
@@ -318,7 +319,7 @@ export const RegisterTeacher: React.FC = () => {
                     fullWidth
                     placeholder="Città di residenza"
                     required
-                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                     {...register('city', { required: 'La città è obbligatoria' })}
                   />
 
@@ -329,7 +330,7 @@ export const RegisterTeacher: React.FC = () => {
                     fullWidth
                     placeholder="Codice Postale"
                     required
-                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-purple-300 transition-all duration-300"
+                    className="h-12 text-base rounded-2xl border-gray-200/50 bg-gray-50/50 focus:bg-white focus:border-emerald-300 transition-all duration-300"
                     {...register('postalCode', {
                       required: 'Il CAP è obbligatorio',
                       pattern: {
@@ -345,11 +346,11 @@ export const RegisterTeacher: React.FC = () => {
                     id="terms"
                     name="terms"
                     type="checkbox"
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-all duration-200"
+                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded transition-all duration-200"
                     required
                   />
                   <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
-                    Accetto i <a href="#" className="text-purple-600 hover:text-purple-700 font-medium">Termini di Servizio</a> e la <a href="#" className="text-purple-600 hover:text-purple-700 font-medium">Privacy Policy</a>
+                    Accetto i <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium">Termini di Servizio</a> e la <a href="#" className="text-emerald-600 hover:text-emerald-700 font-medium">Privacy Policy</a>
                   </label>
                 </div>
 
@@ -358,11 +359,11 @@ export const RegisterTeacher: React.FC = () => {
                     type="submit" 
                     fullWidth 
                     isLoading={isLoading}
-                    className="h-14 text-base font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group"
+                    className="h-14 text-base font-semibold bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group"
                   >
-                    <span className="relative z-10">Richiedi Account Insegnante</span>
+                    <span className="relative z-10">Richiedi Account Operatore</span>
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-purple-700 to-pink-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      className="absolute inset-0 bg-gradient-to-r from-emerald-700 to-green-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                       initial={false}
                     />
                   </Button>
@@ -379,11 +380,11 @@ export const RegisterTeacher: React.FC = () => {
                   Hai già un account?{' '}
                   <Link 
                     to="/login" 
-                    className="font-semibold text-purple-600 hover:text-purple-700 transition-colors relative group"
+                    className="font-semibold text-emerald-600 hover:text-emerald-700 transition-colors relative group"
                   >
                     Accedi ora
                     <motion.div
-                      className="absolute bottom-0 left-0 w-0 h-0.5 bg-purple-600"
+                      className="absolute bottom-0 left-0 w-0 h-0.5 bg-emerald-600"
                       whileHover={{ width: "100%" }}
                       transition={{ duration: 0.2 }}
                     />
@@ -401,11 +402,11 @@ export const RegisterTeacher: React.FC = () => {
           >
             <p className="text-xs text-gray-500 mb-2">
               Accedendo accetti i nostri{' '}
-              <a href="#" className="text-purple-600 hover:text-purple-700 transition-colors">
+              <a href="#" className="text-emerald-600 hover:text-emerald-700 transition-colors">
                 Termini di Servizio
               </a>
               {' '}e la{' '}
-              <a href="#" className="text-purple-600 hover:text-purple-700 transition-colors">
+              <a href="#" className="text-emerald-600 hover:text-emerald-700 transition-colors">
                 Privacy Policy
               </a>
             </p>

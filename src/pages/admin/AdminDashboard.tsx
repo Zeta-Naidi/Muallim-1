@@ -459,7 +459,7 @@ export const Dashboard: React.FC = () => {
             if (!userProfile) return;
 
             try {
-                if (userProfile.role === 'admin') {
+                if (userProfile.role === 'admin' || userProfile.role === 'operatore') {
                     await fetchAdminStats();
                 } else {
                     await fetchUserData();
@@ -699,9 +699,17 @@ export const Dashboard: React.FC = () => {
     return (
         <PageContainer
             title={`Benvenuto, ${userProfile.displayName}`}
-            description={`${userProfile.role === 'admin' ? 'Amministratore' :
-                    userProfile.role === 'teacher' ? 'Insegnante' : 'Studente'
-                }${userClass ? ` - ${userClass.name}` : ''}`}
+            description={`${
+            userProfile.role === 'admin'
+                ? 'Amministratore'
+                : userProfile.role === 'operatore'
+                ? 'Operatore'
+                : userProfile.role === 'teacher'
+                ? 'Insegnante'
+                : userProfile.role === 'parent'
+                ? 'Genitore'
+                : 'Studente'
+            }${userClass ? ` - ${userClass.name}` : ''}`}
         >
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
                 <div className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">

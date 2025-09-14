@@ -56,7 +56,7 @@ export const EnhancedTeacherChat: React.FC = () => {
 
   // Load messages
   useEffect(() => {
-    if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin')) return;
+    if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin' && userProfile.role !== 'operatore')) return;
 
     const q = query(
       collection(db, 'teacherChat'),
@@ -202,7 +202,7 @@ export const EnhancedTeacherChat: React.FC = () => {
     setTimeout(scrollToBottom, 100);
   };
 
-  if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin')) {
+  if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return null;
   }
 
