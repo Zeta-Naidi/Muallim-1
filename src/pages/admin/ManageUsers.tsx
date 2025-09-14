@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
 import { User, UserRole, Student } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EditUserModal } from '../../components/dialogs/EditUserModal';
 
 export const ManageUsers: React.FC = () => {
   const { userProfile } = useAuth();
@@ -35,6 +36,8 @@ export const ManageUsers: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
 
   // Advanced Filters
   const [filters, setFilters] = useState({
@@ -252,6 +255,18 @@ export const ManageUsers: React.FC = () => {
   const openStudentInfoModal = (student: Student) => {
     setSelectedStudent(student);
     setUserInfoModalOpen(true);
+  };
+
+  const handleEditUser = (user: User) => {
+    setUserToEdit(user);
+    setEditModalOpen(true);
+  };
+
+  const handleUserUpdated = (updatedUser: User) => {
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setFilteredUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setMessage({ type: 'success', text: 'Utente aggiornato con successo' });
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const handleDeleteUser = async () => {
@@ -792,10 +807,20 @@ export const ManageUsers: React.FC = () => {
                               className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                               leftIcon={<Eye className="h-4 w-4" />}
                             >
-                              Info
+                              Visualizza
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                              disabled={!!roleUpdating[user.id]}
+                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              leftIcon={<Edit className="h-4 w-4" />}
+                            >
+                              Modifica
+                            </Button>
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => openDeleteDialog(user)}
                               disabled={user.id === userProfile.id || !!roleUpdating[user.id]}
@@ -859,8 +884,21 @@ export const ManageUsers: React.FC = () => {
         </div>
       )}
       
+      {/* Edit User Modal */}
+      {editModalOpen && userToEdit && (
+        <EditUserModal
+          user={userToEdit}
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setUserToEdit(null);
+          }}
+          onUserUpdated={handleUserUpdated}
+        />
+      )}
+
       {/* Custom Delete Confirmation Dialog */}
-      {showDeleteDialog && (userToDelete || studentToDelete) && (
+      {showDeleteDialog && (userToDelete || studentToDelete) ? (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -904,7 +942,7 @@ export const ManageUsers: React.FC = () => {
             </div>
           </motion.div>
         </div>
-      )}
+      ) : null}
       
       {/* Change Role Dialog */}
       {roleDialogOpen && roleDialogUser && (
@@ -1129,10 +1167,38 @@ export const ManageUsers: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Stato Account</label>
-                    <span className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800">
-                      <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
-                      Attivo
-                    </span>
+                    {selectedUser ? (
+                      <span className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-full ${
+                        selectedUser.accountStatus === 'active' 
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${
+                          selectedUser.accountStatus === 'active' 
+                            ? 'bg-green-400'
+                            : 'bg-yellow-400'
+                        }`}></div>
+                        {selectedUser.accountStatus === 'active' ? 'Attivo' : 'In Attesa di Approvazione'}
+                      </span>
+                    ) : selectedStudent ? (
+                      <span className={`inline-flex items-center px-2 py-1 text-sm font-medium rounded-full ${
+                        selectedStudent.accountStatus === 'active' 
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${
+                          selectedStudent.accountStatus === 'active' 
+                            ? 'bg-green-400'
+                            : 'bg-yellow-400'
+                        }`}></div>
+                        {selectedStudent.accountStatus === 'active' ? 'Attivo' : 'In Attesa di Approvazione'}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-800">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                        Non disponibile
+                      </span>
+                    )}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Permessi</label>
