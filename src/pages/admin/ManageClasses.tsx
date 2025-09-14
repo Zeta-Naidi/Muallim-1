@@ -57,6 +57,7 @@ export const ManageClasses: React.FC = () => {
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
   const [isRemoveStudentDialogOpen, setIsRemoveStudentDialogOpen] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [isDeletionWarningOpen, setIsDeletionWarningOpen] = useState(false);
   const [classToDelete, setClassToDelete] = useState<{ id: string; name: string; studentCount: number } | null>(null);
   const [isChangeTeacherDialogOpen, setIsChangeTeacherDialogOpen] = useState(false);
