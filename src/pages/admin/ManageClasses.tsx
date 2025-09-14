@@ -1116,10 +1116,6 @@ export const ManageClasses: React.FC = () => {
             <div className="max-w-2xl mx-auto text-center">
               <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-12">
                 <div className="mb-8">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <School className="h-10 w-10 text-white" />
-                  </div>
-                  <h2 className="text-3xl font-bold text-slate-900 mb-4">Gestione Classi</h2>
                   <p className="text-lg text-slate-600 mb-8">
                     Scegli la modalità di frequenza delle classi che vuoi gestire
                   </p>
