@@ -9,6 +9,7 @@ import { db } from '../../services/firebase';
 import { User, UserRole, Student } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EditUserModal } from '../../components/dialogs/EditUserModal';
+import { canDeleteResource } from '../../utils/permissions';
 
 export const ManageUsers: React.FC = () => {
   const { userProfile } = useAuth();
@@ -34,7 +35,7 @@ export const ManageUsers: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [savingRole, setSavingRole] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 5;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
@@ -405,7 +406,7 @@ export const ManageUsers: React.FC = () => {
     }
   };
 
-  if (!userProfile || userProfile.role !== 'admin') {
+  if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
@@ -742,15 +743,17 @@ export const ManageUsers: React.FC = () => {
                             >
                               Info
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openStudentDeleteDialog(student)}
-                              className="rounded-xl transition-all duration-200 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              leftIcon={<Trash2 className="h-4 w-4" />}
-                            >
-                              Elimina
-                            </Button>
+                            {canDeleteResource(userProfile?.role || 'student', 'students') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openStudentDeleteDialog(student)}
+                                className="rounded-xl transition-all duration-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                leftIcon={<Trash2 className="h-4 w-4" />}
+                              >
+                                Elimina
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </motion.tr>
@@ -819,20 +822,22 @@ export const ManageUsers: React.FC = () => {
                             >
                               Modifica
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openDeleteDialog(user)}
-                              disabled={user.id === userProfile.id || !!roleUpdating[user.id]}
-                              className={`rounded-xl transition-all duration-200 ${
-                                user.id === userProfile.id ? 
-                                'opacity-50 cursor-not-allowed' : 
-                                'text-red-600 hover:text-red-700 hover:bg-red-50'
-                              }`}
-                              leftIcon={<Trash2 className="h-4 w-4" />}
-                            >
-                              Elimina
-                            </Button>
+                            {canDeleteResource(userProfile?.role || 'student', 'users') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={user.id === userProfile.id}
+                                onClick={() => openDeleteDialog(user)}
+                                className={`rounded-xl transition-all duration-200 ${
+                                  user.id === userProfile.id ? 
+                                  'opacity-50 cursor-not-allowed' : 
+                                  'text-red-600 hover:text-red-700 hover:bg-red-50'
+                                }`}
+                                leftIcon={<Trash2 className="h-4 w-4" />}
+                              >
+                                Elimina
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </motion.tr>
@@ -1238,31 +1243,38 @@ export const ManageUsers: React.FC = () => {
                     >
                       Modifica Ruolo
                     </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setUserInfoModalOpen(false);
-                        openDeleteDialog(selectedUser);
-                      }}
-                      className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
-                      leftIcon={<Trash2 className="h-4 w-4" />}
-                    >
-                      Elimina Utente
-                    </Button>
+                    {canDeleteResource(userProfile?.role || 'student', 'users') && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setUserInfoModalOpen(false);
+                          openDeleteDialog(selectedUser);
+                        }}
+                        className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
+                        leftIcon={<Trash2 className="h-4 w-4" />}
+                      >
+                        Elimina Utente
+                      </Button>
+                    )}
                   </>
                 )}
                 {selectedStudent && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setUserInfoModalOpen(false);
-                      openStudentDeleteDialog(selectedStudent);
-                    }}
-                    className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
-                    leftIcon={<Trash2 className="h-4 w-4" />}
-                  >
-                    Elimina Studente
-                  </Button>
+                  <>
+                    {canDeleteResource(userProfile?.role || 'student', 'students') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setUserInfoModalOpen(false);
+                          openStudentDeleteDialog(selectedStudent);
+                        }}
+                        className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
+                        leftIcon={<Trash2 className="h-4 w-4" />}
+                      >
+                        Elimina Studente
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

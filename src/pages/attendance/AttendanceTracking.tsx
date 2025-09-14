@@ -379,7 +379,7 @@ export const AttendanceTracking: React.FC = () => {
 
   const stats = getAttendanceStats();
 
-  if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin')) {
+  if (!userProfile || (userProfile.role !== 'teacher' && userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <PageContainer title="Accesso non autorizzato">
         <p>Non hai i permessi per accedere a questa pagina.</p>

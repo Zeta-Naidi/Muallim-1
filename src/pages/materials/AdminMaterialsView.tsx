@@ -27,7 +27,7 @@ export const AdminMaterialsView: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!userProfile || userProfile.role !== 'admin') return;
+      if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) return;
 
       setIsLoading(true);
       try {
@@ -143,7 +143,7 @@ export const AdminMaterialsView: React.FC = () => {
     }
   };
 
-  if (!userProfile || userProfile.role !== 'admin') {
+  if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <PageContainer title="Accesso non autorizzato">
         <p>Non hai i permessi per accedere a questa pagina.</p>

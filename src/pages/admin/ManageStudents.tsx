@@ -9,18 +9,11 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/Card';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  collection, 
-  getDocs, 
-  getDoc,
-  doc, 
-  updateDoc, 
-  query, 
-  where
-} from 'firebase/firestore';
+import { collection, getDocs, query, where, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { User as UserType, Class, Student, StudentWithParent, UserRole } from '../../types';
+import { User, Student, Class, StudentWithParent, UserRole } from '../../types';
 import { isValid, format } from 'date-fns';
+import { canDeleteResource } from '../../utils/permissions';
 
 interface StudentFormValues {
   displayName: string;
@@ -63,7 +56,7 @@ export const ManageStudents: React.FC = () => {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [enrolledPage, setEnrolledPage] = useState(1);
   const [notEnrolledPage, setNotEnrolledPage] = useState(1);
-  const STUDENTS_PER_PAGE = 10;
+  const STUDENTS_PER_PAGE = 5;
   const [viewMode, setViewMode] = useState<'enrolled' | 'waiting'>('enrolled');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -928,7 +921,7 @@ export const ManageStudents: React.FC = () => {
     }
   };
 
-  if (!userProfile || userProfile.role !== 'admin') {
+  if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">

@@ -6,6 +6,7 @@ import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, onSnapsh
 import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
+import { canDeleteResource } from '../../utils/permissions';
 import { Input } from '../../components/ui/Input';
 import { StudentDetailsDialog } from '../../components/dialogs/StudentDetailsDialog';
 import { Class, TeacherPayment, TeacherType, Substitution } from '../../types';
@@ -55,7 +56,7 @@ export const ManageTeachers: React.FC = () => {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const TEACHERS_PER_PAGE = 10;
+  const TEACHERS_PER_PAGE = 5;
   
   // Payment state
   const [paymentTeacher, setPaymentTeacher] = useState<User | null>(null);
@@ -201,7 +202,7 @@ export const ManageTeachers: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!userProfile || userProfile.role !== 'admin') return;
+      if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) return;
       
       setIsLoading(true);
       setIsLoadingSubs(true);
@@ -573,7 +574,7 @@ export const ManageTeachers: React.FC = () => {
     }
   };
 
-  if (!userProfile || userProfile.role !== 'admin') {
+  if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-8 text-center max-w-md mx-auto">
@@ -1187,7 +1188,7 @@ export const ManageTeachers: React.FC = () => {
                         aria-expanded={isOpen}
                         aria-controls={`teacher-${teacher.id}-details`}
                       >
-                        <div className="flex items-center gap-3 text-left">
+                        <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center shadow-sm">
                             <span className="text-blue-700 font-semibold text-sm">
                               {teacher.displayName.charAt(0).toUpperCase()}
@@ -1619,18 +1620,20 @@ export const ManageTeachers: React.FC = () => {
                                 </>
                               )}
                               {/* Hard delete record */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setDeleteTarget(s);
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                                className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                                title="Elimina definitivamente"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canDeleteResource(userProfile?.role || 'student', 'teachers') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDeleteTarget(s);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                  className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                                  title="Elimina definitivamente"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                               {s.status === 'pending' && (
                                 <Button
                                   variant="ghost"

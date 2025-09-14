@@ -151,7 +151,7 @@ export const Header: React.FC = () => {
       ];
     }
 
-    if (userProfile?.role === 'admin') {
+    if (userProfile?.role === 'admin' || userProfile?.role === 'operatore') {
       return [
         ...baseItems,
         { path: '/admin/classes', label: 'Classi' },
@@ -418,7 +418,9 @@ export const Header: React.FC = () => {
                         <p className="text-xs text-gray-500 truncate">{userProfile.email}</p>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-2">
                           {userProfile.role === 'admin' ? 'Amministratore' :
-                            userProfile.role === 'teacher' ? 'Insegnante' : 'Studente'}
+                            userProfile.role === 'operatore' ? 'Operatore' :
+                            userProfile.role === 'teacher' ? 'Insegnante' : 
+                            userProfile.role === 'parent' ? 'Genitore' : 'Studente'}
                         </span>
                       </div>
                       <div className="py-1">

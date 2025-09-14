@@ -18,7 +18,7 @@ export const Dashboard: React.FC = () => {
   }
 
   // Handle admin dashboard
-  if (userProfile.role === 'admin') {
+  if (userProfile.role === 'admin' || userProfile.role === 'operatore') {
     return <AdminDashboard />;
   }
 

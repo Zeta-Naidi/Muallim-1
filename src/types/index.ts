@@ -1,6 +1,6 @@
 // (removed unused Timestamp import)
 
-export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'operatore';
 
 export type TeacherType = 'insegnante_regolare' | 'insegnante_volontario' | 'assistente';
 

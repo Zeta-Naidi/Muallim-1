@@ -12,6 +12,18 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    function isOperator() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'operatore';
+    }
+    
+    function isAdminOrOperator() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'operatore'];
+    }
+    
     function isTeacher() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -21,7 +33,7 @@ service cloud.firestore {
     function isTeacherOrAdmin() {
       return isAuthenticated() && 
         'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher'];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher', 'operatore'];
     }
 
     function isStudent() {
@@ -56,18 +68,18 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       // Allow querying for Codice Fiscale validation during registration
-      allow list: if isAuthenticated() && (isAdmin() || isTeacher()) ||
+      allow list: if isAuthenticated() && (isAdminOrOperator() || isTeacher()) ||
         // Allow unauthenticated queries for registration validation
         !isAuthenticated();
-      allow create: if isOwner(userId) || isAdmin();
-      allow update: if isAdmin() || isOwner(userId);
+      allow create: if isOwner(userId) || isAdminOrOperator();
+      allow update: if isAdminOrOperator() || isOwner(userId);
       allow delete: if isAdmin();
     }
     
     // Students collection - separate from users
     match /students/{studentId} {
       allow read: if isAuthenticated() && (
-        isAdmin() || 
+        isAdminOrOperator() || 
         isTeacher() ||
         // Parents can read their own children's data
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -75,17 +87,18 @@ service cloud.firestore {
          resource.data.parentId == request.auth.uid)
       );
       // Allow list queries for registration validation (unauthenticated) and authenticated users
-      allow list: if !isAuthenticated() || isAuthenticated() && (isAdmin() || isTeacher());
+      allow list: if !isAuthenticated() || isAuthenticated() && (isAdminOrOperator() || isTeacher());
       // Allow creation during registration (unauthenticated) or by admin
-      allow create: if !isAuthenticated() || isAdmin();
-      allow update: if isAdmin();
+      allow create: if !isAuthenticated() || isAdminOrOperator();
+      allow update: if isAdminOrOperator();
       allow delete: if isAdmin();
     }
 
     // Classes
     match /classes/{classId} {
       allow read: if isAuthenticated();
-      allow create, delete: if isAdmin();
+      allow create: if isAdminOrOperator();
+      allow delete: if isAdmin();
       allow update: if isAdmin() || isTeacherOfClass(classId) || isSubstituteForClass(classId);
     }
 
@@ -152,40 +165,43 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher'];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'teacher', 'operatore'];
     }
 
     // Payments
     match /payments/{paymentId} {
       allow read: if isAuthenticated() && (
-        isAdmin() || 
+        isAdminOrOperator() || 
         (isStudent() && resource.data.studentId == request.auth.uid)
       );
       allow create: if isAuthenticated() && (
-        isAdmin() ||
+        isAdminOrOperator() ||
         (isStudent() && request.resource.data.studentId == request.auth.uid)
       );
-      allow update, delete: if isAdmin();
+      allow update: if isAdminOrOperator();
+      allow delete: if isAdmin();
     }
 
     // Payment Records
     match /paymentRecords/{recordId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdminOrOperator();
+      allow write: if isAdminOrOperator();
     }
 
     // Receipts
     match /receipts/{receiptId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdminOrOperator();
+      allow write: if isAdminOrOperator();
     }
 
     // Substitutions
     match /substitutions/{substitutionId} {
       allow read: if isAuthenticated() && (
-        isAdmin() ||
+        isAdminOrOperator() || 
         (isTeacher() && (resource.data.teacherId == request.auth.uid || resource.data.originalTeacherId == request.auth.uid))
       );
-      allow create: if isAdmin() || isTeacher();
-      allow update: if isAdmin() || 
+      allow create: if isAdminOrOperator() || isTeacher();
+      allow update: if isAdminOrOperator() || 
         (isTeacher() && (resource.data.teacherId == request.auth.uid || resource.data.originalTeacherId == request.auth.uid) && resource.data.status == 'pending');
       allow delete: if isAdmin();
     }
@@ -193,42 +209,44 @@ service cloud.firestore {
     // Study Sessions
     match /studySessions/{sessionId} {
       allow read, write: if isAuthenticated() && (
-        isAdmin() || 
+        isAdminOrOperator() || 
         (isStudent() && resource.data.studentId == request.auth.uid)
       );
     }
 
     // Service Requests
     match /serviceRequests {
-      allow list: if isAdmin();
+      allow list: if isAdminOrOperator();
     }
     
     match /serviceRequests/{requestId} {
-      allow read: if isAdmin() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      allow read: if isAdminOrOperator() || (isTeacher() && resource.data.teacherId == request.auth.uid);
       allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow update: if isAdmin() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      allow update: if isAdminOrOperator() || (isTeacher() && resource.data.teacherId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
     // Teacher Payments
     match /teacherPayments/{paymentId} {
-      allow read: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow read: if isAdminOrOperator();
+      allow create, update: if isAdminOrOperator();
+      allow delete: if isAdmin();
     }
 
     // Events
     match /events/{eventId} {
       allow read: if isAuthenticated();
-      allow create: if isAdmin() || isTeacher();
-      allow update, delete: if isAdmin() || (isTeacher() && resource.data.createdBy == request.auth.uid);
+      allow create: if isAdminOrOperator() || isTeacher();
+      allow update: if isAdminOrOperator() || (isTeacher() && resource.data.createdBy == request.auth.uid);
+      allow delete: if isAdmin() || (isTeacher() && resource.data.createdBy == request.auth.uid);
     }
 
     // Notifications
     match /notifications/{notificationId} {
       // Recipients (admin/teacher/student) can read their own notifications
       allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
-      // Admins create notifications (e.g., for substitution events)
-      allow create: if isAdmin();
+      // Admins and operators create notifications (e.g., for substitution events)
+      allow create: if isAdminOrOperator();
       // Recipients can mark as read or update their own notification metadata
       allow update: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
       // Recipients can delete their own notifications; admins can delete any
