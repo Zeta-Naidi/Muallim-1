@@ -33,8 +33,12 @@ export const ManageClasses: React.FC = () => {
     turno: '',
     teacher: '',
     level: '',
-    status: ''
+    status: '',
+    attendanceMode: ''
   });
+  
+  // View mode filter - starts with null to force selection
+  const [viewMode, setViewMode] = useState<'in_presenza' | 'online' | null>(null);
 
   // Advanced Sorting - each field has its own sort state
   const [sortStates, setSortStates] = useState<{
@@ -171,9 +175,21 @@ export const ManageClasses: React.FC = () => {
       });
     }
 
+    // Apply view mode filter
+    if (viewMode) {
+      filtered = filtered.filter(cls => {
+        if (viewMode === 'online') {
+          return (cls as any).attendanceMode === 'online' || (cls as any).isOnline === true;
+        } else if (viewMode === 'in_presenza') {
+          return (cls as any).attendanceMode !== 'online' && (cls as any).isOnline !== true;
+        }
+        return true;
+      });
+    }
+
     setFilteredClasses(filtered);
     setCurrentPage(1); // Reset pagination when filters change
-  }, [classes, searchQuery, selectedTurno, filters, sortStates, teachers]);
+  }, [classes, searchQuery, selectedTurno, filters, sortStates, teachers, viewMode]);
 
   const handleFilterChange = (field: string, value: string) => {
     setFilters(prev => ({
@@ -323,7 +339,8 @@ export const ManageClasses: React.FC = () => {
       turno: '',
       teacher: '',
       level: '',
-      status: ''
+      status: '',
+      attendanceMode: ''
     });
     setSortStates({
       createdAt: 'desc',
@@ -331,6 +348,7 @@ export const ManageClasses: React.FC = () => {
       studentCount: null,
       turno: null
     });
+    setViewMode(null);
   };
 
 
@@ -1092,13 +1110,68 @@ export const ManageClasses: React.FC = () => {
               </div>
             </div>
           </div>
+        ) : viewMode === null ? (
+          /* Initial Mode Selection Screen */
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <div className="max-w-2xl mx-auto text-center">
+              <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-12">
+                <div className="mb-8">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <School className="h-10 w-10 text-white" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-slate-900 mb-4">Gestione Classi</h2>
+                  <p className="text-lg text-slate-600 mb-8">
+                    Scegli la modalità di frequenza delle classi che vuoi gestire
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div 
+                    onClick={() => setViewMode('in_presenza')}
+                    className="group cursor-pointer bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-8 hover:border-green-400 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <Users className="h-8 w-8 text-white" />
+                      </div>
+                      <h3 className="text-xl font-bold text-green-800 mb-2">Classi in Presenza</h3>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    onClick={() => setViewMode('online')}
+                    className="group cursor-pointer bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl p-8 hover:border-blue-400 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <div className="text-center">
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <BookOpen className="h-8 w-8 text-white" />
+                      </div>
+                      <h3 className="text-xl font-bold text-blue-800 mb-2">Classi Online</h3>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           /* Classes Grid View */
           <div className="space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Tutte le Classi</h2>
-                <p className="text-slate-600 mt-1">Clicca su una classe per gestirla</p>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewMode(null)}
+                  className="rounded-lg"
+                >
+                  ← Cambia modalità
+                </Button>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    Classi {viewMode === 'in_presenza' ? 'in Presenza' : 'Online'}
+                  </h2>
+                  <p className="text-slate-600 mt-1">Clicca su una classe per gestirla</p>
+                </div>
               </div>
               <div className="text-sm text-slate-500">
                 {filteredClasses.length} di {classes.length} {classes.length === 1 ? 'classe' : 'classi'}
