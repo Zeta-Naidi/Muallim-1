@@ -51,6 +51,7 @@ export const Payments: React.FC = () => {
   const [editAmount, setEditAmount] = useState('');
   const [showPaymentHistory, setShowPaymentHistory] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid' | 'exempted'>('all');
+  const [attendanceModeFilter, setAttendanceModeFilter] = useState<'all' | 'in_presenza' | 'online'>('all');
   // compact row expansion state
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
@@ -194,15 +195,23 @@ export const Payments: React.FC = () => {
         );
 
     const filteredByStatus = filteredBySearch.filter(group => {
-      const s = getPaymentStatus(group).status;
       if (statusFilter === 'all') return true;
-      return s === statusFilter;
+      
+      const paymentStatus = getPaymentStatus(group);
+      return paymentStatus.key === statusFilter;
+    });
+
+    const filteredByAttendanceMode = filteredByStatus.filter(group => {
+      if (attendanceModeFilter === 'all') return true;
+      
+      // Check if all children in the group have the selected attendance mode
+      return group.children.every(child => child.attendanceMode === attendanceModeFilter);
     });
 
     // Respect current sort selection
-    const sorted = sortParentGroups(filteredByStatus, sortField, sortDirection);
+    const sorted = sortParentGroups(filteredByAttendanceMode, sortField, sortDirection);
     setFilteredParentGroups(sorted);
-  }, [searchQuery, parentGroups, statusFilter, sortField, sortDirection]);
+  }, [searchQuery, parentGroups, statusFilter, attendanceModeFilter, sortField, sortDirection]);
 
   // Function to sort parent groups
   const sortParentGroups = (groups: ParentGroup[], field: 'parentName' | 'totalAmount' | 'paidAmount', direction: 'asc' | 'desc') => {
@@ -519,7 +528,7 @@ export const Payments: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Famiglie</p>
-                  <p className="text-3xl font-bold text-gray-900">{parentGroups.length}</p>
+                  <p className="text-3xl font-bold text-gray-900">{filteredParentGroups.length}</p>
                 </div>
                 <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100">
                   <Users className="h-8 w-8 text-blue-600" />
@@ -534,7 +543,7 @@ export const Payments: React.FC = () => {
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Pagato</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    €{parentGroups.reduce((sum, group) => sum + group.paidAmount, 0).toFixed(0)}
+                    €{filteredParentGroups.reduce((sum, group) => sum + group.paidAmount, 0).toFixed(0)}
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-green-50 border border-green-100">
@@ -550,7 +559,7 @@ export const Payments: React.FC = () => {
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Da Incassare</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    €{parentGroups.reduce((sum, group) => sum + Math.max(0, group.totalAmount - group.paidAmount), 0).toFixed(0)}
+                    €{filteredParentGroups.reduce((sum, group) => sum + Math.max(0, group.totalAmount - group.paidAmount), 0).toFixed(0)}
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
@@ -566,7 +575,7 @@ export const Payments: React.FC = () => {
                 <div>
                   <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-2">Esentati</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {parentGroups.filter(group => group.isExempted).length}
+                    {filteredParentGroups.filter(group => group.isExempted).length}
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-purple-50 border border-purple-100">
@@ -682,14 +691,52 @@ export const Payments: React.FC = () => {
                 {t.label}
                 {t.key !== 'all' && (
                   <span className="ml-2 text-xs opacity-80">
-                    {parentGroups.filter(g => getPaymentStatus(g).status === t.key).length}
+                    {filteredParentGroups.filter(g => getPaymentStatus(g).status === t.key).length}
                   </span>
                 )}
                 {t.key === 'all' && (
-                  <span className="ml-2 text-xs opacity-80">{parentGroups.length}</span>
+                  <span className="ml-2 text-xs opacity-80">{filteredParentGroups.length}</span>
                 )}
               </button>
             ))}
+          </div>
+          
+          {/* Attendance Mode filter tabs */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Modalità Frequenza:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: 'all', label: 'Tutti' },
+                { key: 'in_presenza', label: 'In Presenza' },
+                { key: 'online', label: 'Online' },
+              ] as const).map(mode => (
+                <button
+                  key={mode.key}
+                  onClick={() => setAttendanceModeFilter(mode.key)}
+                  className={`px-3 py-1.5 rounded-full text-sm transition border ${
+                    attendanceModeFilter === mode.key
+                      ? 'bg-green-600 text-white border-green-600 shadow-sm'
+                      : 'bg-white/70 text-gray-700 border-gray-200 hover:bg-white'
+                  }`}
+                  aria-pressed={attendanceModeFilter === mode.key}
+                >
+                  {mode.label}
+                  <span className="ml-2 text-xs opacity-80">
+                    {mode.key === 'all' 
+                      ? parentGroups.length
+                      : parentGroups.filter(g => 
+                          mode.key === 'in_presenza' 
+                            ? g.children.every(child => (child as any).attendanceMode === 'in_presenza')
+                            : g.children.every(child => (child as any).attendanceMode === 'online')
+                        ).length
+                    }
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
