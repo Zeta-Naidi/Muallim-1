@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   collection, 
   getDocs, 
+  getDoc,
   doc, 
   updateDoc, 
   query, 
@@ -759,25 +760,41 @@ export const ManageStudents: React.FC = () => {
 
     try {
       const studentRef = doc(db, 'students', studentId);
+      
+      // First get the student data to access parentId
+      const studentDoc = await getDoc(studentRef);
+      const studentData = studentDoc.data();
+      const parentId = studentData?.parentId;
+      
+      // Update student status
       await updateDoc(studentRef, {
         isEnrolled: newStatus,
         enrollmentDate: newStatus ? new Date() : null,
         accountStatus: newStatus ? 'active' : 'pending_approval'
       });
 
+      // If enrolling the student, also approve the parent
+      if (newStatus && parentId) {
+        const parentRef = doc(db, 'users', parentId);
+        await updateDoc(parentRef, {
+          accountStatus: 'active'
+        });
+      }
+
       setStudents(prev => prev.map(student =>
         student.id === studentId
           ? {
               ...student,
               isEnrolled: newStatus,
-              enrollmentDate: newStatus ? new Date() : undefined
+              enrollmentDate: newStatus ? new Date() : undefined,
+              accountStatus: newStatus ? 'active' : 'pending_approval'
             }
           : student
       ));
 
       setMessage({
         type: 'success',
-        text: `Studente ${newStatus ? 'iscritto' : 'disiscritto'} con successo`
+        text: `Studente ${newStatus ? 'iscritto' : 'disiscritto'} con successo${newStatus && parentId ? ' e genitore approvato' : ''}`
       });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
@@ -807,7 +824,7 @@ export const ManageStudents: React.FC = () => {
       const newClassIdDb = data.classId ?? null; // value sent to Firestore (nullable)
       const newClassIdState = data.classId ?? undefined; // value kept in local state (undefined preferred over null)
       
-      await updateDoc(studentRef, {
+      const studentUpdate = {
         displayName: data.displayName,
         phoneNumber: data.phoneNumber || null,
         address: data.address || null,
@@ -827,7 +844,19 @@ export const ManageStudents: React.FC = () => {
         attendanceMode: data.attendanceMode || null,
         accountStatus: data.accountStatus || null,
         updatedAt: new Date()
-      });
+      };
+
+      // Update student
+      await updateDoc(studentRef, studentUpdate);
+
+      // If student is being approved, also approve the parent
+      if (data.accountStatus === 'active' && currentStudent?.parentId) {
+        const parentRef = doc(db, 'users', currentStudent.parentId);
+        await updateDoc(parentRef, {
+          accountStatus: 'active',
+          updatedAt: new Date()
+        });
+      }
 
       // Update parent information if provided
       if (data.parentEmail) {
@@ -882,7 +911,10 @@ export const ManageStudents: React.FC = () => {
           : student
       ));
 
-      setMessage({ type: 'success', text: 'Studente aggiornato con successo' });
+      setMessage({ 
+        type: 'success', 
+        text: `Studente aggiornato con successo${data.accountStatus === 'active' && currentStudent?.parentId ? ' e genitore approvato' : ''}` 
+      });
       
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(null), 3000);

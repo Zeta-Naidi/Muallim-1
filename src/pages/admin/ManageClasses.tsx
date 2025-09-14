@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { CreateClassDialog } from '../../components/dialogs/CreateClassDialog';
 import { AddStudentDialog } from '../../components/dialogs/AddStudentDialog';
-import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { Class, User } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -360,9 +360,15 @@ export const ManageClasses: React.FC = () => {
         students: arrayUnion(...studentsToAdd)
       });
 
-      // Update each student's record
+      // Update each student's record and approve parent if needed
       for (const studentId of studentsToAdd) {
         const studentRef = doc(db, 'students', studentId);
+        
+        // Get student data to access parentId
+        const studentDoc = await getDoc(studentRef);
+        const studentData = studentDoc.data();
+        const parentId = studentData?.parentId;
+        
         batch.update(studentRef, {
           accountStatus: 'active',
           isEnrolled: true,
@@ -372,9 +378,24 @@ export const ManageClasses: React.FC = () => {
             classId: selectedClass.id,
             className: selectedClass.name,
             joinedAt: new Date(),
-            transferredFrom: previousClassId
+            ...(previousClassId && { transferredFrom: previousClassId })
           })
         });
+        
+        // If student has a parent, also approve the parent if not already approved
+        if (parentId) {
+          const parentRef = doc(db, 'users', parentId);
+          const parentDoc = await getDoc(parentRef);
+          const parentData = parentDoc.data();
+          
+          // Only update parent if they're not already active
+          if (parentData && parentData.accountStatus !== 'active') {
+            batch.update(parentRef, {
+              accountStatus: 'active',
+              updatedAt: new Date()
+            });
+          }
+        }
       }
 
       // Execute all updates in a batch
@@ -424,9 +445,23 @@ export const ManageClasses: React.FC = () => {
     if (!selectedClass || !studentToRemove) return;
 
     try {
-      await updateDoc(doc(db, 'classes', selectedClass.id), {
+      const batch = writeBatch(db);
+      
+      // Remove student from class
+      const classRef = doc(db, 'classes', selectedClass.id);
+      batch.update(classRef, {
         students: arrayRemove(studentToRemove.id)
       });
+
+      // Clear currentClass field from student record
+      const studentRef = doc(db, 'students', studentToRemove.id);
+      batch.update(studentRef, {
+        currentClass: null,
+        updatedAt: new Date()
+      });
+
+      // Execute batch operation
+      await batch.commit();
 
       // Update local state
       setSelectedClass(prev => prev ? {
