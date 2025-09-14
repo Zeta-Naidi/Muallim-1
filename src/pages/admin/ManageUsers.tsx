@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Edit } from 'lucide-react';
+import { Users, UserCog, Trash2, Eye, Mail, Shield, Calendar, Clock, CheckCircle, AlertCircle, X, Filter, Search, GraduationCap, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Edit, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -39,13 +39,18 @@ export const ManageUsers: React.FC = () => {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [processingApproval, setProcessingApproval] = useState<string | null>(null);
+  const [approvalConfirmOpen, setApprovalConfirmOpen] = useState(false);
+  const [rejectionConfirmOpen, setRejectionConfirmOpen] = useState(false);
+  const [userToApprove, setUserToApprove] = useState<User | null>(null);
+  const [userToReject, setUserToReject] = useState<User | null>(null);
 
   // Advanced Filters
   const [filters, setFilters] = useState({
     name: '',
     email: '',
     role: '',
-    status: ''
+    accountStatus: ''
   });
 
   // Advanced Sorting - each field has its own sort state
@@ -54,11 +59,13 @@ export const ManageUsers: React.FC = () => {
     name: 'desc' | 'asc' | null;
     email: 'desc' | 'asc' | null;
     role: 'desc' | 'asc' | null;
+    accountStatus: 'desc' | 'asc' | null;
   }>({
     createdAt: 'desc',
     name: null,
     email: null,
-    role: null
+    role: null,
+    accountStatus: null
   });
 
   useEffect(() => {
@@ -190,6 +197,12 @@ export const ManageUsers: React.FC = () => {
         );
       }
       
+      if (filters.accountStatus) {
+        filteredUsersList = filteredUsersList.filter(user => 
+          user.accountStatus === filters.accountStatus
+        );
+      }
+      
       // Apply advanced sorting - find the active sort field
       const activeSortField = Object.entries(sortStates).find(([_, order]) => order !== null)?.[0] as keyof typeof sortStates;
       const activeSortOrder = activeSortField ? sortStates[activeSortField] : 'desc';
@@ -212,6 +225,11 @@ export const ManageUsers: React.FC = () => {
               break;
             case 'role':
               comparison = a.role.localeCompare(b.role);
+              break;
+            case 'accountStatus':
+              const aStatus = a.accountStatus || 'active';
+              const bStatus = b.accountStatus || 'active';
+              comparison = aStatus.localeCompare(bStatus);
               break;
             default:
               comparison = 0;
@@ -320,7 +338,8 @@ export const ManageUsers: React.FC = () => {
         createdAt: null as 'desc' | 'asc' | null,
         name: null as 'desc' | 'asc' | null,
         email: null as 'desc' | 'asc' | null,
-        role: null as 'desc' | 'asc' | null
+        role: null as 'desc' | 'asc' | null,
+        accountStatus: null as 'desc' | 'asc' | null
       };
       
       if (currentState === null) {
@@ -343,13 +362,14 @@ export const ManageUsers: React.FC = () => {
       name: '',
       email: '',
       role: '',
-      status: ''
+      accountStatus: ''
     });
     setSortStates({
       createdAt: 'desc',
       name: null,
       email: null,
-      role: null
+      role: null,
+      accountStatus: null
     });
   };
 
@@ -406,6 +426,78 @@ export const ManageUsers: React.FC = () => {
     }
   };
 
+  const openApprovalConfirm = (user: User) => {
+    setUserToApprove(user);
+    setApprovalConfirmOpen(true);
+  };
+
+  const openRejectionConfirm = (user: User) => {
+    setUserToReject(user);
+    setRejectionConfirmOpen(true);
+  };
+
+  const handleApproveUser = async () => {
+    if (!userProfile || !userToApprove) return;
+    
+    setProcessingApproval(userToApprove.id);
+    
+    try {
+      await updateDoc(doc(db, 'users', userToApprove.id), {
+        accountStatus: 'active',
+        approvedBy: userProfile.id,
+        approvedAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Update local state
+      setUsers(prev => prev.map(user => 
+        user.id === userToApprove.id 
+          ? { ...user, accountStatus: 'active', approvedBy: userProfile.id, approvedAt: new Date() }
+          : user
+      ));
+      
+      setFilteredUsers(prev => prev.map(user => 
+        user.id === userToApprove.id 
+          ? { ...user, accountStatus: 'active', approvedBy: userProfile.id, approvedAt: new Date() }
+          : user
+      ));
+
+      setMessage({ type: 'success', text: 'Utente approvato con successo' });
+      setTimeout(() => setMessage(null), 3000);
+      setApprovalConfirmOpen(false);
+      setUserToApprove(null);
+    } catch (error) {
+      console.error('Error approving user:', error);
+      setMessage({ type: 'error', text: 'Errore nell\'approvazione dell\'utente' });
+    } finally {
+      setProcessingApproval(null);
+    }
+  };
+
+  const handleRejectUser = async () => {
+    if (!userToReject) return;
+    
+    setProcessingApproval(userToReject.id);
+    
+    try {
+      await deleteDoc(doc(db, 'users', userToReject.id));
+      
+      // Update local state
+      setUsers(prev => prev.filter(user => user.id !== userToReject.id));
+      setFilteredUsers(prev => prev.filter(user => user.id !== userToReject.id));
+
+      setMessage({ type: 'success', text: 'Richiesta rifiutata e profilo rimosso' });
+      setTimeout(() => setMessage(null), 3000);
+      setRejectionConfirmOpen(false);
+      setUserToReject(null);
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      setMessage({ type: 'error', text: 'Errore nel rifiuto della richiesta' });
+    } finally {
+      setProcessingApproval(null);
+    }
+  };
+
   if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'operatore')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex items-center justify-center">
@@ -432,8 +524,20 @@ export const ManageUsers: React.FC = () => {
       case 'admin': return 'bg-purple-100 text-purple-800';
       case 'teacher': return 'bg-blue-100 text-blue-800';
       case 'student': return 'bg-gray-100 text-gray-800';
+      case 'operatore': return 'bg-emerald-100 text-emerald-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusBadge = (user: User) => {
+    if (user.accountStatus === 'pending_approval') {
+      return (
+        <div className="w-3 h-3 bg-amber-500 rounded-full" title="In attesa di approvazione"></div>
+      );
+    }
+    return (
+      <div className="w-3 h-3 bg-green-500 rounded-full" title="Attivo"></div>
+    );
   };
 
   return (
@@ -518,6 +622,23 @@ export const ManageUsers: React.FC = () => {
                 <option value="admin">Amministratori</option>
                 <option value="teacher">Insegnanti</option>
                 <option value="parent">Genitori</option>
+                <option value="operatore">Operatori</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filtra per stato
+              </label>
+              <select
+                className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                onChange={(e) => setFilters(prev => ({ ...prev, accountStatus: e.target.value }))}
+                value={filters.accountStatus}
+                disabled={showStudents}
+              >
+                <option value="">Tutti</option>
+                <option value="active">Attivi</option>
+                <option value="pending_approval">In attesa di approvazione</option>
               </select>
             </div>
 
@@ -687,6 +808,13 @@ export const ManageUsers: React.FC = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                       Ruolo
                     </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => handleSortToggle('accountStatus')}>
+                      <div className="flex items-center gap-1">
+                        Stato
+                        {sortStates.accountStatus === 'desc' && <ArrowDown className="h-3 w-3" />}
+                        {sortStates.accountStatus === 'asc' && <ArrowUp className="h-3 w-3" />}
+                      </div>
+                    </th>
                     <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
                       Azioni
                     </th>
@@ -730,6 +858,11 @@ export const ManageUsers: React.FC = () => {
                         <td className="px-6 py-4">
                           <span className="px-3 py-1.5 inline-flex text-sm font-medium rounded-xl bg-green-100 text-green-800">
                             Studente
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                            Attivo
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -802,43 +935,41 @@ export const ManageUsers: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex justify-end items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openUserInfoModal(user)}
-                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              leftIcon={<Eye className="h-4 w-4" />}
-                            >
-                              Visualizza
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditUser(user)}
-                              disabled={!!roleUpdating[user.id]}
-                              className="rounded-xl transition-all duration-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              leftIcon={<Edit className="h-4 w-4" />}
-                            >
-                              Modifica
-                            </Button>
-                            {canDeleteResource(userProfile?.role || 'student', 'users') && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={user.id === userProfile.id}
-                                onClick={() => openDeleteDialog(user)}
-                                className={`rounded-xl transition-all duration-200 ${
-                                  user.id === userProfile.id ? 
-                                  'opacity-50 cursor-not-allowed' : 
-                                  'text-red-600 hover:text-red-700 hover:bg-red-50'
-                                }`}
-                                leftIcon={<Trash2 className="h-4 w-4" />}
-                              >
-                                Elimina
+                          {getStatusBadge(user)}
+                        </td>
+                        <td className="px-6 py-4">
+                        <div className="flex justify-end items-center gap-2">
+                          <Button variant="ghost" onClick={() => openUserInfoModal(user)} title="Visualizza">
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </Button>
+
+                          {user.accountStatus === 'pending_approval' && userProfile?.role === 'admin' ? (
+                            <>
+                              <Button variant="ghost" onClick={() => openRejectionConfirm(user)} title="Rifiuta">
+                                <X className="h-4 w-4 text-red-600" />
                               </Button>
-                            )}
-                          </div>
+                              <Button variant="ghost" onClick={() => openApprovalConfirm(user)} title="Approva">
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              {/* Operators cannot edit their own account or admin accounts */}
+                              {!(userProfile?.role === 'operatore' && (user.id === userProfile.id || user.role === 'admin')) && (
+                                <Button variant="ghost" onClick={() => handleEditUser(user)} title="Modifica">
+                                  <Edit className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+
+                          {canDeleteResource(userProfile?.role || 'student', 'users') && user.accountStatus !== 'pending_approval' && (
+                            <Button variant="ghost" onClick={() => openDeleteDialog(user)} title="Elimina" disabled={user.id === userProfile.id}>
+                              <Trash2 className={`h-4 w-4 ${user.id === userProfile.id ? 'opacity-50 cursor-not-allowed' : 'text-red-600'}`} />
+                            </Button>
+                          )}
+                        </div>
+
                         </td>
                       </motion.tr>
                     ))
@@ -1281,6 +1412,134 @@ export const ManageUsers: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Approval Confirmation Dialog */}
+      <AnimatePresence>
+        {approvalConfirmOpen && userToApprove && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4"
+            >
+              <div className="bg-gradient-to-r from-green-600 to-emerald-700 p-6 rounded-t-2xl text-white">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <Check className="h-5 w-5 mr-2" />
+                  Conferma Approvazione
+                </h3>
+                <p className="text-green-100 mt-1">
+                  Sei sicuro di voler approvare l'utente <span className="font-medium">{userToApprove.displayName}</span>?
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-start">
+                    <CheckCircle className="h-5 w-5 text-green-600 mr-3 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-green-800 mb-1">Cosa succederà:</p>
+                      <ul className="text-xs text-green-700 space-y-1">
+                        <li>• L'utente potrà accedere alla piattaforma</li>
+                        <li>• Riceverà i permessi del ruolo: {getRoleName(userToApprove.role)}</li>
+                        <li>• L'azione non può essere annullata</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setApprovalConfirmOpen(false);
+                      setUserToApprove(null);
+                    }}
+                    disabled={processingApproval === userToApprove.id}
+                  >
+                    Annulla
+                  </Button>
+                  <Button
+                    onClick={handleApproveUser}
+                    isLoading={processingApproval === userToApprove.id}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    leftIcon={<Check className="h-4 w-4" />}
+                  >
+                    Sì, Approva
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rejection Confirmation Dialog */}
+      <AnimatePresence>
+        {rejectionConfirmOpen && userToReject && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4"
+            >
+              <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 rounded-t-2xl text-white">
+                <h3 className="text-lg font-semibold flex items-center">
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                  Conferma Rifiuto
+                </h3>
+                <p className="text-red-100 mt-1">
+                  Sei sicuro di voler rifiutare la richiesta di <span className="font-medium">{userToReject.displayName}</span>?
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-start">
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800 mb-1">Attenzione:</p>
+                      <ul className="text-xs text-red-700 space-y-1">
+                        <li>• Il profilo utente verrà eliminato definitivamente</li>
+                        <li>• L'utente dovrà registrarsi nuovamente</li>
+                        <li>• Questa azione non può essere annullata</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setRejectionConfirmOpen(false);
+                      setUserToReject(null);
+                    }}
+                    disabled={processingApproval === userToReject.id}
+                  >
+                    Annulla
+                  </Button>
+                  <Button
+                    onClick={handleRejectUser}
+                    isLoading={processingApproval === userToReject.id}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    leftIcon={<X className="h-4 w-4" />}
+                  >
+                    Sì, Rifiuta
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </div>
   );
