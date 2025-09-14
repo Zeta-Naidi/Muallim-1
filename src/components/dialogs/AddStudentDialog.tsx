@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, UserPlus, Filter, Check, Users, Phone, MapPin, Calendar, School, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { Search, X, UserPlus, Filter, Check, Users, Phone, Calendar, School, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -138,11 +138,9 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
-    gender: '',
     currentClass: '',
     age: '',
-    city: '',
-    italianSchoolClass: '',
+    selectedTurni: '',
     attendanceMode: '',
     enrollmentType: '',
     enrollmentStatus: 'all'
@@ -160,11 +158,9 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
       setSelectedStudentIds(new Set());
       setSearchQuery('');
       setFilters({
-        gender: '',
         currentClass: '',
         age: '',
-        city: '',
-        italianSchoolClass: '',
+        selectedTurni: '',
         attendanceMode: '',
         enrollmentType: '',
         enrollmentStatus: 'all'
@@ -296,11 +292,9 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
 
   const clearFilters = () => {
     setFilters({
-      gender: '',
       currentClass: '',
       age: '',
-      city: '',
-      italianSchoolClass: '',
+      selectedTurni: '',
       attendanceMode: '',
       enrollmentType: '',
       enrollmentStatus: 'all'
@@ -326,11 +320,6 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
         }
       }
 
-      // Gender filter
-      if (filters.gender && student.gender !== filters.gender) {
-        return false;
-      }
-
       // Age filter
       if (filters.age) {
         const studentAge = student.birthDate ? parseInt(calculateAge(student.birthDate)) : null;
@@ -345,22 +334,15 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
         return false;
       }
 
-
-      // City filter
-      if (filters.city) {
-        const query = filters.city.toLowerCase();
-        if (!student.city?.toLowerCase().includes(query)) {
+      // Selected turni filter
+      if (filters.selectedTurni) {
+        const studentTurni = student.selectedTurni || [];
+        // Check if the student has the selected turno
+        if (!Array.isArray(studentTurni) || !studentTurni.includes(filters.selectedTurni)) {
           return false;
         }
       }
 
-      // Italian school class filter
-      if (filters.italianSchoolClass) {
-        const query = filters.italianSchoolClass.toLowerCase();
-        if (!student.italianSchoolClass?.toLowerCase().includes(query)) {
-          return false;
-        }
-      }
 
       // Attendance mode filter
       if (filters.attendanceMode && student.attendanceMode !== filters.attendanceMode) {
@@ -636,19 +618,6 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
           {showFilters && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Genere</label>
-                <select
-                  value={filters.gender}
-                  onChange={(e) => handleFilterChange('gender', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Tutti</option>
-                  <option value="M">Maschio</option>
-                  <option value="F">Femmina</option>
-                </select>
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Classe Attuale</label>
                 <select
                   value={filters.currentClass}
@@ -659,6 +628,21 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
                   {classes.map(cls => (
                     <option key={cls.id} value={cls.id}>{cls.name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Turni Selezionati</label>
+                <select
+                  value={filters.selectedTurni}
+                  onChange={(e) => handleFilterChange('selectedTurni', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Tutti i turni</option>
+                  <option value="sabato_pomeriggio">Sabato Pomeriggio</option>
+                  <option value="sabato_sera">Sabato Sera</option>
+                  <option value="domenica_mattina">Domenica Mattina</option>
+                  <option value="domenica_pomeriggio">Domenica Pomeriggio</option>
                 </select>
               </div>
 
@@ -689,17 +673,6 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                <input
-                  type="text"
-                  value={filters.city}
-                  onChange={(e) => handleFilterChange('city', e.target.value)}
-                  placeholder="Cerca per città..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Modalità Frequenza</label>
                 <select
                   value={filters.attendanceMode}
@@ -709,6 +682,19 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
                   <option value="">Tutte</option>
                   <option value="in_presenza">In Presenza</option>
                   <option value="online">Online</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Iscrizione</label>
+                <select
+                  value={filters.enrollmentType}
+                  onChange={(e) => handleFilterChange('enrollmentType', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Tutti i tipi</option>
+                  <option value="nuova_iscrizione">Nuova Iscrizione</option>
+                  <option value="rinnovo">Rinnovo</option>
                 </select>
               </div>
             </div>
@@ -794,16 +780,26 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
                               </div>
                             )}
                             
-                            {student.city && (
+                            {student.selectedTurni && student.selectedTurni.length > 0 && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <MapPin className="h-3 w-3" />
-                                <span>{student.city}</span>
+                                <Calendar className="h-3 w-3" />
+                                <span>
+                                  {student.selectedTurni.map((turno: string) => {
+                                    switch(turno) {
+                                      case 'sabato_pomeriggio': return 'Sab. Pom.';
+                                      case 'sabato_sera': return 'Sab. Sera';
+                                      case 'domenica_mattina': return 'Dom. Matt.';
+                                      case 'domenica_pomeriggio': return 'Dom. Pom.';
+                                      default: return turno;
+                                    }
+                                  }).join(', ')}
+                                </span>
                               </div>
                             )}
                             
                             {student.birthDate && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Calendar className="h-3 w-3" />
+                                <Users className="h-3 w-3" />
                                 <span>{calculateAge(student.birthDate)} anni</span>
                               </div>
                             )}
@@ -833,14 +829,14 @@ export const AddStudentDialog: React.FC<AddStudentDialogProps> = ({
                                 Iscritto
                               </span>
                             )}
-                            {student.gender && (
-                              <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">
-                                {student.gender === 'M' ? 'Maschio' : 'Femmina'}
-                              </span>
-                            )}
                             {student.attendanceMode && (
                               <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                                 {student.attendanceMode === 'in_presenza' ? 'In Presenza' : 'Online'}
+                              </span>
+                            )}
+                            {student.italianSchoolClass && (
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
+                                {student.italianSchoolClass}
                               </span>
                             )}
                           </div>

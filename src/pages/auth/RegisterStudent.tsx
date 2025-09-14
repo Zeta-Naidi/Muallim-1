@@ -878,7 +878,7 @@ export const RegisterStudent: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-3">
             <button
-              onClick={() => setStep('turno-selection')}
+              onClick={() => setStep('terms')}
               className="w-full sm:w-auto px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 rounded-lg hover:bg-gray-50 order-2 sm:order-1"
             >
               ← Precedente
