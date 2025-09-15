@@ -88,8 +88,12 @@ service cloud.firestore {
       );
       // Allow list queries for registration validation (unauthenticated) and authenticated users
       allow list: if !isAuthenticated() || isAuthenticated() && (isAdminOrOperator() || isTeacher());
-      // Allow creation during registration (unauthenticated) or by admin
-      allow create: if !isAuthenticated() || isAdminOrOperator();
+      // Allow creation during registration (unauthenticated), by admin, or by authenticated parents
+      allow create: if !isAuthenticated() || isAdminOrOperator() || 
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent' &&
+         request.resource.data.parentId == request.auth.uid);
       allow update: if isAdminOrOperator();
       allow delete: if isAdmin();
     }

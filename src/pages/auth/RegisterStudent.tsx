@@ -24,7 +24,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 
 interface StudentData {
@@ -320,22 +320,18 @@ export const RegisterStudent: React.FC = () => {
         throw new Error('Errore: genitore non trovato nel database');
       }
 
-      // Register each student in the students collection and collect their IDs
+      // Prepare children data for parent record update
       const childrenIds = [];
+      
+      // Create all student records first while parent is authenticated
       for (let i = 0; i < numberOfChildren; i++) {
         const studentData = studentForms[i].getValues();
         
         const displayName = `${studentData.firstName.trim()} ${studentData.lastName.trim()}`.trim();
         // Create unique email using Codice Fiscale to avoid conflicts
         const studentEmail = `${studentData.codiceFiscale.toLowerCase()}@student.muallim.it`;
-        const tempPassword = Math.random().toString(36).slice(-8);
 
-        // Create student Firebase authentication account only (no Firestore document in users)
-        await createUserWithEmailAndPassword(auth, studentEmail, tempPassword);
-        // Sign out immediately to prevent auto-login
-        await signOut(auth);
-
-        // Create complete student record in students collection
+        // Create complete student record in students collection while parent is authenticated
         const studentRecord = {
           parentId: parentUserId,
           // Personal information
@@ -374,9 +370,9 @@ export const RegisterStudent: React.FC = () => {
           createdAt: new Date(),
         };
 
-        // Save student to students collection
+        // Save student to students collection while parent is authenticated
         try {
-          const studentDocRef = await addDoc(collection(db, 'students'), studentRecord);
+          await addDoc(collection(db, 'students'), studentRecord);
         } catch (error) {
           console.error('Error saving student:', error);
           throw error;
@@ -390,12 +386,36 @@ export const RegisterStudent: React.FC = () => {
         });
       }
 
-      // Update parent record with children information after all students are registered
+      // Update parent record with children information while still authenticated
       if (childrenIds.length > 0 && parentUserId) {
         await updateDoc(doc(db, 'users', parentUserId), {
           children: childrenIds
         });
       }
+
+      // Now create Firebase Auth accounts for students after all Firestore operations
+      for (let i = 0; i < numberOfChildren; i++) {
+        const studentData = studentForms[i].getValues();
+        const studentEmail = `${studentData.codiceFiscale.toLowerCase()}@student.muallim.it`;
+        const tempPassword = Math.random().toString(36).slice(-8);
+
+        try {
+          // Create student Firebase authentication account
+          await createUserWithEmailAndPassword(auth, studentEmail, tempPassword);
+          // Sign out the student immediately to prevent auto-login
+          await signOut(auth);
+          // Re-authenticate as parent for next iteration (except for the last one)
+          if (i < numberOfChildren - 1) {
+            await signInWithEmailAndPassword(auth, parentData.parentEmail, parentData.parentPassword);
+          }
+        } catch (error) {
+          console.error('Error creating student auth account:', error);
+          // Continue with other students even if one fails
+        }
+      }
+
+      // Sign out at the very end after all operations are complete
+      await signOut(auth);
 
       // Navigate to approval pending page instead of showing success popup
       navigate('/approval-pending');
