@@ -19,11 +19,12 @@ import {
   Hash,
   X
 } from 'lucide-react';
+import { AddressAutocomplete } from '../../components/ui/AddressAutocomplete';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 
 interface StudentData {
@@ -68,6 +69,8 @@ export const RegisterStudent: React.FC = () => {
   const [parentData, setParentData] = useState<ParentFormValues | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedProvince, setSelectedProvince] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -317,22 +320,18 @@ export const RegisterStudent: React.FC = () => {
         throw new Error('Errore: genitore non trovato nel database');
       }
 
-      // Register each student in the students collection and collect their IDs
+      // Prepare children data for parent record update
       const childrenIds = [];
+      
+      // Create all student records first while parent is authenticated
       for (let i = 0; i < numberOfChildren; i++) {
         const studentData = studentForms[i].getValues();
         
         const displayName = `${studentData.firstName.trim()} ${studentData.lastName.trim()}`.trim();
         // Create unique email using Codice Fiscale to avoid conflicts
         const studentEmail = `${studentData.codiceFiscale.toLowerCase()}@student.muallim.it`;
-        const tempPassword = Math.random().toString(36).slice(-8);
 
-        // Create student Firebase authentication account only (no Firestore document in users)
-        await createUserWithEmailAndPassword(auth, studentEmail, tempPassword);
-        // Sign out immediately to prevent auto-login
-        await signOut(auth);
-
-        // Create complete student record in students collection
+        // Create complete student record in students collection while parent is authenticated
         const studentRecord = {
           parentId: parentUserId,
           // Personal information
@@ -371,9 +370,9 @@ export const RegisterStudent: React.FC = () => {
           createdAt: new Date(),
         };
 
-        // Save student to students collection
+        // Save student to students collection while parent is authenticated
         try {
-          const studentDocRef = await addDoc(collection(db, 'students'), studentRecord);
+          await addDoc(collection(db, 'students'), studentRecord);
         } catch (error) {
           console.error('Error saving student:', error);
           throw error;
@@ -387,12 +386,36 @@ export const RegisterStudent: React.FC = () => {
         });
       }
 
-      // Update parent record with children information after all students are registered
+      // Update parent record with children information while still authenticated
       if (childrenIds.length > 0 && parentUserId) {
         await updateDoc(doc(db, 'users', parentUserId), {
           children: childrenIds
         });
       }
+
+      // Now create Firebase Auth accounts for students after all Firestore operations
+      for (let i = 0; i < numberOfChildren; i++) {
+        const studentData = studentForms[i].getValues();
+        const studentEmail = `${studentData.codiceFiscale.toLowerCase()}@student.muallim.it`;
+        const tempPassword = Math.random().toString(36).slice(-8);
+
+        try {
+          // Create student Firebase authentication account
+          await createUserWithEmailAndPassword(auth, studentEmail, tempPassword);
+          // Sign out the student immediately to prevent auto-login
+          await signOut(auth);
+          // Re-authenticate as parent for next iteration (except for the last one)
+          if (i < numberOfChildren - 1) {
+            await signInWithEmailAndPassword(auth, parentData.parentEmail, parentData.parentPassword);
+          }
+        } catch (error) {
+          console.error('Error creating student auth account:', error);
+          // Continue with other students even if one fails
+        }
+      }
+
+      // Sign out at the very end after all operations are complete
+      await signOut(auth);
 
       // Navigate to approval pending page instead of showing success popup
       navigate('/approval-pending');
@@ -411,7 +434,7 @@ export const RegisterStudent: React.FC = () => {
       if (error.code) {
         switch (error.code) {
           case 'auth/email-already-in-use':
-            userFriendlyMessage = 'L\'indirizzo email è già in uso. Utilizza un\'altra email o accedi con le credenziali esistenti.';
+            userFriendlyMessage = 'L\'indirizzo email è già in uso. Utilizza un\'altra email o accedi con le tue credenziali esistenti.';
             break;
           case 'auth/weak-password':
             userFriendlyMessage = 'La password è troppo debole. Utilizza almeno 6 caratteri.';
@@ -1138,7 +1161,7 @@ export const RegisterStudent: React.FC = () => {
                   </div>
                   <input
                     {...parentForm.register('parentFirstName', { required: 'Nome del genitore è obbligatorio' })}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Inserisci nome"
                   />
                 </div>
@@ -1160,7 +1183,7 @@ export const RegisterStudent: React.FC = () => {
                   </div>
                   <input
                     {...parentForm.register('parentLastName', { required: 'Cognome del genitore è obbligatorio' })}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Inserisci cognome"
                   />
                 </div>
@@ -1193,7 +1216,7 @@ export const RegisterStudent: React.FC = () => {
                     },
                     validate: checkEmailExists
                   })}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   placeholder="email@esempio.com"
                 />
               </div>
@@ -1223,7 +1246,7 @@ export const RegisterStudent: React.FC = () => {
                       message: 'Inserisci un numero di telefono italiano valido (es. +39 123 456 7890 o 3123456789)'
                     }
                   })}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   placeholder="+39 123 456 7890"
                 />
               </div>
@@ -1326,7 +1349,7 @@ export const RegisterStudent: React.FC = () => {
                     {...parentForm.register('parentAddress', { 
                       required: 'Indirizzo è obbligatorio'
                     })}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Via/Piazza, numero civico"
                   />
                 </div>
@@ -1341,27 +1364,22 @@ export const RegisterStudent: React.FC = () => {
               {/* City and Postal Code - Side by side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Comune
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Building className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      {...parentForm.register('parentCity', { 
-                        required: 'Comune è obbligatorio'
-                      })}
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
-                      placeholder="Nome del comune"
-                    />
-                  </div>
-                  {parentForm.formState.errors.parentCity && (
-                    <p className="text-sm text-red-600 flex items-center mt-1">
-                      <AlertCircle className="h-4 w-4 mr-1" />
-                      {parentForm.formState.errors.parentCity.message}
-                    </p>
-                  )}
+                  <AddressAutocomplete
+                    label="Comune"
+                    placeholder="Cerca la tua città..."
+                    value={selectedCity}
+                    onChange={(value) => {
+                      setSelectedCity(value);
+                      parentForm.setValue('parentCity', value, { shouldValidate: true });
+                    }}
+                    onSelect={(address) => {
+                      setSelectedCity(address.city);
+                      setSelectedProvince(address.province);
+                      parentForm.setValue('parentCity', address.city, { shouldValidate: true });
+                      // You can also set province if needed
+                    }}
+                    error={parentForm.formState.errors.parentCity?.message}
+                  />
                 </div>
 
                 <div className="space-y-2">

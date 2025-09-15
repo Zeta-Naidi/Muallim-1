@@ -897,9 +897,9 @@ export const ManageUsers: React.FC = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                       Utente
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                    {!showStudents && <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                       Email
-                    </th>
+                    </th>}
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                       Ruolo
                     </th>
@@ -942,12 +942,6 @@ export const ManageUsers: React.FC = () => {
                                 CF: {student.codiceFiscale}
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center text-gray-600">
-                            <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                            <span className="text-sm">{student.email}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
