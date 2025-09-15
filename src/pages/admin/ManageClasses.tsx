@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Users, X, School, BookOpen, FileText, UserCheck, Trash2, Shield, ClipboardList, Filter, ChevronLeft, ChevronRight, TrendingUp, UserPlus, UserMinus, Eye, Mail, Phone, Edit3, UserX, ArrowUp, ArrowDown } from 'lucide-react';
+import { Calendar, ArrowLeft, Plus, Accessibility, MapPin, Search, Users, X, School, BookOpen, FileText, UserCheck, Trash2, Shield, ClipboardList, Filter, ChevronLeft, ChevronRight, TrendingUp, UserPlus, UserMinus, Eye, Mail, Phone, Edit3, UserX, ArrowUp, ArrowDown, Globe } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { CreateClassDialog } from '../../components/dialogs/CreateClassDialog';
@@ -25,6 +25,17 @@ export const ManageClasses: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const classesPerPage = 6;
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const toJsDate = (val: any): Date | null => {
+    if (!val) return null;
+    // Firestore Timestamp has a toDate function
+    if (typeof val.toDate === 'function') return val.toDate();
+    // Already a JS Date
+    if (val instanceof Date) return val;
+    // ISO string or other parseable value
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  };
 
   // Advanced Filters
   const [filters, setFilters] = useState({
@@ -55,9 +66,10 @@ export const ManageClasses: React.FC = () => {
   const [classStats, setClassStats] = useState<{
     totalStudents: number;
     attendancePercentage: number;
-    nextLesson: string | null;
+    averageGrade: number;
+    activeAssignments: number;
   } | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
   const [isRemoveStudentDialogOpen, setIsRemoveStudentDialogOpen] = useState(false);
@@ -69,6 +81,78 @@ export const ManageClasses: React.FC = () => {
   const [isAssignAssistantDialogOpen, setIsAssignAssistantDialogOpen] = useState(false);
   const [availableTeachers, setAvailableTeachers] = useState<User[]>([]);
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
+
+  // Function to fetch class statistics
+  const fetchClassStats = async () => {
+    if (!userProfile) return;
+    
+    setLoadingStats(true);
+    try {
+      // Initialize default stats
+      const defaultStats = {
+        totalStudents: 0,
+        attendancePercentage: 0,
+        averageGrade: 0,
+        activeAssignments: 0
+      };
+      
+      // Get all classes for the current teacher (or all classes if admin)
+      let classesQuery = query(collection(db, 'classes'));
+      if (userProfile.role === 'teacher' && 'uid' in userProfile) {
+        classesQuery = query(classesQuery, where('teacherId', '==', userProfile.uid));
+      }
+      
+      const classesSnapshot = await getDocs(classesQuery);
+      const classIds = classesSnapshot.docs.map(doc => doc.id);
+      
+      if (classIds.length === 0) {
+        setClassStats(defaultStats);
+        return;
+      }
+      
+      // Get all students in these classes - handle Firebase's 30-item limit for 'in' queries
+      let totalStudents = 0;
+      const batchSize = 25; // Keep it under 30 for safety
+      
+      for (let i = 0; i < classIds.length; i += batchSize) {
+        const batch = classIds.slice(i, i + batchSize);
+        const studentsQuery = query(
+          collection(db, 'students'), 
+          where('currentClass', 'in', batch)
+        );
+        const studentsSnapshot = await getDocs(studentsQuery);
+        totalStudents += studentsSnapshot.size;
+      }
+      
+      // Get active assignments (due in the future)
+      const now = new Date();
+      const assignmentsQuery = query(
+        collection(db, 'homework'),
+        where('dueDate', '>=', now)
+      );
+      const assignmentsSnapshot = await getDocs(assignmentsQuery);
+      
+      // For now, we'll use placeholder values for attendance and grades
+      // In a real app, you would fetch and calculate these from your database
+      const stats = {
+        totalStudents,
+        attendancePercentage: totalStudents > 0 ? 75 : 0, // Placeholder
+        averageGrade: 8.5, // Placeholder
+        activeAssignments: assignmentsSnapshot.size
+      };
+      
+      setClassStats(stats);
+      
+    } catch (error) {
+      console.error('Error fetching class statistics:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClassStats();
+  }, [userProfile]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -749,59 +833,64 @@ export const ManageClasses: React.FC = () => {
         ) : selectedClass ? (
           /* Class Details View */
           <div className="space-y-8">
-            {/* Back to Classes Button */}
-            <Button
-              variant="outline"
-              onClick={() => setSelectedClass(null)}
-              className="mb-4"
-            >
-              ← Torna alle Classi
-            </Button>
+            {/* Header responsive */}
+            <div className="mb-4">
+              {/* MOBILE: bottoni in riga + titolo centrato sotto */}
+              <div className="md:hidden space-y-3">
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" onClick={() => setSelectedClass(null)} className="shrink-0">
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Torna alle Classi
+                  </Button>
 
-            <div className="space-y-6">
-              {/* Class Info Card */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                <div className="p-6 border-b border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900">{selectedClass.name}</h2>
-                      <p className="text-slate-600 mt-1">{selectedClass.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {canDeleteResource(userProfile?.role || 'student', 'classes') && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteClass(selectedClass.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Elimina
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  {canDeleteResource(userProfile?.role || 'student', 'classes') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDeleteClass(selectedClass.id)}
+                      className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Elimina
+                    </Button>
+                  )}
                 </div>
-                
-                <div className="p-6 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Turno</label>
-                      <div className="text-sm text-gray-900">{selectedClass.turno || 'Non specificato'}</div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Insegnante</label>
-                      <div className="text-sm text-gray-900">
-                        {selectedClass.teacherId 
-                          ? teachers[selectedClass.teacherId]?.displayName || 'Insegnante non trovato'
-                          : 'Nessun insegnante assegnato'
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </div>
+
+                <h1 className="text-3xl font-semibold text-slate-900 text-center leading-snug break-words mt-4">
+                  {selectedClass.name} {selectedClass.turno}
+                </h1>
               </div>
 
+              {/* DESKTOP: tre colonne → back | titolo centrato | elimina a destra */}
+              <div className="hidden md:grid md:grid-cols-3 md:items-center">
+                <div className="flex items-center">
+                  <Button variant="outline" onClick={() => setSelectedClass(null)}>
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Torna alle Classi
+                  </Button>
+                </div>
+
+                <div className="flex justify-center">
+                  <h1 className="text-3xl font-semibold text-slate-900">
+                    {selectedClass.name} {selectedClass.turno}
+                  </h1>
+                </div>
+
+                <div className="flex justify-end">
+                  {canDeleteResource(userProfile?.role || 'student', 'classes') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDeleteClass(selectedClass.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Elimina
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
               {/* Class Statistics */}
               {loadingStats ? (
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
@@ -820,7 +909,7 @@ export const ManageClasses: React.FC = () => {
                       </div>
                       <span className="text-sm font-medium text-teal-600">Studenti Totali</span>
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">{classStats.totalStudents}</div>
+                    <div className="text-2xl font-bold text-slate-900">{classStats?.totalStudents || 0}</div>
                     <div className="text-xs text-slate-500 mt-1">Nelle tue classi</div>
                   </div>
 
@@ -832,7 +921,7 @@ export const ManageClasses: React.FC = () => {
                       </div>
                       <span className="text-sm font-medium text-orange-600">Tasso Presenze</span>
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">{classStats.attendancePercentage}%</div>
+                    <div className="text-2xl font-bold text-slate-900">{classStats?.attendancePercentage || 0}%</div>
                     <div className="text-xs text-slate-500 mt-1">Media generale</div>
                   </div>
 
@@ -840,12 +929,12 @@ export const ManageClasses: React.FC = () => {
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <School className="h-4 w-4 text-blue-600" />
+                        <Globe className="h-4 w-4 text-blue-600" />
                       </div>
-                      <span className="text-sm font-medium text-blue-600">Classi Gestite</span>
+                      <span className="text-sm font-medium text-blue-600">Media Voti</span>
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">1</div>
-                    <div className="text-xs text-slate-500 mt-1">Attive</div>
+                    <div className="text-2xl font-bold text-slate-900">{classStats?.averageGrade?.toFixed(1) || '0.0'}</div>
+                    <div className="text-xs text-slate-500 mt-1">Media voti</div>
                   </div>
 
                   {/* Completed Activities */}
@@ -856,7 +945,7 @@ export const ManageClasses: React.FC = () => {
                       </div>
                       <span className="text-sm font-medium text-purple-600">Compiti Attivi</span>
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">1</div>
+                    <div className="text-2xl font-bold text-slate-900">{classStats?.activeAssignments || 0}</div>
                     <div className="text-xs text-slate-500 mt-1">In scadenza</div>
                   </div>
                 </div>
@@ -1022,19 +1111,18 @@ export const ManageClasses: React.FC = () => {
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {selectedClass.students.map((studentId) => {
                         const student = students[studentId];
                         return (
                           <div key={studentId} className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                             <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-medium">
-                              {student?.displayName?.charAt(0).toUpperCase() || '?'}
+                              {student.firstName.charAt(0).toUpperCase()}{student.lastName.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-slate-900 truncate">
                                 {student?.displayName || 'Studente non trovato'}
                               </div>
-                              <div className="text-sm text-slate-600 truncate">{student?.email}</div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button
@@ -1504,7 +1592,7 @@ export const ManageClasses: React.FC = () => {
             <div className="p-6">
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-16 w-16 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-medium">
-                  {selectedStudent.displayName?.charAt(0).toUpperCase() || '?'}
+                  {selectedStudent.firstName.charAt(0).toUpperCase()}{selectedStudent.lastName.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h4 className="text-xl font-semibold text-gray-900">{selectedStudent.displayName}</h4>
@@ -1513,31 +1601,89 @@ export const ManageClasses: React.FC = () => {
               </div>
               
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <div className="text-sm font-medium text-gray-700">Email</div>
-                    <div className="text-gray-900">{selectedStudent.email}</div>
-                  </div>
-                </div>
-                
-                {(selectedStudent as any).phone && (
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-5 w-5 text-gray-400" />
+                {/* Contact Information */}
+                {(selectedStudent as any).phoneNumber && (
+                  <div className="flex items-start gap-3">
+                    <Phone className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <div className="text-sm font-medium text-gray-700">Telefono</div>
-                      <div className="text-gray-900">{(selectedStudent as any).phone}</div>
+                      <div className="text-sm font-medium text-gray-700">Telefono Genitore</div>
+                      <div className="text-gray-900">{(selectedStudent as any).phoneNumber}</div>
                     </div>
                   </div>
                 )}
-                
-                <div className="flex items-center gap-3">
-                  <UserCheck className="h-5 w-5 text-gray-400" />
+
+                {/* Personal Information */}
+                {(selectedStudent as any).birthDate && (
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Data di Nascita</div>
+                      <div className="text-gray-900">
+                        {(toJsDate((selectedStudent as any).birthDate))?.toLocaleDateString('it-IT')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {(selectedStudent as any).gender && (
+                  <div className="flex items-start gap-3">
+                    <Users className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Genere</div>
+                      <div className="text-gray-900 capitalize">{(selectedStudent as any).gender.toLowerCase()}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Address Information */}
+                {((selectedStudent as any).address || (selectedStudent as any).city || (selectedStudent as any).postalCode) && (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Indirizzo</div>
+                      <div className="text-gray-900">
+                        {[
+                          (selectedStudent as any).address,
+                          (selectedStudent as any).postalCode,
+                          (selectedStudent as any).city
+                        ].filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parent Information */}
+                {(selectedStudent as any).parentName && (
+                  <div className="flex items-start gap-3">
+                    <Users className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Genitore</div>
+                      <div className="text-gray-900">{(selectedStudent as any).parentName}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Disability Information */}
+                <div className="flex items-start gap-3">
+                  <Accessibility className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="text-sm font-medium text-gray-700">ID Utente</div>
-                    <div className="text-gray-900 font-mono text-sm">{selectedStudent.id}</div>
+                    <div className="text-sm font-medium text-gray-700">Disabilità</div>
+                    <div className="text-gray-900">
+                      {(selectedStudent as any).hasDisability ? 'Sì' : 'No'}
+                    </div>
                   </div>
                 </div>
+
+                {/* Codice Fiscale */}
+                {selectedStudent.codiceFiscale && (
+                  <div className="flex items-start gap-3">
+                    <UserCheck className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Codice Fiscale</div>
+                      <div className="text-gray-900 font-mono text-sm">{selectedStudent.codiceFiscale}</div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="mt-6 pt-6 border-t border-gray-200">
