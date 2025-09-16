@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/firebase';
-import { User, Class } from '../../types';
+import { User, Class, Student } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { canDeleteResource } from '../../utils/permissions';
 import { actionLogger } from '../../services/actionLogger';
@@ -16,7 +16,7 @@ import { actionLogger } from '../../services/actionLogger';
 interface ParentGroup {
   parentContact: string;
   parentName: string;
-  children: User[];
+  children: Student[];
   totalAmount: number;
   paidAmount: number;
   isExempted: boolean;
@@ -94,13 +94,16 @@ export const Payments: React.FC = () => {
         });
         setClasses(classesMap);
 
-        // Fetch ONLY enrolled students from students collection
+        // Fetch ONLY enrolled and active students from students collection
         const studentsQuery = query(
           collection(db, 'students'),
-          where('isEnrolled', '==', true)
+          where('isEnrolled', '==', true),
+          where('accountStatus', '==', 'active')
         );
         const studentsDocs = await getDocs(studentsQuery);
-        const fetchedStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        const fetchedStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Student));
+
+        console.log(fetchedStudents);
 
         // Fetch payment records
         const paymentsQuery = query(
@@ -119,17 +122,18 @@ export const Payments: React.FC = () => {
         });
         setPaymentRecords(fetchedPayments);
 
-        // Group students by parent contact (phone number) - ONLY enrolled students
+        // Group students by parent ID - ONLY enrolled students
         const parentGroupsMap = new Map<string, ParentGroup>();
         
         fetchedStudents.forEach(student => {
-          const parentContact = student.parentContact?.trim();
+          const parentId = student.parentId;
           const parentName = student.parentName?.trim() || 'Nome non specificato';
+          const parentContact = student.phoneNumber?.trim() || '';
           
-          if (!parentContact) return; // Skip students without parent contact
+          if (!parentId) return; // Skip students without parent ID
           
-          if (!parentGroupsMap.has(parentContact)) {
-            parentGroupsMap.set(parentContact, {
+          if (!parentGroupsMap.has(parentId)) {
+            parentGroupsMap.set(parentId, {
               parentContact,
               parentName,
               children: [],
@@ -139,14 +143,20 @@ export const Payments: React.FC = () => {
             });
           }
           
-          const group = parentGroupsMap.get(parentContact)!;
-          group.children.push(student);
+          const group = parentGroupsMap.get(parentId)!;
           
-          // Check if any child in the group is exempted
-          if (student.paymentExempted) {
-            group.isExempted = true;
+          // Only add student if not already in the group (to prevent duplicates)
+          if (!group.children.some(s => s.id === student.id)) {
+            group.children.push(student);
+            
+            // Check if this child is exempted
+            if (student.paymentExempted) {
+              group.isExempted = true;
+            }
           }
         });
+
+        console.log(parentGroupsMap);
 
         // Calculate total amounts and paid amounts for each parent group
         const parentGroupsArray = Array.from(parentGroupsMap.values()).map(group => {
@@ -154,6 +164,7 @@ export const Payments: React.FC = () => {
           const totalAmount = group.isExempted ? 0 : getPricing(childrenCount);
           
           // Calculate paid amount from payment records
+          // Find all payments for this parent's contact number
           const paidAmount = fetchedPayments
             .filter(payment => payment.parentContact === group.parentContact)
             .reduce((sum, payment) => sum + payment.amount, 0);
@@ -934,14 +945,14 @@ export const Payments: React.FC = () => {
                               return (
                                 <>
                                   {shown.map(child => {
-                                    const childClass = classes[child.classId || ''];
+                                    const childClass = classes[child.currentClass || ''];
                                     return (
                                       <span
                                         key={child.id}
                                         className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-medium border ${childClass ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-gray-50 text-gray-800 border-gray-200'}`}
                                       >
                                         {child.displayName}
-                                        {child.classId && childClass && (
+                                        {child.currentClass && childClass && (
                                           <span className="ml-1 text-blue-600 font-normal">({childClass.name})</span>
                                         )}
                                       </span>

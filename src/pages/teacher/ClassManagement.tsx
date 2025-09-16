@@ -330,7 +330,7 @@ export const ClassManagement: React.FC = () => {
                   <option value="" className="text-gray-900">Seleziona una classe</option>
                   {myClasses.map(c => (
                     <option key={c.id} value={c.id} className="text-gray-900">
-                      {c.name} {(c as any).isTemporary ? '(Supplenza)' : ''}
+                      {c.name} {c.turno} {(c as any).isTemporary ? '(Supplenza)' : ''}
                     </option>
                   ))}
                 </select>

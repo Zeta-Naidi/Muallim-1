@@ -7,7 +7,7 @@ import { db } from '../../services/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { User } from '../../types';
+import { Student } from '../../types';
 
 interface CreateAttendanceDialogProps {
   classId: string;
@@ -26,7 +26,7 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
 }) => {
   const { userProfile } = useAuth();
   const [date, setDate] = useState(selectedDate || format(new Date(), 'yyyy-MM-dd'));
-  const [students, setStudents] = useState<User[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [attendanceData, setAttendanceData] = useState<Record<string, { status: 'present' | 'absent' | 'justified'; notes: string }>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,14 +127,15 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
           where('__name__', 'in', batch)
         );
         const studentsDocs = await getDocs(studentsQuery);
-        const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Student));
         studentBatches.push(...batchStudents);
       }
       
       // Sort students by name
       const fetchedStudents = studentBatches.sort((a, b) => 
-        a.displayName.localeCompare(b.displayName)
+        a.lastName?.localeCompare(b.lastName)
       );
+      console.log('Fetched students:', fetchedStudents);
       
       setStudents(fetchedStudents);
 
@@ -310,7 +311,7 @@ export const CreateAttendanceDialog: React.FC<CreateAttendanceDialogProps> = ({
                       {students.map(student => (
                         <tr key={student.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{student.displayName}</div>
+                            <div className="text-sm font-medium text-gray-900">{student.lastName} {student.firstName}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex space-x-2">

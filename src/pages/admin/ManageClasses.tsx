@@ -605,10 +605,7 @@ export const ManageClasses: React.FC = () => {
         let filteredTeachers = allTeachers;
         if (isChangeTeacherDialogOpen) {
           // Main teacher: show regolare and volontario
-          filteredTeachers = allTeachers.filter(teacher => 
-            (teacher as any).teacherType === 'insegnante_regolare' || 
-            (teacher as any).teacherType === 'insegnante_volontario'
-          );
+          filteredTeachers = allTeachers;
         } else if (isAssignAssistantDialogOpen) {
           // Assistant: show assistente
           filteredTeachers = allTeachers.filter(teacher => 

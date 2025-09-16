@@ -490,7 +490,7 @@ export const LessonTracking: React.FC = () => {
                   >
                     <option value="">🏫 Seleziona una classe</option>
                     {classes.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{c.name} {c.turno}</option>
                     ))}
                   </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">

@@ -240,7 +240,7 @@ export const HomeworkAssignment: React.FC = () => {
               >
                 <option value="">Seleziona una classe</option>
                 {classes.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name} {c.turno}</option>
                 ))}
               </select>
               {errors.classId && (
