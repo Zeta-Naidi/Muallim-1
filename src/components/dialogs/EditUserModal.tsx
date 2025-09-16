@@ -208,6 +208,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({
               <option value="student">Studente</option>
               <option value="parent">Genitore</option>
               <option value="teacher">Insegnante</option>
+              <option value="operator">Operatore</option>
               <option value="admin">Amministratore</option>
             </select>
           </div>

@@ -1239,29 +1239,59 @@ export const ManageClasses: React.FC = () => {
           </div>
         ) : (
           /* Classes Grid View */
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setViewMode(null)}
-                  className="rounded-lg"
-                >
-                  ← Cambia modalità
-                </Button>
-                <div>
+          <div className="space-y-8">
+            {/* Header responsive */}
+            <div className="mb-4">
+              {/* MOBILE: bottoni in riga + titolo centrato sotto */}
+              <div className="md:hidden space-y-3">
+                <div className="flex items-center justify-between">
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewMode(null)}
+                   >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Cambia Modalità
+                  </Button>
+
+                  {filteredClasses.length} di {classes.length} {classes.length === 1 ? 'classe' : 'classi'}
+                </div>
+
+                <div className="text-center mt-4">
                   <h2 className="text-2xl font-bold text-slate-900">
                     Classi {viewMode === 'in_presenza' ? 'in Presenza' : 'Online'}
                   </h2>
                   <p className="text-slate-600 mt-1">Clicca su una classe per gestirla</p>
                 </div>
               </div>
-              <div className="text-sm text-slate-500">
-                {filteredClasses.length} di {classes.length} {classes.length === 1 ? 'classe' : 'classi'}
-                {totalPages > 1 && (
-                  <span className="ml-2">• Pagina {currentPage} di {totalPages}</span>
-                )}
+
+              {/* DESKTOP: tre colonne → back | titolo centrato | elimina a destra */}
+              <div className="hidden md:grid md:grid-cols-3 md:items-center">
+                <div className="flex items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewMode(null)}>
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Cambia Modalità
+                  </Button>
+                </div>
+
+                <div className="flex justify-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">
+                      Classi {viewMode === 'in_presenza' ? 'in Presenza' : 'Online'}
+                    </h2>
+                    <p className="text-slate-600 mt-1">Clicca su una classe per gestirla</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  {filteredClasses.length} di {classes.length} {classes.length === 1 ? 'classe' : 'classi'}
+                  {totalPages > 1 && (
+                    <span className="ml-2">• Pagina {currentPage} di {totalPages}</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1281,8 +1311,7 @@ export const ManageClasses: React.FC = () => {
                     />
                   </div>
                 </div>
-                
-                <div className="flex gap-3">
+                <div className='flex-1'>
                   <div className="relative">
                     <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <select
@@ -1296,6 +1325,7 @@ export const ManageClasses: React.FC = () => {
                       ))}
                     </select>
                   </div>
+                </div>
                   
                   <Button
                     variant="outline"
@@ -1315,7 +1345,6 @@ export const ManageClasses: React.FC = () => {
                       <X className="h-4 w-4" />
                     </Button>
                   )}
-                </div>
               </div>
 
               {/* Advanced Filters */}

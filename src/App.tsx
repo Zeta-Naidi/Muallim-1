@@ -45,6 +45,29 @@ import ParentLessons from './pages/parent/ParentLessons';
 import ParentHomework from './pages/parent/ParentHomework';
 import ParentGrades from './pages/parent/ParentGrades';
 
+// Email Protected Route Component
+const EmailProtectedRoute = ({ children, allowedEmails }: { children: React.ReactNode; allowedEmails: string[] }) => {
+  const { userProfile, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+  
+  if (!userProfile) {
+    return <Navigate to="/login" />;
+  }
+  
+  if (!allowedEmails.includes(userProfile.email)) {
+    return <Navigate to="/dashboard" />;
+  }
+  
+  return <>{children}</>;
+};
+
 // Route Guard Component
 const PrivateRoute = ({ children, roles }: { children: React.ReactNode; roles?: string[] }) => {
   const { userProfile, loading } = useAuth();
@@ -506,15 +529,17 @@ function AppRoutes() {
 
           <Route path="/admin/action-logs" element={
             <PrivateRoute roles={['admin']}>
-              <div className="flex flex-col min-h-screen">
-                <Header />
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  <div className="flex-grow">
-                    <ActionLogs />
-                  </div>
-                </ErrorBoundary>
-                <Footer />
-              </div>
+              <EmailProtectedRoute allowedEmails={['hamza17abbad@gmail.com', 'znaidi2003@gmail.com']}>
+                <div className="flex flex-col min-h-screen">
+                  <Header />
+                  <ErrorBoundary FallbackComponent={ErrorFallback}>
+                    <div className="flex-grow">
+                      <ActionLogs />
+                    </div>
+                  </ErrorBoundary>
+                  <Footer />
+                </div>
+              </EmailProtectedRoute>
             </PrivateRoute>
           } />
 
