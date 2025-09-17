@@ -348,7 +348,7 @@ export const GradeManagement: React.FC = () => {
                 <option value="">Seleziona una classe</option>
                 {teacherClasses.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name} {(c as any).isTemporary ? '(Supplenza)' : ''}
+                    {c.name} {c.turno} {(c as any).isTemporary ? '(Supplenza)' : ''}
                   </option>
                 ))}
               </select>

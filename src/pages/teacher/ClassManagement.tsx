@@ -9,14 +9,14 @@ import { useAuth } from '../../context/AuthContext';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { Button } from '../../components/ui/Button';
 import { StudentDetailsDialog } from '../../components/dialogs/StudentDetailsDialog';
-import { Class, User, Homework, Lesson, LessonMaterial, Attendance } from '../../types';
+import { Class, Homework, Lesson, LessonMaterial, Attendance, Student } from '../../types';
 
 export const ClassManagement: React.FC = () => {
   const { userProfile } = useAuth();
   const [myClasses, setMyClasses] = useState<Class[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [classData, setClassData] = useState<{
-    students: User[];
+    students: Student[];
     homework: Homework[];
     lessons: Lesson[];
     materials: LessonMaterial[];
@@ -36,7 +36,7 @@ export const ClassManagement: React.FC = () => {
     materialsCount: 0
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState<User | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
 
   useEffect(() => {
@@ -116,7 +116,7 @@ export const ClassManagement: React.FC = () => {
       setIsLoading(true);
       try {
         // Fetch students using the class document's students array
-        let students: User[] = [];
+        let students: Student[] = [];
         try {
           // Get the class document to access the students array
           const classDoc = await getDoc(doc(db, 'classes', selectedClass));
@@ -134,7 +134,7 @@ export const ClassManagement: React.FC = () => {
                   where('__name__', 'in', batch)
                 );
                 const studentsDocs = await getDocs(studentsQuery);
-                const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as any));
+                const batchStudents = studentsDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Student));
                 studentBatches.push(...batchStudents);
               }
               
@@ -157,21 +157,27 @@ export const ClassManagement: React.FC = () => {
                 }
               }
               
-              // Map students with parent data
-              students = studentBatches.map(student => {
-                const parentData = parentsMap.get(student.parentId);
-                return {
-                  ...student,
-                  role: 'student',
-                  gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
-                  parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
-                  parentContact: parentData?.phoneNumber || parentData?.contact,
-                  parentEmail: parentData?.email,
-                  parentAddress: parentData?.address,
-                  parentCity: parentData?.city,
-                  parentPostalCode: parentData?.postalCode,
-                } as any;
-              });
+              // Map students with parent data and sort by last name
+              students = studentBatches
+                .map(student => {
+                  const parentData = parentsMap.get(student.parentId);
+                  return {
+                    ...student,
+                    role: 'student',
+                    gender: student.gender === 'M' ? 'male' : student.gender === 'F' ? 'female' : undefined,
+                    parentName: parentData ? `${parentData.firstName || ''} ${parentData.lastName || ''}`.trim() || parentData.displayName : 'N/A',
+                    parentContact: parentData?.phoneNumber || parentData?.contact,
+                    parentEmail: parentData?.email,
+                    parentAddress: parentData?.address,
+                    parentCity: parentData?.city,
+                    parentPostalCode: parentData?.postalCode,
+                  } as any;
+                })
+                .sort((a, b) => {
+                  const lastNameA = a.lastName?.toLowerCase() || '';
+                  const lastNameB = b.lastName?.toLowerCase() || '';
+                  return lastNameA.localeCompare(lastNameB, 'it');
+                });
               
             } else {
               console.log('No students found in class document');
@@ -275,7 +281,7 @@ export const ClassManagement: React.FC = () => {
     fetchClassData();
   }, [selectedClass]);
 
-  const handleViewStudentDetails = (student: User) => {
+  const handleViewStudentDetails = (student: Student) => {
     setSelectedStudent(student);
     setIsStudentDetailsOpen(true);
   };
@@ -492,7 +498,7 @@ export const ClassManagement: React.FC = () => {
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-medium text-slate-900 group-hover:text-emerald-900 text-sm sm:text-base truncate">{student.displayName}</h4>
+                              <h4 className="font-medium text-slate-900 group-hover:text-emerald-900 text-sm sm:text-base truncate">{student.lastName} {student.firstName}</h4>
                               {student.phoneNumber && (
                                 <div className="flex items-center text-xs text-slate-500 mt-1 sm:hidden">
                                   <Phone className="h-3 w-3 mr-1 flex-shrink-0" />
