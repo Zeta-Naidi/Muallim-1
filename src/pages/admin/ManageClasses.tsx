@@ -1397,48 +1397,82 @@ export const ManageClasses: React.FC = () => {
 
               {/* Sorting Row */}
               <div className="border-t border-slate-200 pt-4 mt-4">
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm font-medium text-slate-700 py-2">Ordina per:</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      <ArrowUp className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800">Ordinamento</h3>
+                      <p className="text-xs text-gray-600">Clicca per ordinare</p>
+                    </div>
+                  </div>
                   
-                  <Button
-                    onClick={() => handleSortToggle('createdAt')}
-                    variant={sortStates.createdAt ? 'primary' : 'outline'}
-                    size="sm"
-                    className="text-xs"
-                  >
-                    {sortStates.createdAt === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
-                    Data Creazione
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleSortToggle('name')}
-                    variant={sortStates.name ? 'primary' : 'outline'}
-                    size="sm"
-                    className="text-xs"
-                  >
-                    {sortStates.name === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
-                    Nome
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleSortToggle('studentCount')}
-                    variant={sortStates.studentCount ? 'primary' : 'outline'}
-                    size="sm"
-                    className="text-xs"
-                  >
-                    {sortStates.studentCount === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
-                    N° Studenti
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleSortToggle('turno')}
-                    variant={sortStates.turno ? 'primary' : 'outline'}
-                    size="sm"
-                    className="text-xs"
-                  >
-                    {sortStates.turno === 'desc' ? <ArrowDown className="h-3 w-3 mr-1" /> : <ArrowUp className="h-3 w-3 mr-1" />}
-                    Turno
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 flex-wrap sm:justify-end">
+                    <Button
+                      onClick={() => handleSortToggle('createdAt')}
+                      variant={sortStates.createdAt ? 'primary' : 'outline'}
+                      size="sm"
+                      className="rounded-xl transition-all text-xs"
+                      leftIcon={
+                        sortStates.createdAt === 'desc' ? (
+                          <ArrowDown className="h-3 w-3" />
+                        ) : sortStates.createdAt === 'asc' ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : null
+                      }
+                    >
+                      Data Creazione
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSortToggle('name')}
+                      variant={sortStates.name ? 'primary' : 'outline'}
+                      size="sm"
+                      className="rounded-xl transition-all text-xs"
+                      leftIcon={
+                        sortStates.name === 'desc' ? (
+                          <ArrowDown className="h-3 w-3" />
+                        ) : sortStates.name === 'asc' ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : null
+                      }
+                    >
+                      Nome
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSortToggle('studentCount')}
+                      variant={sortStates.studentCount ? 'primary' : 'outline'}
+                      size="sm"
+                      className="rounded-xl transition-all text-xs"
+                      leftIcon={
+                        sortStates.studentCount === 'desc' ? (
+                          <ArrowDown className="h-3 w-3" />
+                        ) : sortStates.studentCount === 'asc' ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : null
+                      }
+                    >
+                      N° Studenti
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSortToggle('turno')}
+                      variant={sortStates.turno ? 'primary' : 'outline'}
+                      size="sm"
+                      className="rounded-xl transition-all text-xs"
+                      leftIcon={
+                        sortStates.turno === 'desc' ? (
+                          <ArrowDown className="h-3 w-3" />
+                        ) : sortStates.turno === 'asc' ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : null
+                      }
+                    >
+                      Turno
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
