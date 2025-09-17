@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import { 
+import {
   Download, Edit, Filter, Search, Calendar, MapPin, Phone, CheckCircle, AlertCircle, X, Users, Shield, Save, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, UserPlus, Mail,
   UserMinus
 } from 'lucide-react';
@@ -91,13 +91,14 @@ export const ManageStudents: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!userProfile) return;
-      
+
       try {
         // Fetch classes
         const classesQuery = query(collection(db, 'classes'));
         const classesDocs = await getDocs(classesQuery);
         const fetchedClasses = classesDocs.docs.map(doc => ({ ...doc.data(), id: doc.id } as Class));
-        setClasses(fetchedClasses);
+        const orderedClasses = fetchedClasses.sort((a, b) => a.name.localeCompare(b.name));
+        setClasses(orderedClasses);
 
         // Fetch students from students collection
         const studentsQuery = query(
@@ -130,7 +131,7 @@ export const ManageStudents: React.FC = () => {
         const parentsQuery = query(collection(db, 'users'), where('role', '==', 'parent'));
         const parentsDocs = await getDocs(parentsQuery);
         const parentsMap = new Map();
-        
+
         parentsDocs.docs.forEach(doc => {
           const parentData = doc.data();
           parentsMap.set(doc.id, parentData);
@@ -149,7 +150,7 @@ export const ManageStudents: React.FC = () => {
         const studentsWithParents: StudentWithParent[] = fetchedStudents.map(student => {
           const parentData = parentsMap.get(student.parentId);
           const siblingCount = siblingCounts.get(student.parentId) || 0;
-          
+
           return {
             ...student,
             role: 'student' as UserRole,
@@ -180,67 +181,67 @@ export const ManageStudents: React.FC = () => {
 
   useEffect(() => {
     let filtered = [...students];
-    
+
     // Apply advanced filters
     if (filters.name) {
       const q = filters.name.toLowerCase();
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         (student.displayName || '').toLowerCase().includes(q) ||
         (student.firstName || '').toLowerCase().includes(q)
       );
     }
-    
+
     if (filters.surname) {
       const q = filters.surname.toLowerCase();
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         (student.lastName || '').toLowerCase().includes(q)
       );
     }
-    
+
     if (filters.class) {
       filtered = filtered.filter(student => student.currentClass === filters.class);
     }
-    
+
     if (filters.age) {
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         calculateAge(student.birthDate) === filters.age
       );
     }
-    
+
     if (filters.parentName) {
       const q = filters.parentName.toLowerCase();
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         (student.parentName || '').toLowerCase().includes(q)
       );
     }
-    
+
     if (filters.parentPhone) {
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         student.parentContact && student.parentContact.includes(filters.parentPhone)
       );
     }
 
     if (filters.enrollmentType) {
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         (student as any).enrollmentType === filters.enrollmentType
       );
     }
 
     if (filters.attendanceMode) {
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         (student as any).attendanceMode === filters.attendanceMode
       );
     }
 
     if (filters.gender) {
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         student.gender === filters.gender
       );
     }
 
     if (filters.italianSchoolClass) {
       const q = filters.italianSchoolClass.toLowerCase();
-      filtered = filtered.filter(student => 
+      filtered = filtered.filter(student =>
         ((student as any).italianSchoolClass || '').toLowerCase().includes(q)
       );
     }
@@ -248,11 +249,11 @@ export const ManageStudents: React.FC = () => {
     // Apply advanced sorting - find the active sort field
     const activeSortField = Object.entries(sortStates).find(([_, order]) => order !== null)?.[0] as keyof typeof sortStates;
     const activeSortOrder = activeSortField ? sortStates[activeSortField] : 'desc';
-    
+
     if (activeSortField && activeSortOrder) {
       filtered.sort((a, b) => {
         let valueA: any, valueB: any;
-        
+
         switch (activeSortField) {
           case 'createdAt':
             valueA = a.createdAt || new Date(0);
@@ -277,15 +278,15 @@ export const ManageStudents: React.FC = () => {
             valueA = a.createdAt || new Date(0);
             valueB = b.createdAt || new Date(0);
         }
-        
+
         if (activeSortField === 'createdAt') {
-          return activeSortOrder === 'desc' 
+          return activeSortOrder === 'desc'
             ? valueB.getTime() - valueA.getTime()
             : valueA.getTime() - valueB.getTime();
         } else if (activeSortField === 'age') {
           return activeSortOrder === 'desc' ? valueB - valueA : valueA - valueB;
         } else {
-          return activeSortOrder === 'desc' 
+          return activeSortOrder === 'desc'
             ? valueB.localeCompare(valueA)
             : valueA.localeCompare(valueB);
         }
@@ -314,7 +315,7 @@ export const ManageStudents: React.FC = () => {
         name: null,
         surname: null
       } as typeof prev;
-      
+
       // Toggle the clicked field
       if (prev[field] === null) {
         newState[field] = 'desc';
@@ -323,7 +324,7 @@ export const ManageStudents: React.FC = () => {
       } else {
         newState[field] = 'desc';
       }
-      
+
       return newState;
     });
   };
@@ -396,11 +397,11 @@ export const ManageStudents: React.FC = () => {
       // Create CSV content
       const csvContent = [
         headers.join(','),
-        ...csvData.map(row => 
-          row.map(field => 
+        ...csvData.map(row =>
+          row.map(field =>
             // Escape commas and quotes in CSV fields
-            typeof field === 'string' && (field.includes(',') || field.includes('"')) 
-              ? `"${field.replace(/"/g, '""')}"` 
+            typeof field === 'string' && (field.includes(',') || field.includes('"'))
+              ? `"${field.replace(/"/g, '""')}"`
               : field
           ).join(',')
         )
@@ -418,6 +419,7 @@ export const ManageStudents: React.FC = () => {
       document.body.removeChild(link);
 
       setMessage({ type: 'success', text: 'File CSV scaricato con successo!' });
+      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error exporting CSV:', error);
       setMessage({ type: 'error', text: 'Errore durante l\'esportazione del CSV' });
@@ -434,7 +436,7 @@ export const ManageStudents: React.FC = () => {
     >
       <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 rounded-xl overflow-hidden">
         <CardContent className="p-4">
-          <div 
+          <div
             className="flex items-center justify-between cursor-pointer"
             onClick={() => setExpandedCard(expandedCard === student.id ? null : student.id)}
           >
@@ -475,7 +477,7 @@ export const ManageStudents: React.FC = () => {
                   {student.parentName || 'Genitore N/A'}
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={(e) => {
@@ -483,11 +485,10 @@ export const ManageStudents: React.FC = () => {
                     openEnrollmentDialog(student);
                   }}
                   disabled={processingStudent === student.id}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-                    student.isEnrolled 
-                      ?  'bg-red-100 text-red-700 hover:bg-red-200'
+                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${student.isEnrolled
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
                       : 'bg-green-100 text-green-700 hover:bg-green-200'
-                  } ${processingStudent === student.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    } ${processingStudent === student.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   {processingStudent === student.id ? (
                     <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent" />
@@ -497,7 +498,7 @@ export const ManageStudents: React.FC = () => {
                     <UserPlus className="h-4 w-4" />
                   )}
                 </button>
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -507,12 +508,11 @@ export const ManageStudents: React.FC = () => {
                   }}
                   className="text-gray-400 hover:text-gray-600 p-1"
                 >
-                  <svg 
-                    className={`h-4 w-4 transition-transform duration-200 ${
-                      expandedCard === student.id ? 'rotate-180' : ''
-                    }`} 
-                    fill="none" 
-                    stroke="currentColor" 
+                  <svg
+                    className={`h-4 w-4 transition-transform duration-200 ${expandedCard === student.id ? 'rotate-180' : ''
+                      }`}
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -595,7 +595,7 @@ export const ManageStudents: React.FC = () => {
                             <span className="text-gray-500">Turni selezionati:</span>
                             <span className="text-gray-900">
                               {(student as any).selectedTurni.map((turno: string) => {
-                                switch(turno) {
+                                switch (turno) {
                                   case 'sabato_pomeriggio': return 'Sab. Pom.';
                                   case 'sabato_sera': return 'Sab. Sera';
                                   case 'domenica_mattina': return 'Dom. Matt.';
@@ -609,7 +609,7 @@ export const ManageStudents: React.FC = () => {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Fratelli/Sorelle:</span>
                           <span className="text-gray-900">
-                            {(student as any).siblingCount > 1 
+                            {(student as any).siblingCount > 1
                               ? `${(student as any).siblingCount - 1} ${(student as any).siblingCount - 1 === 1 ? 'fratello/sorella' : 'fratelli/sorelle'}`
                               : 'Figlio unico'
                             }
@@ -618,7 +618,7 @@ export const ManageStudents: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Admin Notes Preview */}
                   {(student as any).adminNotes && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
@@ -629,8 +629,8 @@ export const ManageStudents: React.FC = () => {
                       </h4>
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <p className="text-sm text-gray-700 leading-relaxed">
-                          {(student as any).adminNotes.length > 150 
-                            ? `${(student as any).adminNotes.substring(0, 150)}...` 
+                          {(student as any).adminNotes.length > 150
+                            ? `${(student as any).adminNotes.substring(0, 150)}...`
                             : (student as any).adminNotes
                           }
                         </p>
@@ -648,7 +648,7 @@ export const ManageStudents: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
                     <Button
                       variant="outline"
@@ -705,13 +705,13 @@ export const ManageStudents: React.FC = () => {
     setValue('address', student.address || '');
     setValue('city', (student as any).city || '');
     setValue('postalCode', (student as any).postalCode || '');
-    
+
     if (student.birthDate && isValid(new Date(student.birthDate))) {
       setValue('birthDate', format(new Date(student.birthDate), 'yyyy-MM-dd'));
     } else {
       setValue('birthDate', '');
     }
-    
+
     setValue('gender', student.gender || '');
     setValue('emergencyContact', student.emergencyContact || '');
     setValue('parentName', student.parentName || '');
@@ -739,24 +739,24 @@ export const ManageStudents: React.FC = () => {
       if (!classDoc) return;
 
       const currentStudents = classDoc.students || [];
-      
+
       // Update the class document with the new student count
       await updateDoc(doc(db, 'classes', classId), {
-        students: increment 
-          ? [...currentStudents, editingStudent!] 
+        students: increment
+          ? [...currentStudents, editingStudent!]
           : currentStudents.filter(id => id !== editingStudent),
         updatedAt: new Date()
       });
 
       // Update local state
-      setClasses(prev => prev.map(c => 
-        c.id === classId 
-          ? { 
-              ...c, 
-              students: increment 
-                ? [...currentStudents, editingStudent!] 
-                : currentStudents.filter(id => id !== editingStudent)
-            }
+      setClasses(prev => prev.map(c =>
+        c.id === classId
+          ? {
+            ...c,
+            students: increment
+              ? [...currentStudents, editingStudent!]
+              : currentStudents.filter(id => id !== editingStudent)
+          }
           : c
       ));
     } catch (error) {
@@ -786,12 +786,12 @@ export const ManageStudents: React.FC = () => {
 
     try {
       const studentRef = doc(db, 'students', studentId);
-      
+
       // First get the student data to access parentId
       const studentDoc = await getDoc(studentRef);
       const studentData = studentDoc.data();
       const parentId = studentData?.parentId;
-      
+
       // Update student status
       await updateDoc(studentRef, {
         isEnrolled: newStatus,
@@ -818,7 +818,7 @@ export const ManageStudents: React.FC = () => {
             targetType: 'student',
             targetId: studentId,
             targetName: enrollTarget.name,
-            details: { 
+            details: {
               previousStatus: !newStatus,
               newStatus: newStatus,
               parentApproved: newStatus && parentId ? true : false
@@ -830,11 +830,11 @@ export const ManageStudents: React.FC = () => {
       setStudents(prev => prev.map(student =>
         student.id === studentId
           ? {
-              ...student,
-              isEnrolled: newStatus,
-              enrollmentDate: newStatus ? new Date() : undefined,
-              accountStatus: newStatus ? 'active' : 'pending_approval'
-            }
+            ...student,
+            isEnrolled: newStatus,
+            enrollmentDate: newStatus ? new Date() : undefined,
+            accountStatus: newStatus ? 'active' : 'pending_approval'
+          }
           : student
       ));
 
@@ -859,17 +859,17 @@ export const ManageStudents: React.FC = () => {
 
   const onSubmit = async (data: StudentFormValues) => {
     if (!editingStudent) return;
-    
+
     setIsSubmitting(true);
     setMessage(null);
-    
+
     try {
       const studentRef = doc(db, 'students', editingStudent);
       const currentStudent = students.find(s => s.id === editingStudent);
       const oldClassId = currentStudent?.currentClass;
       const newClassIdDb = data.classId ?? null; // value sent to Firestore (nullable)
       const newClassIdState = data.classId ?? undefined; // value kept in local state (undefined preferred over null)
-      
+
       const studentUpdate = {
         displayName: data.displayName,
         phoneNumber: data.phoneNumber || null,
@@ -911,9 +911,9 @@ export const ManageStudents: React.FC = () => {
         if (parentId) {
           const parentRef = doc(db, 'users', parentId);
           const parentUpdates: Record<string, any> = {};
-          
+
           if (data.parentEmail) parentUpdates.email = data.parentEmail;
-          
+
           if (Object.keys(parentUpdates).length > 0) {
             parentUpdates.updatedAt = new Date();
             await updateDoc(parentRef, parentUpdates);
@@ -931,42 +931,42 @@ export const ManageStudents: React.FC = () => {
         }
       }
 
-      setStudents(prev => prev.map(student => 
+      setStudents(prev => prev.map(student =>
         student.id === editingStudent
           ? {
-              ...student,
-              displayName: data.displayName,
-              phoneNumber: data.phoneNumber || undefined,
-              address: data.address || undefined,
-              city: data.city || undefined,
-              postalCode: data.postalCode || undefined,
-              gender: data.gender === 'M' ? 'M' : data.gender === 'F' ? 'F' : student.gender,
-              emergencyContact: data.emergencyContact || undefined,
-              parentName: data.parentName || undefined,
-              parentContact: data.parentContact || undefined,
-              parentEmail: data.parentEmail || undefined,
-              currentClass: newClassIdState || student.currentClass,
-              italianSchoolClass: data.italianSchoolClass || undefined,
-              codiceFiscale: data.codiceFiscale || undefined,
-              enrollmentType: data.enrollmentType || undefined,
-              hasDisability: data.hasDisability || false,
-              selectedTurni: data.selectedTurni || [],
-              attendanceMode: data.attendanceMode || undefined,
-              accountStatus: data.accountStatus || undefined,
-              adminNotes: data.adminNotes || undefined,
-              birthDate: data.birthDate ? new Date(data.birthDate) : student.birthDate
-            } as StudentWithParent
+            ...student,
+            displayName: data.displayName,
+            phoneNumber: data.phoneNumber || undefined,
+            address: data.address || undefined,
+            city: data.city || undefined,
+            postalCode: data.postalCode || undefined,
+            gender: data.gender === 'M' ? 'M' : data.gender === 'F' ? 'F' : student.gender,
+            emergencyContact: data.emergencyContact || undefined,
+            parentName: data.parentName || undefined,
+            parentContact: data.parentContact || undefined,
+            parentEmail: data.parentEmail || undefined,
+            currentClass: newClassIdState || student.currentClass,
+            italianSchoolClass: data.italianSchoolClass || undefined,
+            codiceFiscale: data.codiceFiscale || undefined,
+            enrollmentType: data.enrollmentType || undefined,
+            hasDisability: data.hasDisability || false,
+            selectedTurni: data.selectedTurni || [],
+            attendanceMode: data.attendanceMode || undefined,
+            accountStatus: data.accountStatus || undefined,
+            adminNotes: data.adminNotes || undefined,
+            birthDate: data.birthDate ? new Date(data.birthDate) : student.birthDate
+          } as StudentWithParent
           : student
       ));
 
-      setMessage({ 
-        type: 'success', 
-        text: `Studente aggiornato con successo${data.accountStatus === 'active' && currentStudent?.parentId ? ' e genitore approvato' : ''}` 
+      setMessage({
+        type: 'success',
+        text: `Studente aggiornato con successo${data.accountStatus === 'active' && currentStudent?.parentId ? ' e genitore approvato' : ''}`
       });
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
-      
+
       handleCancelEdit();
     } catch (error) {
       console.error('Error updating student:', error);
@@ -995,7 +995,7 @@ export const ManageStudents: React.FC = () => {
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5" />
         <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-white/5" />
-        
+
         <div className="relative px-6 py-12">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center gap-4 mb-4">
@@ -1014,13 +1014,12 @@ export const ManageStudents: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <AnimatePresence>
           {message && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`mb-6 p-4 rounded-xl flex items-center ${
-                message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-              }`}
+              className={`mb-6 p-4 rounded-xl flex items-center ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                }`}
             >
               {message.type === 'success' ? (
                 <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0" />
@@ -1113,249 +1112,243 @@ export const ManageStudents: React.FC = () => {
         )}
 
         {editingStudent ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-        >
-          <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
-              <CardTitle className="flex items-center text-gray-900">
-                <Edit className="h-5 w-5 mr-2 text-blue-600" />
-                Modifica Studente
-              </CardTitle>
-            </CardHeader>
-            <form onSubmit={handleSubmit(onSubmit)}>
-              <CardContent className="p-6 space-y-8">
-                {/* Informazioni Personali */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Personali</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Nome completo"
-                      error={errors.displayName?.message}
-                      className="anime-input"
-                      {...register('displayName', { required: 'Il nome è obbligatorio' })}
-                    />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200">
+                <CardTitle className="flex items-center text-gray-900">
+                  <Edit className="h-5 w-5 mr-2 text-blue-600" />
+                  Modifica Studente
+                </CardTitle>
+              </CardHeader>
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <CardContent className="p-6 space-y-8">
+                  {/* Informazioni Personali */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Personali</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Input
+                        label="Nome completo"
+                        error={errors.displayName?.message}
+                        className="anime-input"
+                        {...register('displayName', { required: 'Il nome è obbligatorio' })}
+                        leftIcon={<Calendar className="h-5 w-5" />}
+                      />
 
-                    <Input
-                      label="Codice Fiscale"
-                      className="anime-input"
-                      {...register('codiceFiscale')}
-                    />
+                      <Input
+                        label="Codice Fiscale"
+                        className="anime-input"
+                        {...register('codiceFiscale')}
+                      />
 
-                    <Input
-                      label="Data di nascita"
-                      type="date"
-                      leftIcon={<Calendar className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('birthDate')}
-                    />
+                      <Input
+                        label="Data di nascita"
+                        type="date"
+                        leftIcon={<Calendar className="h-5 w-5 text-gray-400" />}
+                        className="anime-input"
+                        {...register('birthDate')}
+                      />
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Genere
-                      </label>
-                      <select
-                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                        {...register('gender')}
-                      >
-                        <option value="">Seleziona genere</option>
-                        <option value="M">Maschio</option>
-                        <option value="F">Femmina</option>
-                      </select>
-                    </div>
-
-                    <Input
-                      label="Telefono"
-                      leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('phoneNumber')}
-                    />
-                  </div>
-                </div>
-
-                {/* Indirizzo */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Indirizzo</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Input
-                      label="Indirizzo"
-                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
-                      className="anime-input md:col-span-2"
-                      {...register('address')}
-                    />
-
-                    <Input
-                      label="Città"
-                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
-                      className="anime-input md:col-span-2"
-                      {...register('city')}
-                    />
-
-                    <Input
-                      label="CAP"
-                      leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('postalCode')}
-                    />
-                  </div>
-                </div>
-
-                {/* Informazioni Genitore */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Genitore</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Nome del genitore"
-                      className="anime-input"
-                      {...register('parentName')}
-                    />
-
-                    <Input
-                      label="Contatto del genitore"
-                      leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
-                      className="anime-input"
-                      {...register('parentContact')}
-                    />
-
-                    <Input
-                      label="Email del genitore"
-                      type="email"
-                      leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
-                      className="anime-input md:col-span-2"
-                      {...register('parentEmail')}
-                    />
-                  </div>
-                </div>
-
-                {/* Informazioni Scolastiche */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Scolastiche</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Classe Scuola Italiana"
-                      className="anime-input"
-                      {...register('italianSchoolClass')}
-                    />
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Classe Assegnata
-                      </label>
-                      <select
-                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                        {...register('classId')}
-                      >
-                        <option value="">Nessuna classe</option>
-                        {classes.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}{c.turno ? ` – ${c.turno}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Tipo Iscrizione
-                      </label>
-                      <select
-                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                        {...register('enrollmentType')}
-                      >
-                        <option value="">Seleziona tipo</option>
-                        <option value="nuova_iscrizione">Nuova Iscrizione</option>
-                        <option value="rinnovo">Rinnovo</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Modalità Frequenza
-                      </label>
-                      <select
-                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                        {...register('attendanceMode')}
-                      >
-                        <option value="">Seleziona modalità</option>
-                        <option value="in_presenza">In Presenza</option>
-                        <option value="online">Online</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Stato Account
-                      </label>
-                      <select
-                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
-                        {...register('accountStatus')}
-                      >
-                        <option value="">Seleziona stato</option>
-                        <option value="pending_approval">In Attesa di Approvazione</option>
-                        <option value="active">Attivo</option>
-                        <option value="suspended">Sospeso</option>
-                        <option value="inactive">Inattivo</option>
-                      </select>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                          {...register('hasDisability')}
-                        />
-                        <span className="text-sm font-medium text-gray-700">Ha disabilità</span>
-                      </label>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Genere
+                        </label>
+                        <select
+                          className="block rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                          {...register('gender')}
+                        >
+                          <option value="">Seleziona genere</option>
+                          <option value="M">Maschio</option>
+                          <option value="F">Femmina</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Note Admin */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Note Amministrative</h3>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Note per lo studente
-                    </label>
-                    <textarea
-                      className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors resize-vertical"
-                      rows={4}
-                      placeholder="Inserisci note aggiuntive sullo studente (visibili solo agli amministratori)..."
-                      {...register('adminNotes')}
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Queste note sono private e visibili solo agli amministratori per tenere traccia di informazioni aggiuntive sullo studente.
-                    </p>
+                  {/* Indirizzo */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Indirizzo</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Indirizzo"
+                        leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                        className="anime-input md:col-span-2"
+                        {...register('address')}
+                      />
+
+                      <Input
+                        label="Città"
+                        leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                        className="anime-input md:col-span-2"
+                        {...register('city')}
+                      />
+
+                      <Input
+                        label="CAP"
+                        leftIcon={<MapPin className="h-5 w-5 text-gray-400" />}
+                        className="anime-input"
+                        {...register('postalCode')}
+                      />
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end space-x-4 bg-gray-50 border-t border-gray-200 p-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                  disabled={isSubmitting}
-                  leftIcon={<X className="h-4 w-4" />}
-                  className="border-gray-300 text-gray-700 hover:bg-gray-100"
-                >
-                  Annulla
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={isSubmitting}
-                  disabled={isSubmitting}
-                  leftIcon={<Save className="h-4 w-4" />}
-                  className="anime-button"
-                >
-                  Salva
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </motion.div>
+
+                  {/* Informazioni Genitore */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Genitore</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Input
+                        label="Nome del genitore"
+                        className="anime-input"
+                        {...register('parentName')}
+                      />
+
+                      <Input
+                        label="Contatto del genitore"
+                        leftIcon={<Phone className="h-5 w-5 text-gray-400" />}
+                        className="anime-input"
+                        {...register('phoneNumber')}
+                      />
+
+                      <Input
+                        label="Email del genitore"
+                        type="email"
+                        leftIcon={<Mail className="h-5 w-5 text-gray-400" />}
+                        className="anime-input md:col-span-2"
+                        {...register('parentEmail')}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Informazioni Scolastiche */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Informazioni Scolastiche</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Input
+                        label="Classe Scuola Italiana"
+                        className="anime-input"
+                        {...register('italianSchoolClass')}
+                      />
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Classe Assegnata
+                        </label>
+                        <select
+                          className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                          {...register('classId')}
+                        >
+                          <option value="">Nessuna classe</option>
+                          {classes.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}{c.turno ? ` – ${c.turno}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tipo Iscrizione
+                        </label>
+                        <select
+                          className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                          {...register('enrollmentType')}
+                        >
+                          <option value="">Seleziona tipo</option>
+                          <option value="nuova_iscrizione">Nuova Iscrizione</option>
+                          <option value="rinnovo">Rinnovo</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Modalità Frequenza
+                        </label>
+                        <select
+                          className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                          {...register('attendanceMode')}
+                        >
+                          <option value="">Seleziona modalità</option>
+                          <option value="in_presenza">In Presenza</option>
+                          <option value="online">Online</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Stato Account
+                        </label>
+                        <select
+                          className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors"
+                          {...register('accountStatus')}
+                        >
+                          <option value="">Seleziona stato</option>
+                          <option value="pending_approval">In Attesa di Approvazione</option>
+                          <option value="active">Attivo</option>
+                          <option value="suspended">Sospeso</option>
+                          <option value="inactive">Inattivo</option>
+                        </select>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            {...register('hasDisability')}
+                          />
+                          <span className="text-sm font-medium text-gray-700">Ha disabilità</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Note Admin */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Note Amministrative</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Note per lo studente
+                      </label>
+                      <textarea
+                        className="block w-full rounded-xl border border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white py-3 px-4 transition-colors resize-vertical"
+                        rows={4}
+                        placeholder="Inserisci note aggiuntive sullo studente (visibili solo agli amministratori)..."
+                        {...register('adminNotes')}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Queste note sono private e visibili solo agli amministratori per tenere traccia di informazioni aggiuntive sullo studente.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-end space-x-4 bg-gray-50 border-t border-gray-200 p-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={isSubmitting}
+                    leftIcon={<X className="h-4 w-4" />}
+                    className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                  >
+                    Annulla
+                  </Button>
+                  <Button
+                    type="submit"
+                    isLoading={isSubmitting}
+                    disabled={isSubmitting}
+                    leftIcon={<Save className="h-4 w-4" />}
+                    className="anime-button"
+                  >
+                    Salva
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </motion.div>
         ) : (
           <>
             <Card className="bg-white/90 backdrop-blur-md border border-white/30 shadow-xl rounded-2xl overflow-hidden">
@@ -1374,12 +1367,19 @@ export const ManageStudents: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Button
                         onClick={exportToCSV}
-                        className="bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                        className="hidden sm:inline-flex bg-green-600 hover:bg-green-700 text-white rounded-xl"
                         size="sm"
                         leftIcon={<Download className="h-4 w-4" />}
                       >
                         <span className="hidden sm:inline">Esporta CSV</span>
-                        <span className="sm:hidden">CSV</span>
+                      </Button>
+                      <Button
+                        onClick={exportToCSV}
+                        variant="outline"
+                        size="sm"
+                        className="sm:hidden bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                      >
+                        <Download className="h-4 w-4 sm:hidden" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -1413,18 +1413,17 @@ export const ManageStudents: React.FC = () => {
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Responsive Attendance Mode Toggle */}
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 sm:w-auto sm:mx-0 sm:justify-start">
+                  <div className="flex items-center gap-1 rounded-xl p-1 sm:w-auto sm:mx-0 sm:justify-start">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleFilterChange('attendanceMode', '')}
-                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${
-                        filters.attendanceMode === '' 
-                          ? 'bg-blue-600 text-white shadow-sm' 
+                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${filters.attendanceMode === ''
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-600 hover:text-gray-800 hover:bg-white'
-                      }`}
+                        }`}
                     >
                       Tutti
                     </Button>
@@ -1432,11 +1431,10 @@ export const ManageStudents: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleFilterChange('attendanceMode', 'in_presenza')}
-                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${
-                        filters.attendanceMode === 'in_presenza' 
-                          ? 'bg-green-600 text-white shadow-sm' 
+                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${filters.attendanceMode === 'in_presenza'
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-600 hover:text-gray-800 hover:bg-white'
-                      }`}
+                        }`}
                     >
                       Presenza
                     </Button>
@@ -1444,19 +1442,18 @@ export const ManageStudents: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleFilterChange('attendanceMode', 'online')}
-                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${
-                        filters.attendanceMode === 'online' 
-                          ? 'bg-purple-600 text-white shadow-sm' 
+                      className={`flex-1 sm:flex-none rounded-lg px-3 py-3 sm:py-2 text-sm font-medium transition-all sm:min-w-[80px] ${filters.attendanceMode === 'online'
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-600 hover:text-gray-800 hover:bg-white'
-                      }`}
+                        }`}
                     >
                       Online
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
-                <div id="students-filters" className={`space-y-4 ${filtersOpen ? 'block' : 'hidden'} sm:block`}>
+              <CardContent className={`p-6 space-y-4 ${filtersOpen ? 'block' : 'hidden'} sm:block`} id="students-filters">
+                <div>
                   {/* Primary Filters Row */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
@@ -1486,7 +1483,7 @@ export const ManageStudents: React.FC = () => {
                         className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Calendar className="h-4 w-4 mr-1 text-gray-500" />
@@ -1515,7 +1512,7 @@ export const ManageStudents: React.FC = () => {
                       >
                         <option value="">Tutte le classi</option>
                         {classes.map(cls => (
-                          <option key={cls.id} value={cls.id}>{cls.name}</option>
+                          <option key={cls.id} value={cls.id}>{cls.name} {cls.turno}</option>
                         ))}
                       </select>
                     </div>
@@ -1536,7 +1533,7 @@ export const ManageStudents: React.FC = () => {
                         className="w-full rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 flex items-center">
                         <Phone className="h-4 w-4 mr-1 text-gray-500" />
@@ -1747,257 +1744,254 @@ export const ManageStudents: React.FC = () => {
               </CardContent>
             </Card>
 
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600 font-light">Caricamento degli studenti...</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Sorting Bar */}
-              <Card className="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl overflow-hidden mb-4 mt-4">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <ArrowUp className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div>
-                    <h3 className="text-sm font-semibold text-gray-800">Ordinamento</h3>
-                    <p className="text-xs text-gray-600">Clicca per ordinare</p>
-                  </div>
-                </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => handleSortToggle('createdAt')}
-                        variant={sortStates.createdAt ? 'primary' : 'outline'}
-                        size="sm"
-                        className={`rounded-xl transition-all ${
-                          sortStates.createdAt 
-                            ? 'bg-blue-600 text-white shadow-md' 
-                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
-                        }`}
-                        leftIcon={
-                          sortStates.createdAt === 'desc' ? (
-                            <ArrowDown className="h-3 w-3" />
-                          ) : sortStates.createdAt === 'asc' ? (
-                            <ArrowUp className="h-3 w-3" />
-                          ) : null
-                        }
-                      >
-                        Data Registrazione
-                      </Button>
-                      
-                      <Button
-                        onClick={() => handleSortToggle('age')}
-                        variant={sortStates.age ? 'primary' : 'outline'}
-                        size="sm"
-                        className={`rounded-xl transition-all ${
-                          sortStates.age 
-                            ? 'bg-green-600 text-white shadow-md' 
-                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
-                        }`}
-                        leftIcon={
-                          sortStates.age === 'desc' ? (
-                            <ArrowDown className="h-3 w-3" />
-                          ) : sortStates.age === 'asc' ? (
-                            <ArrowUp className="h-3 w-3" />
-                          ) : null
-                        }
-                      >
-                        Età
-                      </Button>
-                      
-                      <Button
-                        onClick={() => handleSortToggle('name')}
-                        variant={sortStates.name ? 'primary' : 'outline'}
-                        size="sm"
-                        className={`rounded-xl transition-all ${
-                          sortStates.name 
-                            ? 'bg-purple-600 text-white shadow-md' 
-                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
-                        }`}
-                        leftIcon={
-                          sortStates.name === 'desc' ? (
-                            <ArrowDown className="h-3 w-3" />
-                          ) : sortStates.name === 'asc' ? (
-                            <ArrowUp className="h-3 w-3" />
-                          ) : null
-                        }
-                      >
-                        Nome
-                      </Button>
-                      
-                      <Button
-                        onClick={() => handleSortToggle('surname')}
-                        variant={sortStates.surname ? 'primary' : 'outline'}
-                        size="sm"
-                        className={`rounded-xl transition-all ${
-                          sortStates.surname 
-                            ? 'bg-orange-600 text-white shadow-md' 
-                            : 'text-gray-600 hover:text-gray-800 border-gray-200'
-                        }`}
-                        leftIcon={
-                          sortStates.surname === 'desc' ? (
-                            <ArrowDown className="h-3 w-3" />
-                          ) : sortStates.surname === 'asc' ? (
-                            <ArrowUp className="h-3 w-3" />
-                          ) : null
-                        }
-                      >
-                        Cognome
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Section Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div
-                    role="button"
-                    aria-pressed={viewMode === 'enrolled'}
-                    tabIndex={0}
-                    title="Mostra studenti iscritti"
-                    onClick={() => setViewMode('enrolled')}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setViewMode('enrolled'); }}
-                    className={`rounded-xl p-4 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300/60 
-                      ${viewMode === 'enrolled' 
-                        ? 'bg-blue-50/70 border-blue-400 shadow-md' 
-                        : 'bg-white/60 backdrop-blur-sm border-white/40 hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5'}
-                    `}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-lg font-semibold text-green-700">
-                          {enrolledStudents.length}
-                        </div>
-                        <div className="text-sm text-gray-600">Iscritti</div>
-                      </div>
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                  </div>
-                  <div
-                    role="button"
-                    aria-pressed={viewMode === 'waiting'}
-                    tabIndex={0}
-                    title="Mostra lista d'attesa"
-                    onClick={() => setViewMode('waiting')}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setViewMode('waiting'); }}
-                    className={`rounded-xl p-4 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-300/60 
-                      ${viewMode === 'waiting' 
-                        ? 'bg-red-50/70 border-red-400 shadow-md' 
-                        : 'bg-white/60 backdrop-blur-sm border-white/40 hover:border-red-300 hover:shadow-md hover:-translate-y-0.5'}
-                    `}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-lg font-semibold text-red-700">
-                          {notEnrolledStudents.length}
-                        </div>
-                        <div className="text-sm text-gray-600">Lista D'Attesa</div>
-                      </div>
-                      <X className="h-5 w-5 text-red-600" />
-                    </div>
-                  </div>
-                </div>
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600 font-light">Caricamento degli studenti...</p>
               </div>
-              
-              {filteredStudents.length === 0 ? (
-                <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
-                  <CardContent className="p-12 text-center">
-                    <Users className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-                    <h3 className="text-xl font-medium text-gray-900 mb-2">Nessuno studente trovato</h3>
-                    <p className="text-gray-600 max-w-md mx-auto mb-8">
-                      Non ci sono studenti che corrispondono ai filtri selezionati.
-                    </p>
+            ) : (
+              <div className="space-y-6">
+                {/* Sorting Bar */}
+                <Card className="bg-white/90 backdrop-blur-md border border-white/30 shadow-lg rounded-2xl overflow-hidden mb-4 mt-4">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center space-x-2">
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                          <ArrowUp className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-800">Ordinamento</h3>
+                          <p className="text-xs text-gray-600">Clicca per ordinare</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row gap-2 flex-wrap sm:justify-end">
+                        <Button
+                          onClick={() => handleSortToggle('createdAt')}
+                          variant={sortStates.createdAt ? 'primary' : 'outline'}
+                          size="sm"
+                          className={`rounded-xl transition-all ${sortStates.createdAt
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                            }`}
+                          leftIcon={
+                            sortStates.createdAt === 'desc' ? (
+                              <ArrowDown className="h-3 w-3" />
+                            ) : sortStates.createdAt === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : null
+                          }
+                        >
+                          Data Registrazione
+                        </Button>
+
+                        <Button
+                          onClick={() => handleSortToggle('age')}
+                          variant={sortStates.age ? 'primary' : 'outline'}
+                          size="sm"
+                          className={`rounded-xl transition-all ${sortStates.age
+                              ? 'bg-green-600 text-white shadow-md'
+                              : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                            }`}
+                          leftIcon={
+                            sortStates.age === 'desc' ? (
+                              <ArrowDown className="h-3 w-3" />
+                            ) : sortStates.age === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : null
+                          }
+                        >
+                          Età
+                        </Button>
+
+                        <Button
+                          onClick={() => handleSortToggle('name')}
+                          variant={sortStates.name ? 'primary' : 'outline'}
+                          size="sm"
+                          className={`rounded-xl transition-all ${sortStates.name
+                              ? 'bg-purple-600 text-white shadow-md'
+                              : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                            }`}
+                          leftIcon={
+                            sortStates.name === 'desc' ? (
+                              <ArrowDown className="h-3 w-3" />
+                            ) : sortStates.name === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : null
+                          }
+                        >
+                          Nome
+                        </Button>
+
+                        <Button
+                          onClick={() => handleSortToggle('surname')}
+                          variant={sortStates.surname ? 'primary' : 'outline'}
+                          size="sm"
+                          className={`rounded-xl transition-all ${sortStates.surname
+                              ? 'bg-orange-600 text-white shadow-md'
+                              : 'text-gray-600 hover:text-gray-800 border-gray-200'
+                            }`}
+                          leftIcon={
+                            sortStates.surname === 'desc' ? (
+                              <ArrowDown className="h-3 w-3" />
+                            ) : sortStates.surname === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : null
+                          }
+                        >
+                          Cognome
+                        </Button>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="space-y-6">
-                  {viewMode === 'enrolled' ? (
-                    <div className="space-y-4">
-                      <div className="space-y-3">
-                        {paginatedEnrolledStudents.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                            <p>Nessuno Studente Iscritto</p>
+
+                {/* Section Header */}
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div
+                      role="button"
+                      aria-pressed={viewMode === 'enrolled'}
+                      tabIndex={0}
+                      title="Mostra studenti iscritti"
+                      onClick={() => setViewMode('enrolled')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setViewMode('enrolled'); }}
+                      className={`rounded-xl p-4 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300/60 
+                      ${viewMode === 'enrolled'
+                          ? 'bg-blue-50/70 border-blue-400 shadow-md'
+                          : 'bg-white/60 backdrop-blur-sm border-white/40 hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5'}
+                    `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-lg font-semibold text-green-700">
+                            {enrolledStudents.length}
                           </div>
-                        ) : (
-                          paginatedEnrolledStudents.map(student => (
-                            <StudentCard key={student.id} student={student} />
-                          ))
-                        )}
-                      </div>
-                      {totalEnrolledPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEnrolledPage(Math.max(1, enrolledPage - 1))}
-                            disabled={enrolledPage === 1}
-                            className="px-3 py-1"
-                          >
-                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                          <span className="text-sm text-gray-600">Pagina {enrolledPage} di {totalEnrolledPages}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEnrolledPage(Math.min(totalEnrolledPages, enrolledPage + 1))}
-                            disabled={enrolledPage === totalEnrolledPages}
-                            className="px-3 py-1"
-                          >
-                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                          </Button>
+                          <div className="text-sm text-gray-600">Iscritti</div>
                         </div>
-                      )}
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="space-y-3">
-                        {paginatedNotEnrolledStudents.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                            <p>Nessuno Studente In Lista D'Attesa</p>
+                    <div
+                      role="button"
+                      aria-pressed={viewMode === 'waiting'}
+                      tabIndex={0}
+                      title="Mostra lista d'attesa"
+                      onClick={() => setViewMode('waiting')}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setViewMode('waiting'); }}
+                      className={`rounded-xl p-4 border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-300/60 
+                      ${viewMode === 'waiting'
+                          ? 'bg-red-50/70 border-red-400 shadow-md'
+                          : 'bg-white/60 backdrop-blur-sm border-white/40 hover:border-red-300 hover:shadow-md hover:-translate-y-0.5'}
+                    `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-lg font-semibold text-red-700">
+                            {notEnrolledStudents.length}
                           </div>
-                        ) : (
-                          paginatedNotEnrolledStudents.map(student => (
-                            <StudentCard key={student.id} student={student} />
-                          ))
-                        )}
-                      </div>
-                      {totalNotEnrolledPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setNotEnrolledPage(Math.max(1, notEnrolledPage - 1))}
-                            disabled={notEnrolledPage === 1}
-                            className="px-3 py-1"
-                          >
-                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                          <span className="text-sm text-gray-600">Pagina {notEnrolledPage} di {totalNotEnrolledPages}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setNotEnrolledPage(Math.min(totalNotEnrolledPages, notEnrolledPage + 1))}
-                            disabled={notEnrolledPage === totalNotEnrolledPages}
-                            className="px-3 py-1"
-                          >
-                            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                          </Button>
+                          <div className="text-sm text-gray-600">Lista D'Attesa</div>
                         </div>
-                      )}
+                        <X className="h-5 w-5 text-red-600" />
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {filteredStudents.length === 0 ? (
+                  <Card className="bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl overflow-hidden">
+                    <CardContent className="p-12 text-center">
+                      <Users className="h-16 w-16 text-gray-400 mx-auto mb-6" />
+                      <h3 className="text-xl font-medium text-gray-900 mb-2">Nessuno studente trovato</h3>
+                      <p className="text-gray-600 max-w-md mx-auto mb-8">
+                        Non ci sono studenti che corrispondono ai filtri selezionati.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {viewMode === 'enrolled' ? (
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          {paginatedEnrolledStudents.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                              <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                              <p>Nessuno Studente Iscritto</p>
+                            </div>
+                          ) : (
+                            paginatedEnrolledStudents.map(student => (
+                              <StudentCard key={student.id} student={student} />
+                            ))
+                          )}
+                        </div>
+                        {totalEnrolledPages > 1 && (
+                          <div className="flex justify-center items-center gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEnrolledPage(Math.max(1, enrolledPage - 1))}
+                              disabled={enrolledPage === 1}
+                              className="px-3 py-1"
+                            >
+                              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                            <span className="text-sm text-gray-600">Pagina {enrolledPage} di {totalEnrolledPages}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEnrolledPage(Math.min(totalEnrolledPages, enrolledPage + 1))}
+                              disabled={enrolledPage === totalEnrolledPages}
+                              className="px-3 py-1"
+                            >
+                              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          {paginatedNotEnrolledStudents.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                              <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                              <p>Nessuno Studente In Lista D'Attesa</p>
+                            </div>
+                          ) : (
+                            paginatedNotEnrolledStudents.map(student => (
+                              <StudentCard key={student.id} student={student} />
+                            ))
+                          )}
+                        </div>
+                        {totalNotEnrolledPages > 1 && (
+                          <div className="flex justify-center items-center gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setNotEnrolledPage(Math.max(1, notEnrolledPage - 1))}
+                              disabled={notEnrolledPage === 1}
+                              className="px-3 py-1"
+                            >
+                              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                            <span className="text-sm text-gray-600">Pagina {notEnrolledPage} di {totalNotEnrolledPages}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setNotEnrolledPage(Math.min(totalNotEnrolledPages, notEnrolledPage + 1))}
+                              disabled={notEnrolledPage === totalNotEnrolledPages}
+                              className="px-3 py-1"
+                            >
+                              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
